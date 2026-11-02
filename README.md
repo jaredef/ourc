@@ -10,8 +10,7 @@ checked against the hex-built path.
 
 ![trusted seed](https://img.shields.io/badge/trusted_seed-269_bytes-8A2BE2)
 ![self-hosting](https://img.shields.io/badge/self--hosting-byte--identical-2ea44f)
-![rustc tests passed](https://img.shields.io/badge/rustc_tests_passed-10%2C837_of_20%2C072-2ea44f)
-![wrong answers](https://img.shields.io/badge/wrong_answers-0_of_3%2C676_run--pass_tests-2ea44f)
+![rustc tests passed](https://img.shields.io/badge/rustc_ui_tests_passed-54%25_%2810%2C837_of_20%2C072%29-2ea44f)
 ![license](https://img.shields.io/badge/license-MIT_%7C_Apache--2.0-blue)
 
 </div>

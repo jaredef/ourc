@@ -119,6 +119,17 @@ real-world crates are out of reach.
 - [ourc/LIMITATIONS.md](ourc/LIMITATIONS.md): the promise, how it was measured, and what is out of scope
 - [ourc/README.md](ourc/README.md): installing and using ourc
 
+## Get ourc
+
+| | how | what you trust |
+|---|---|---|
+| the release binary | [v0.1.1 on GitHub](https://github.com/jaredef/ourc/releases/tag/v0.1.1), with `SHA256SUMS` | the published binary (or rebuild it) |
+| [`ourc`](https://crates.io/crates/ourc) on crates.io | `cargo install ourc`, about a minute | rustc |
+| [`ourc-bootstrap`](https://crates.io/crates/ourc-bootstrap) on crates.io | `cargo install ourc-bootstrap && ourc-bootstrap OUT`: the whole tower from the hand-written hex, about 20 minutes | the hand-written hex; LLVM only for machine code |
+
+All three give the same compiler: ourc built by rustc and ourc built from the hex emit byte-identical LLVM IR for
+ourc's own source.
+
 ## Verify it yourself
 
 A prebuilt `ourc` is attached to the [v0.1.1 release](https://github.com/jaredef/ourc/releases/tag/v0.1.1), with its

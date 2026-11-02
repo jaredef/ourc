@@ -1,0 +1,19 @@
+[package]
+name = "ourc"
+version = "0.1.1"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "A Rust compiler written in Rust that compiles itself, grown from 269 bytes of hand-written machine code"
+readme = "README.md"
+repository = "https://github.com/jaredef/ourc"
+homepage = "https://ourc.dev"
+keywords = ["compiler", "rust", "llvm", "bootstrap", "self-hosting"]
+categories = ["compilers", "development-tools"]
+# src/ is ourc/src laid out as modules by vendor.sh
+include = ["Cargo.toml", "src/**", "README.md", "LICENSE-MIT", "LICENSE-APACHE"]
+
+[[bin]]
+name = "ourc"
+path = "src/main.rs"
+
+[dependencies]

@@ -3,7 +3,8 @@
 Builds the compiler tower and **ourc** from a hand-written hex seed, and checks every stage
 against pinned hashes.
 
-Project site: [ourc.dev](https://ourc.dev) · source: [github.com/jaredef/ourc](https://github.com/jaredef/ourc)
+Project site: [ourc.dev](https://ourc.dev) · source: [github.com/jaredef/ourc](https://github.com/jaredef/ourc) ·
+the compiler alone, built by cargo: [`ourc`](https://crates.io/crates/ourc)
 
 ```
 cargo install ourc-bootstrap

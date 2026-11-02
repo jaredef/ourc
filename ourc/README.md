@@ -27,7 +27,11 @@ rustc's lines of code. v0.1 is a step on that path, not the end of it.
 
 From the release tarball: unpack it and put `ourc` on your `PATH`. The tarball's `SHA256SUMS` lists the binary's hash.
 
-From source: see `release.sh` (it rebuilds the release binary and checks that it reproduces the published hash).
+With cargo: `cargo install ourc` builds the same compiler with rustc ([crates.io/crates/ourc](https://crates.io/crates/ourc)).
+
+From the hand-written hex: `cargo install ourc-bootstrap && ourc-bootstrap OUT`
+([crates.io/crates/ourc-bootstrap](https://crates.io/crates/ourc-bootstrap)), or `release.sh` in the repository. Both
+rebuild the release binary from 269 bytes of hand-written machine code and check that it reproduces the published hash.
 
 ## Usage
 

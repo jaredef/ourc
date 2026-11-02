@@ -6,7 +6,8 @@
 produces the same output and exit code as rustc's build. If a program is outside the subset, ourc says so and exits 1.
 When ourc cannot compile something faithfully, it refuses it instead of guessing; a refusal is never a wrong answer.
 
-ourc is **not a checker**. It does not promise to reject every program rustc rejects (see "Accepts invalid programs"
+ourc is **under active development**, and full parity with rustc's test suite is a goal of the project. Today its
+checking is still partial, so it does not yet reject every program rustc rejects (see "Accepts invalid programs"
 below). Its correctness promise is about the programs it accepts.
 
 ## How it was measured
@@ -54,8 +55,8 @@ refused valid programs:
 ## Accepts invalid programs
 
 ourc implements only part of rustc's checking (borrow checking, trait coherence, lint-level errors, and much of type
-inference are partial). It accepts some programs that rustc rejects: 3,975 of the 12,159 compile-fail tests. Do
-not use ourc to check whether a program is valid Rust.
+inference are partial). It accepts some programs that rustc rejects: 3,975 of the 12,159 compile-fail tests. Closing
+that gap is part of the goal of full rustc parity; until then, use rustc to check whether a program is valid Rust.
 
 ## Platform and resources
 

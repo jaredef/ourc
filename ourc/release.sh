@@ -53,6 +53,9 @@ cp "$W/ourc.g1" "$P/ourc"; cp "$ROOT/ourc/README.md" "$ROOT/ourc/LIMITATIONS.md"
 MT="$(git -C "$ROOT" log -1 --format=%ct)"
 tar --sort=name --owner=0 --group=0 --numeric-owner --mtime="@$MT" -C "$OUT" -cf - "$NAME" | gzip -n > "$OUT/$NAME.tar.gz"
 ( cd "$OUT" && sha256sum "$NAME/ourc" "$NAME.tar.gz" > SHA256SUMS )
-{ echo "commit $(git -C "$ROOT" rev-parse HEAD)"; for f in "$SP/SEM0.cf" "$SP/SEM0.llvm" "$OUT/r2l.llvm" "$OUT/ourc.g0"; do
+{ echo "commit $(git -C "$ROOT" rev-parse HEAD)"
+  # the host tools behind the `host` pins: another LLVM, cc, linker or libc gives a different (equally checked) hash
+  echo "toolchain: $("$LLC" --version | grep -o "LLVM version [0-9.]*"); $(cc --version | head -1); $(ld --version | head -1); $(ldd --version | head -1)"
+  for f in "$SP/SEM0.cf" "$SP/SEM0.llvm" "$OUT/r2l.llvm" "$OUT/ourc.g0"; do
     [ -f "$f" ] && echo "$(sha256sum "$f" | cut -c1-64)  $(basename "$f")"; done; } > "$OUT/PROVENANCE"
 echo "release: OK"; cat "$OUT/SHA256SUMS"

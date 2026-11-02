@@ -579,6 +579,8 @@ impl B {
         let h = sha256::hex(&fs::read(&dst).map_err(|e| e.to_string())?);
         fs::write(self.out.join("SHA256SUMS"), format!("{h}  ourc-v0.1-x86_64-linux/ourc\n")).map_err(|e| e.to_string())?;
         let mut prov = String::from("# ourc-bootstrap: every artifact of the from-hex build, in build order\n");
+        // the host tools behind the `host` pins: another LLVM, cc, linker or libc gives a different (equally checked) hash
+        prov.push_str(&format!("# toolchain: {}\n", toolchain()));
         for l in &self.log { prov.push_str(l); prov.push('\n'); }
         fs::write(self.out.join("PROVENANCE"), prov).map_err(|e| e.to_string())
     }
@@ -758,4 +760,15 @@ fn apply_diff(old: &[u8], diff: &[u8]) -> R<Vec<u8>> {
     }
     for l in &ol[at..] { out.extend_from_slice(l); }
     Ok(out)
+}
+
+// first line of `tool --version` for each host tool, `?` for one that is missing
+fn toolchain() -> String {
+    let first = |t: &str| Command::new(t).arg("--version").output().ok()
+        .and_then(|o| String::from_utf8_lossy(&o.stdout).lines().find(|l| !l.trim().is_empty()).map(|l| l.trim().to_string()))
+        .unwrap_or_else(|| format!("{t} ?"));
+    let llvm = Command::new("llc").arg("--version").output().ok()
+        .and_then(|o| String::from_utf8_lossy(&o.stdout).lines().find(|l| l.contains("LLVM version")).map(|l| l.trim().to_string()))
+        .unwrap_or_else(|| "llc ?".into());
+    format!("{llvm}; {}; {}; {}", first("cc"), first("ld"), first("ldd"))
 }

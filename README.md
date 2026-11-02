@@ -110,8 +110,9 @@ real-world crates are out of reach.
 
 ## Verify it yourself
 
-Needs x86-64 Linux with at least 24 GB of RAM (ourc compiling itself peaks near 20 GB), plus `llc`, `opt` and `cc` on
-`PATH`. One command builds everything from the hand-written hex and checks every artifact against its pinned hash:
+Needs x86-64 Linux with at least 24 GB of RAM (ourc compiling itself peaks near 20 GB), plus `llc` and `opt` from LLVM
+12 or newer and `cc` on `PATH`. One command builds everything from the hand-written hex and checks every artifact
+against its pinned hash:
 
 ```
 bash ourc/release.sh OUT
@@ -129,6 +130,11 @@ point, and this hash:
 ```
 10b9c17a1886a9e063499c544434f370f1c257057562c85dbd9ab03379354144  ourc-v0.1-x86_64-linux/ourc
 ```
+
+That hash was produced with LLVM 22.1.8, GCC 16.2.1, binutils 2.47 and glibc 2.44. Five of the 60 pinned artifacts pass
+through those host tools, so a different toolchain builds a different ourc hash, reported as host drift. The 55
+tower artifacts, the LLVM-against-hex check and the self-compile fixed point must still match exactly. Each build
+records its toolchain in `PROVENANCE`.
 
 `SP=<scratch> bash tower/build-tower.sh --gates` builds the tower and runs its test gates. Three gates live outside
 this repository and are reported as skipped.

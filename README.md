@@ -116,7 +116,7 @@ A prebuilt `ourc` is attached to the [v0.1 release](https://github.com/jaredef/o
 `SHA256SUMS`. To check that binary rather than trust it, rebuild it from the hand-written hex.
 
 Needs x86-64 Linux with at least 24 GB of RAM (ourc compiling itself peaks near 20 GB), plus `llc` and `opt` from LLVM
-12 or newer and `cc` on `PATH`. One command builds everything from the hand-written hex and checks every artifact
+16 or newer and `cc` on `PATH`. One command builds everything from the hand-written hex and checks every artifact
 against its pinned hash:
 
 ```

@@ -60,7 +60,7 @@ that gap is part of the goal of full rustc parity; until then, use rustc to chec
 
 ## Platform and resources
 
-- x86-64 Linux only. Needs `llc` (LLVM 12 or newer) and a C compiler/linker (`cc`) at run time to produce executables.
+- x86-64 Linux only. Needs `llc` (LLVM 16 or newer) and a C compiler/linker (`cc`) at run time to produce executables.
 - Integers and pointers are modelled as 64-bit words; `f32`, `i128` and `u128` are refused.
 - By default a compile is refused after 25 seconds or 8 GiB of memory (`--time-limit`, `--mem-limit`; 0 lifts either).
   ourc compiling its own source needs both lifted.

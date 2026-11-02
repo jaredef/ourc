@@ -11,7 +11,7 @@ way rustc's build of it runs. A program outside the subset gets an error and exi
 ## Requirements
 
 - x86-64 Linux
-- `llc` from LLVM 12 or newer (tested with LLVM 22), on `PATH` or named by `$LLC`
+- `llc` from LLVM 16 or newer (tested with LLVM 18 and 22), on `PATH` or named by `$LLC`
 - a C compiler/linker, `cc` on `PATH` or named by `$CC` (used only to link; ourc's runtime needs libc and libm)
 
 ## Install

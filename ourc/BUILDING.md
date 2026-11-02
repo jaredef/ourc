@@ -13,7 +13,7 @@ fixed point.
 
 - x86-64 Linux
 - at least 24 GB of RAM: ourc compiling itself peaks near 20 GB
-- `llc` and `opt` from LLVM 12 or newer, and `cc`, on `PATH`
+- `llc` and `opt` from LLVM 16 or newer, and `cc`, on `PATH`
 
 On a 32-core machine a build takes about 20 minutes; on 4 cores, over an hour.
 

@@ -182,8 +182,17 @@ fn tool(prog: &str, args: &[&Path], flags: &[&str]) -> Result<(), String> {
     // flags are given with `{}` placeholders for the paths, in order
     let mut it = args.iter();
     for f in a.iter_mut() { if f == "{}" { *f = it.next().unwrap().as_os_str().to_os_string(); } }
-    cmd.args(&a).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
-    match cmd.status() { Ok(s) if s.success() => Ok(()), Ok(s) => Err(format!("{prog} exited {s}")), Err(e) => Err(format!("{prog}: {e}")) }
+    cmd.args(&a).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
+    // a failing host tool's own error is the diagnosis (an old llc: "expected type" at `ptr`), so keep its tail
+    match cmd.output() {
+        Ok(o) if o.status.success() => Ok(()),
+        Ok(o) => {
+            let err = String::from_utf8_lossy(&o.stderr);
+            let tail: Vec<&str> = err.lines().rev().take(8).collect::<Vec<_>>().into_iter().rev().collect();
+            Err(format!("{prog} exited {}{}{}", o.status, if tail.is_empty() { "" } else { ":\n  " }, tail.join("\n  ")))
+        }
+        Err(e) => Err(format!("{prog}: {e}")),
+    }
 }
 
 fn set_exec(p: &Path) { if let Ok(m) = fs::metadata(p) { let mut pm = m.permissions(); pm.set_mode(0o755); let _ = fs::set_permissions(p, pm); } }

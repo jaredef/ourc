@@ -1,6 +1,6 @@
-# pinned sha256 of every artifact, from a full from-hex build of the tower at 8dd93d188 (release.sh, V3)
-# and of the ourc stages at 17b719b96; SEM0.h26, h27, SEM0.cf* and SEM0.llvm re-pinned 2026-11-01 (the READ-CAP pool fix; no home paths in SEM0); ourc.g0 and ourc re-pinned 2026-11-02 (macro_rules! repetition fix); B.cf.hoist re-pinned and L4.rzrs.l3, B.cf.hoist.l4 added 2026-11-02 (cf.hoist.seed removed). class: chain = produced by the tower alone (must match on any host);
-# host = passed through the host's llc/opt/cc (matches only with the same toolchain). Pinned with LLVM 22.1.8, GCC 16.2.1, binutils 2.47, glibc 2.44.
+# sha256 of every artifact of a full from-hex build.
+# chain = made by the tower alone (must match on any machine); host = passed through the host's llc/opt/cc, so it
+# matches only with the same toolchain. The host pins were made with LLVM 22.1.8, GCC 16.2.1, binutils 2.47, glibc 2.44.
 d7f1a7fb5723460950a298ca2419c87036328745bee028a919ba83c45d24dd52 chain sp/seeds/L0/m0/m0.bin
 144785a4e27c1b44cf1a90c3288e742682f0f92f9650cb86e04eed5aabb59d7a chain sp/seeds/cf.bin
 bc5a157934ab41947090504c2738e7cbb68804586c944924e9dc04db01736bcb chain sp/seeds/L2/ccc.bin

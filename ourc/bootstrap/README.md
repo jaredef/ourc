@@ -5,12 +5,12 @@ against pinned hashes.
 
 ```
 cargo install ourc-bootstrap
-ourc-bootstrap ./out          # hours: the whole tower, ~30 SEM0 stages, then ourc compiling itself
+ourc-bootstrap ./out          # ~20 min on 32 cores: the whole tower, ~30 SEM0 stages, then ourc compiling itself
 ```
 
 The result is `out/ourc-v0.1-x86_64-linux/ourc` plus `SHA256SUMS`. `PROVENANCE` lists the hash of every
-artifact on the way, in build order. The build needs x86-64 Linux, plus `llc`, `opt` and `cc` on `PATH`.
-Those are the same LLVM and linker that rustc's own builds use.
+artifact on the way, in build order. The build needs x86-64 Linux with at least 24 GB of RAM (ourc compiling itself
+peaks near 20 GB), plus `llc` and `opt` from LLVM 16 or newer and `cc` on `PATH`.
 
 On a terminal it shows a dashboard:
 - **Phases:** the six phases, with a progress bar and an ETA weighted by a reference run.
@@ -30,8 +30,8 @@ and the build itself is the same in both modes.
    hex2, the M0 assembler, the M0 backend, a C compiler written in M0, and the self-hosting C compiler
    `ccc`.
 2. Builds the tower's Rust bootstrap from there: a C-written Rust-subset compiler, the Rust backend
-   tools, the L5 compiler and its own code generator (`cf.hoist`), and L6. The
-   first `cf.hoist` is `cf.rs` compiled by L4, and it must lower L5 byte-identically to the `cf.hoist` L5 builds.
+   tools, the L5 compiler and its own code generator (`cf.hoist`), and L6. The first `cf.hoist` is `cf.rs`
+   compiled by L4, and it must lower L5 byte-identically to the `cf.hoist` L5 builds.
 3. Climbs the SEM0 staircase. Each frozen compiler compiles the next, up to byte fixed points.
 4. Builds the LLVM-backed SEM0 and admits it only if it emits SEM0 byte-identically to the hex-rooted one
    (the C2 check).
@@ -51,8 +51,7 @@ also run are left out.
   versions, so a mismatch is reported but doesn't stop the build.
 
 Artifacts are named `<rung>.<what>[.<backend>][.gN|.iN]`, for example `L5.rzrs.g2`, `SEM0.h17` and
-`ourc.g1`. The table that maps them to the tower scripts' older names is in
-`apparatus/docs/tower-naming-and-trust-path.md`, under "Artifact names".
+`ourc.g1`.
 
 ## What this does and doesn't prove
 
@@ -63,10 +62,10 @@ be subverted, in agreement, to fake the result.
 
 ## Sources
 
-The crate carries the 81 source files the build reads, in `tree/`, along with their hashes (`MANIFEST`). They are
-embedded in the binary at build time. To build from a
-checkout instead, run `ourc-bootstrap --repo <ourc checkout> ./out`. To refresh `tree/` before
-packaging, run `ourc-bootstrap --vendor <checkout> tree`.
+The crate carries the 80 source files the build reads, in `tree/`, along with their hashes (`MANIFEST`). They are
+embedded in the binary at build time. To build from a checkout instead, run
+`ourc-bootstrap --repo <ourc checkout> ./out`. To refresh `tree/` before packaging, run
+`ourc-bootstrap --vendor <checkout> tree`.
 
 ## License
 

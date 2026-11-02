@@ -20,7 +20,7 @@
 # Baseline discipline, as elsewhere in this repo: a divergence listed in baseline.txt is KNOWN and does not fail
 # the lane; anything else does.
 set -uo pipefail
-HERE="$(cd "$(dirname "$0")" && pwd)"; A="$(cd "$HERE/../../../.." && pwd)"   # -> apparatus/arcs
+HERE="$(cd "$(dirname "$0")" && pwd)"; A="$(cd "$HERE/../../../.." && pwd)"   # -> tower
 SP="${SP:?set SP}"; CC="${CC:-$A/L2}"
 P="$A/sem0/stages/S1-lex-parse-ast/s1_parser.rs"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT

@@ -1,0 +1,5 @@
+# outputs cli.sh writes beside each program
+*.bin
+*.o
+*.ll
+*.out

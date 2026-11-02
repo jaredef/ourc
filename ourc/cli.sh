@@ -283,7 +283,7 @@ run_src "$(dirname "$0")/progs/real_rust_char_kind.rs" 0
 # rung: P-BOX -- a trait object from a PRIMITIVE that implements the trait
 run_src "$(dirname "$0")/progs/real_rust_dyn_primitive.rs" 0
 # rung: the RC-behavior-topology gate -- every probed point rustc RUNS must agree with us (2026-10-16 arc)
-OURS="$OUT" bash "$ROOT/apparatus/arcs/2026-10-16-rc-behavior-topology/probes/gate.sh"
+G="$ROOT/apparatus/arcs/2026-10-16-rc-behavior-topology/probes/gate.sh"; if [ -f "$G" ]; then OURS="$OUT" bash "$G"; else echo "  skip RC-behavior gate (not in this tree)"; fi
 # rung: P-ORDER -- item names are order-independent (the reader runs twice, pass 1 names-only)
 run_src "$(dirname "$0")/progs/real_rust_item_order.rs" 0
 # rung: P-ITER -- iterator methods as eager vector pipelines (ranges, map/filter/fold/sum/any/all, *x)

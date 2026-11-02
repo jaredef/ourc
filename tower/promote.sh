@@ -17,12 +17,12 @@
 # opening it; <label> is the rung/topic name so the promotion is identifiable, with the short SHA appended for
 # uniqueness (two promotions have landed on the same day more than once).
 #
-#   bash apparatus/promote.sh <label>            # e.g. `bash apparatus/promote.sh i64-statics`
-#   DRY=1 bash apparatus/promote.sh <label>      # show what would happen, touch nothing
+#   bash tower/promote.sh <label>            # e.g. `bash tower/promote.sh i64-statics`
+#   DRY=1 bash tower/promote.sh <label>      # show what would happen, touch nothing
 #
 # This script does the BACKUP and the COPY and appends a freeze-log stub. It does NOT run the gates and it does
 # NOT commit -- promotion is keeper-authorized ("stage the case, do not flip L5 unprompted"), so the
-# operator runs `SP=<fresh> bash apparatus/build-tower.sh --gates` and records the result in the stub by hand.
+# operator runs `SP=<fresh> bash tower/build-tower.sh --gates` and records the result in the stub by hand.
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 L5="$HERE/L5/L5.rzrs.rs"
@@ -33,7 +33,7 @@ DRY="${DRY:-0}"
 
 label="${1:-}"
 unlock="${2:-}"
-[ -n "$label" ] || { echo "usage: [DRY=1] bash apparatus/promote.sh <label> \"<what this unlocks>\""; exit 2; }
+[ -n "$label" ] || { echo "usage: [DRY=1] bash tower/promote.sh <label> \"<what this unlocks>\""; exit 2; }
 # --- the freeze criterion, stated rather than assumed ------------------------------------------------
 # The promotion criterion is #3 AUTHORING-UNLOCK: "freeze when the coverage becomes the language you need to write
 # the NEXT layer, not on self-repro+corpus alone." In practice 27 promotions (2026-07-31..08-25, ten of them on a
@@ -46,7 +46,7 @@ if [ -z "$unlock" ]; then
   echo "      Promotion flips the TRUST ANCHOR and rewrites every artifact below the freeze line. State what the"
   echo "      new L5 makes authorable that the old one did not, or what telos metric this moves (whole-file reach,"
   echo "      r2-corpus OK count). If the honest answer is \"nothing yet\", that is a reason not to promote."
-  echo "      usage: bash apparatus/promote.sh $label \"<what this unlocks>\""
+  echo "      usage: bash tower/promote.sh $label \"<what this unlocks>\""
   exit 2
 fi
 case "$label" in
@@ -104,9 +104,9 @@ tmp="$(mktemp)"
   echo "# L5.rzrs freeze marker"
   echo "# ============================================================================"
   echo "# ${label^^} HOIST $(date +%F): L6.rzrs.rs ($(wc -l < "$L5") L, $(stat -c%s "$L5") B) frozen as the new L5."
-  echo "#   Promoted from $sha by apparatus/promote.sh. Prior L5 at promotions/$(basename "$dir")/."
+  echo "#   Promoted from $sha by tower/promote.sh. Prior L5 at promotions/$(basename "$dir")/."
   echo "#   UNLOCKS: $unlock"
-  echo "#   GATES: <run \`SP=\$(mktemp -d) bash apparatus/build-tower.sh --gates\` and record the result here --"
+  echo "#   GATES: <run \`SP=\$(mktemp -d) bash tower/build-tower.sh --gates\` and record the result here --"
   echo "#     16/16 incl. provenance AND the r2-corpus zero-regression gate. Record whole-file reach before/after"
   echo "#     (instrument/measure-reach.sh) so the ratchet is a measurement, not a claim.>"
   echo "#   KEEPER-AUTHORIZED: <record the authorization here>"
@@ -116,5 +116,5 @@ tmp="$(mktemp)"
 mv "$tmp" "$MARK"
 
 echo "== promoted. NOT gated, NOT committed. =="
-echo "   next: SP=\$(mktemp -d) bash apparatus/build-tower.sh --gates   # expect 15/15 incl. provenance"
+echo "   next: SP=\$(mktemp -d) bash tower/build-tower.sh --gates   # expect 15/15 incl. provenance"
 echo "   then: fill the GATES/KEEPER lines at the top of ${MARK#"$HERE/"}"

@@ -136,6 +136,28 @@ through those host tools, so a different toolchain builds a different ourc hash,
 tower artifacts, the LLVM-against-hex check and the self-compile fixed point must still match exactly. Each build
 records its toolchain in `PROVENANCE`.
 
+### A measured build
+
+One full `release.sh` run from the hand-written hex, measured with `ourc/measure-build.sh` (a systemd scope, sampled
+once a second, plus the kernel's own `memory.peak` for the scope):
+
+| | |
+|---|---|
+| machine | AMD Ryzen AI Max+ 395, 16 cores / 32 threads, 128 GB RAM |
+| system | CachyOS, Linux 7.2.7; LLVM 22.1.8, GCC 16.2.1, binutils 2.47, glibc 2.44 |
+| wall time | 19 min 51 s |
+| peak memory | **20.8 GB** for the whole build (`memory.peak`); 20.4 GB of it program memory |
+| largest process | ourc compiling itself (`ourc.g1`): 19.9 GB |
+
+Where the time and memory go:
+
+| stage | from | peak memory |
+|---|---|---|
+| the tower: hex0 up to L6, then SEM0's 28 hops and fixed points | 0 s | 1.8 GB |
+| SEM0 lowered to LLVM, checked against the hex-built SEM0 | 8 min 11 s | 6.7 GB |
+| SEM0 builds ourc (`ourc.g0`) | 14 min 37 s | 4.7 GB |
+| ourc compiles itself three times (`ourc.g0`, `ourc.g1`, `ourc.g2`) | 19 min 10 s | 20.4 GB |
+
 `SP=<scratch> bash tower/build-tower.sh --gates` builds the tower and runs its test gates. Three gates live outside
 this repository and are reported as skipped.
 

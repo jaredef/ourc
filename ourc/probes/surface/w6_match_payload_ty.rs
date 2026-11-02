@@ -1,0 +1,1 @@
+fn main(){ let o: Option<String> = None; let w = Some(2.5f64); let b = match o { Some(v) => v, None => "dflt".to_string() }; let f = match w { Some(x) => x, None => 0.0 }; let n = match Some(3) { Some(k) => k * 2, None => 0 }; println!("{} {} {}", b, f, n); }

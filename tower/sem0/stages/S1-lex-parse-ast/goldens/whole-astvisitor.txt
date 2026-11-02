@@ -1,0 +1,30 @@
+Crate
+  Item Enum@0..182 vis=pub ident=ExprKind
+    Variant ident=Lit Tuple(Ty Path u128)
+    Variant ident=Binary Tuple(Ty Path BinOp, Ty Path Box<Ty Path Expr>, Ty Path Box<Ty Path Expr>)
+    Variant ident=Unary Tuple(Ty Path UnOp, Ty Path Box<Ty Path Expr>)
+    Variant ident=Call Tuple(Ty Path Box<Ty Path Expr>, Ty Path Vec<Ty Path Expr>)
+    Variant ident=Path Tuple(Ty Path Vec<Ty Path String>)
+    Variant ident=Tup Tuple(Ty Path Vec<Ty Path Expr>)
+  Item Struct@182..253 vis=pub ident=Expr
+    Field vis=pub ident=kind Ty Path ExprKind
+    Field vis=pub ident=span Ty Tup(Ty Path u32, Ty Path u32)
+  Item Enum@253..291 vis=pub ident=BinOp
+    Variant ident=Add Unit
+    Variant ident=Sub Unit
+    Variant ident=Mul Unit
+    Variant ident=Div Unit
+  Item Enum@291..319 vis=pub ident=UnOp
+    Variant ident=Neg Unit
+    Variant ident=Not Unit
+  Item Trait@319..424 vis=pub ident=Visitor: Sized
+    Item Fn@350..421 vis=priv ident=visit_expr
+      Param name=&mut self ImplicitSelf
+      Param name=e Ty Ref(Ty Path Expr)
+      Ret Default
+      Block(Semi Expr Call(Expr Path walk_expr, [Expr Path self, Expr Path e]))
+  Item Fn@424..949 vis=pub ident=walk_expr<V: Visitor>
+    Param name=v Ty Ref(mut Ty Path V)
+    Param name=e Ty Ref(Ty Path Expr)
+    Ret Default
+    Block(Expr Expr Match(Expr AddrOf(Expr Field(Expr Path e, kind)), [Arm(Pat TupleStruct(ExprKind::Binary, [Pat Wild, Pat Ident l, Pat Ident r]) => Expr Block(Block(Semi Expr Method(Expr Path v, visit_expr, [Expr Path l]); Semi Expr Method(Expr Path v, visit_expr, [Expr Path r])))), Arm(Pat TupleStruct(ExprKind::Unary, [Pat Wild, Pat Ident x]) => Expr Method(Expr Path v, visit_expr, [Expr Path x])), Arm(Pat TupleStruct(ExprKind::Call, [Pat Ident f, Pat Ident args]) => Expr Block(Block(Semi Expr Method(Expr Path v, visit_expr, [Expr Path f]); Expr Expr ForLoop(Pat Ident a in Expr Path args, Block(Semi Expr Method(Expr Path v, visit_expr, [Expr Path a])))))), Arm(Pat TupleStruct(ExprKind::Tup, [Pat Ident xs]) => Expr Block(Block(Expr Expr ForLoop(Pat Ident x in Expr Method(Expr Path xs, iter, []), Block(Semi Expr Method(Expr Path v, visit_expr, [Expr Path x])))))), Arm(Pat Wild => Expr Block(Block()))]))

@@ -1,0 +1,1 @@
+fn main() { let s = "--e=a,b"; let v: Vec<String> = s.split(',').map(|x| x.to_string()).collect(); println!("{:?}", v); let w: Vec<String> = s.split(',').map(String::from).collect(); println!("{:?}", w); let t = &s[4..]; println!("{}", t); }

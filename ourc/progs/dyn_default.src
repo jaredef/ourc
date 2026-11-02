@@ -1,0 +1,11 @@
+trait Scale { fn base(self) -> int; fn scaled(self, k: int) -> int { self.base() * k } }
+struct A { n: int }
+struct B { n: int, m: int }
+impl Scale for A { fn base(self) -> int { self.n } }
+impl Scale for B { fn base(self) -> int { self.n + self.m } }
+fn twice(x: dyn Scale) -> int { x.scaled(2) }
+let a = A { 10 };
+let b = B { 4, 7 };
+print_int(twice(&a));
+print_int(twice(&b));
+twice(&a) + twice(&b) + 0

@@ -1,0 +1,1 @@
+main.rs crate=main root=1

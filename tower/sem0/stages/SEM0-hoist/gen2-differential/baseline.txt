@@ -1,0 +1,7 @@
+# KNOWN-OPEN gen1/gen2 divergences. Every line here is a DEFECT IN THE ARTIFACT A HOIST WOULD INSTALL,
+# recorded so the lane guards against NEW ones -- not an accepted behaviour. Removing a line is the goal.
+#
+# 2026-08-26: emptied. C-SEM0-GEN2-PAREN-TY closed all seven gen2 SIGSEGVs in the 192-file rustc sample with
+# one line (`items.remove(0)` -> `pop()` in the type parser). Two OUTPUT divergences remain in that sample and
+# are NOT yet fixtures here -- rustc_abi/src/lib.rs and rustc_codegen_gcc/tests/run/int.rs. They are tracked in
+# locales/rustc-crate-targeting/constraints.md and must become fixtures before a hoist proposal.

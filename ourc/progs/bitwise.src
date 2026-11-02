@@ -1,0 +1,12 @@
+fn popcount(n: int) -> int { let mut v = n; let mut c = 0; while v != 0 { c += v & 1; v = v >> 1; } c }
+fn hi(n: int) -> int { (n >> 8) & 255 }
+print_int(popcount(255));
+print_int(hi(4660));
+print_int(6 & 3);
+print_int(6 | 3);
+print_int(6 ^ 3);
+print_int(1 << 10);
+print_int(1024 >> 4);
+let mask = (1 << 6) - 1;
+print_int(mask);
+popcount(255) * 5 + 2

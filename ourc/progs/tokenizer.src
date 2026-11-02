@@ -1,0 +1,15 @@
+fn is_sp(c) { if c == 32 { 1 } else { 0 } }
+fn tokenize(s: str) -> Vec {
+  let starts = vec_new(); let mut i = 0; let n = len(s);
+  while i < n {
+    if is_sp(str_at(s, i)) == 1 { i = i + 1; }
+    else { vec_push(starts, i);
+           let mut go = 1;
+           while go == 1 { if i < n { if is_sp(str_at(s, i)) == 1 { go = 0; } else { i = i + 1; } } else { go = 0; } }
+    }
+  }
+  starts }
+fn ntok(s: str) -> int { vec_len(tokenize(s)) }
+print_int(ntok("alpha beta gamma delta"));
+print_int(ntok("let x = 1 ;"));
+ntok("let x = 1 ;") * 8 + 2

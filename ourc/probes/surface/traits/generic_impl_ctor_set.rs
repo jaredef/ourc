@@ -1,0 +1,1 @@
+struct S<T> { v: T } impl<T: Copy> S<T> { fn new(v: T) -> S<T> { S { v } } fn get(&self) -> T { self.v } fn set(&mut self, v: T) { self.v = v; } } fn main() { let mut a = S::new(40); a.set(41); println!("{}", a.get() + 1); }

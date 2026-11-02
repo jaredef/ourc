@@ -1,0 +1,3 @@
+struct Sq { s: int }
+fn mk(n: int) -> Sq { shapes::Sq { n } }
+fn area(q: Sq) -> int { q.s * q.s }

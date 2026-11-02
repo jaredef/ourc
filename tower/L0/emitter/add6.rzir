@@ -1,0 +1,19 @@
+ir main -> i32
+  v0: i32 = argc
+  v1: i32 = const 0
+  v2: i32 = const 0
+  v3: i32 = const 0
+  v4: i32 = const 0
+  v5: i32 = const 50
+  v6: i32 = call add6 v0 v1 v2 v3 v4 v5
+  ret v6
+fn add6
+  v0: i32 = param
+  v1: i32 = param
+  v2: i32 = param
+  v3: i32 = param
+  v4: i32 = param
+  v5: i32 = param
+  v6: i32 = add v0 v5
+  ret v6
+end

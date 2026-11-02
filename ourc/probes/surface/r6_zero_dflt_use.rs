@@ -1,0 +1,1 @@
+fn f(x: i64) -> i64 { x + 1 } fn g(s: String) -> usize { s.len() } fn h(b: bool) -> bool { !b } fn main(){ let i = Default::default(); let s = Default::default(); let t = Default::default(); println!("{} {} {}", f(i), g(s), h(t)); }

@@ -1,0 +1,17 @@
+ir main -> i32
+v0: i32 = const 0
+v1: i32 = call runner
+ret v1
+ret v0
+fn dbl
+v0: i32 = param
+v1: i32 = add v0 v0
+ret v1
+ret v0
+fn runner
+v0: i32 = faddr dbl
+v1: i32 = const 21
+v2: i32 = calli v0 v1
+ret v2
+ret v0
+end

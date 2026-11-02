@@ -1,0 +1,9 @@
+fn apply(f: Fn, x) { f(x) }
+fn twice(f: Fn, x) { f(f(x)) }
+let inc = |n| n + 1;
+let k = 3;
+let mul = |n| n * k;
+print_int(apply(inc, 41));
+print_int(apply(mul, 14));
+print_int(twice(inc, 40));
+apply(mul, 14)

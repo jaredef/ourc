@@ -1,0 +1,11 @@
+trait Area { fn area(self) -> int; }
+struct Sq { s: int }
+struct Rc { w: int, h: int }
+impl Area for Sq { fn area(self) -> int { self.s * self.s } }
+impl Area for Rc { fn area(self) -> int { self.w * self.h } }
+fn show(x: dyn Area) -> int { x.area() }
+let a = Sq { 5 };
+let b = Rc { 3, 6 };
+print_int(show(&a));
+print_int(show(&b));
+show(&a) + show(&b) - 1

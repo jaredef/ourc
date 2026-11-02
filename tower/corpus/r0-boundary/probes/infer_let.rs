@@ -1,0 +1,1 @@
+fn main(){ let x=40; let y=2; let z=x+y; println!("{}", z); }

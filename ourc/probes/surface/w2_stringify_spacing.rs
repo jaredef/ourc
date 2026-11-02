@@ -1,0 +1,1 @@
+macro_rules! sp { ($t:path) => (stringify!($t)) } macro_rules! st { ($t:ty) => (stringify!($t)) } fn main(){ println!("[{}] [{}] [{}] [{}]", sp!(std::option), st!(isize), st!(Vec<i64>), stringify!(a + b)); }

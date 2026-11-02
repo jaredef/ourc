@@ -1,0 +1,5 @@
+Crate
+  Item Fn@176..212 vis=priv ident=f
+    Ret Default
+    Block(Item   Item MacroDef@185..210 vis=priv ident=p
+    MacroDef Brace[0])

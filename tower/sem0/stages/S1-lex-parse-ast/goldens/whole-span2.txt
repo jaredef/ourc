@@ -1,0 +1,40 @@
+Crate
+  Item Use@0..25 vis=priv
+    Use Simple std::cmp::Ordering
+  Item Struct@25..72 vis=pub ident=Span
+    Field vis=priv ident=lo Ty Path u32
+    Field vis=priv ident=hi Ty Path u32
+  Item Impl@72..420 Ty Path Span
+    Item Fn@88..250 vis=pub ident=new
+      Param name=lo Ty Path u32
+      Param name=hi Ty Path u32
+      Ret Ty Path Span
+      Block(Expr Expr If(Expr Bin Gt(Expr Path lo, Expr Path hi), Block(Expr Expr Struct(Span, [lo: Expr Path hi, hi: Expr Path lo])), Expr Block(Block(Expr Expr Struct(Span, [lo: Expr Path lo, hi: Expr Path hi])))))
+    Item Fn@250..358 vis=pub ident=contains
+      Param name=&self ImplicitSelf
+      Param name=other Ty Path Span
+      Ret Ty Path bool
+      Block(Expr Expr Bin And(Expr Bin Le(Expr Field(Expr Path self, lo), Expr Field(Expr Path other, lo)), Expr Bin Le(Expr Field(Expr Path other, hi), Expr Field(Expr Path self, hi))))
+    Item Fn@358..417 vis=pub ident=len
+      Param name=&self ImplicitSelf
+      Ret Ty Path u32
+      Block(Expr Expr Bin Sub(Expr Field(Expr Path self, hi), Expr Field(Expr Path self, lo)))
+  Item Impl@420..549 Ty Path Ord for Ty Path Span
+    Item Fn@444..546 vis=priv ident=cmp
+      Param name=&self ImplicitSelf
+      Param name=other Ty Ref(Ty Path Span)
+      Ret Ty Path Ordering
+      Block(Expr Expr Method(Expr Tuple([Expr Field(Expr Path self, lo), Expr Field(Expr Path self, hi)]), cmp, [Expr AddrOf(Expr Tuple([Expr Field(Expr Path other, lo), Expr Field(Expr Path other, hi)]))]))
+  Item Struct@549..599 vis=pub ident=SourceMap
+    Field vis=priv ident=files Ty Path Vec<Ty Path String>
+  Item Impl@599..845 Ty Path SourceMap
+    Item Fn@620..713 vis=pub ident=lookup
+      Param name=&self ImplicitSelf
+      Param name=idx Ty Path usize
+      Ret Ty Path Option<Ty Ref(Ty Path String)>
+      Block(Expr Expr Method(Expr Field(Expr Path self, files), get, [Expr Path idx]))
+    Item Fn@713..843 vis=pub ident=add
+      Param name=&mut self ImplicitSelf
+      Param name=name Ty Path String
+      Ret Ty Path usize
+      Block(Let Pat Ident id = Expr Method(Expr Field(Expr Path self, files), len, []); Semi Expr Method(Expr Field(Expr Path self, files), push, [Expr Path name]); Expr Expr Path id)

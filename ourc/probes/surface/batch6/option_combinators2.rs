@@ -1,0 +1,1 @@
+fn main() { let x: Option<i64> = None; println!("{} {}", x.unwrap_or(7), x.map_or(0, |v| v * 2)); let y = Some(4); println!("{:?} {:?}", y.filter(|&v| v > 5), y.and_then(|v| if v > 1 { Some(v * 10) } else { None })); }

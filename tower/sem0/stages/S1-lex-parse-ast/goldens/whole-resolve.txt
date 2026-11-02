@@ -1,0 +1,39 @@
+Crate
+  Item Mod@0..2032 vis=priv ident=resolve
+    Item Use@18..53 vis=priv
+      Use Simple std::collections::HashMap
+    Item Use@53..87 vis=priv
+      Use Nested std::fmt { Simple self, Simple Debug }
+    Item Const@87..125 vis=pub ident=MAX_DEPTH
+      Ty Path usize
+      Expr LitInt 64
+    Item Enum@125..290 vis=pub ident=Res
+      Variant ident=Def Tuple(Ty Path usize, Ty Path String)
+      Variant ident=PrimTy Unit
+      Variant ident=Local Struct(id Ty Path u32, name Ty Path String)
+      Variant ident=Err Unit
+      Variant ident=SelfTy Unit disr=Expr LitInt 7
+      Variant ident=ToolMod Unit disr=Expr LitInt 9
+    Item Struct@290..423 vis=pub ident=Resolver
+      Field vis=pub ident=bindings Ty Path HashMap<Ty Path String, Ty Path Res>
+      Field vis=pub ident=scopes Ty Path Vec<Ty Path u32>
+      Field vis=pub ident=depth Ty Path usize
+    Item Impl@423..1874 Ty Path Resolver
+      Item Const@447..481 vis=pub ident=ROOT
+        Ty Path u32
+        Expr LitInt 0
+      Item Fn@481..1651 vis=pub ident=resolve
+        Param name=&mut self ImplicitSelf
+        Param name=path Ty Ref(Ty Slice(Ty Path String))
+        Ret Ty Path Result<Ty Path u32, Ty Path String>
+        Block(Let Pat Ident mut cur = Expr Path Self::ROOT; Expr Expr ForLoop(Pat Tuple(Pat Ident i, Pat Ident seg) in Expr Method(Expr Method(Expr Path path, iter, []), enumerate, []), Block(Expr Expr Match(Expr Method(Expr Field(Expr Path self, bindings), get, [Expr Path seg]), [Arm(Pat TupleStruct(Some, [Pat Struct(Res::Local, [id, ..])]) => Expr Assign(Expr Path cur = Expr Deref(Expr Path id))), Arm(Pat TupleStruct(Some, [Pat TupleStruct(Res::Def, [Pat Ident d, Pat Ident name])]) => Expr Block(Block(Expr Expr If(Expr Method(Expr Path name, is_empty, []), Block(Semi Expr Ret(Expr Call(Expr Path Err, [Expr MacCall(format ! Paren["empty at {}" , i])])))); Semi Expr Assign(Expr Path cur = Expr Cast(Expr Deref(Expr Path d), Ty Path u32))))), Arm(Pat TupleStruct(Some, [Pat Wild]) => Expr Continue()), Arm(Pat Ident None => Expr Block(Block(Let Pat Ident parent = Expr Try(Expr Method(Expr Path self, lookup, [Expr Path seg])); Expr Expr While(Expr Let(Pat TupleStruct(Some, [Pat Ident top]) = Expr Method(Expr Field(Expr Path self, scopes), pop, [])), Block(Expr Expr If(Expr Bin Eq(Expr Path top, Expr Path parent), Block(Semi Expr Break())))); Expr Expr If(Expr Let(Pat TupleStruct(Some, [Pat Ref(Pat Ident s)]) = Expr Method(Expr Field(Expr Path self, scopes), last, [])), Block(Semi Expr Assign(Expr Path cur = Expr Path s)), Expr Block(Block(Semi Expr Ret(Expr Call(Expr Path Err, [Expr Method(Expr Str "no scope", to_string, [])]))))))))]))); Expr Expr Call(Expr Path Ok, [Expr Path cur]))
+      Item Fn@1651..1867 vis=priv ident=lookup
+        Param name=&self ImplicitSelf
+        Param name=name Ty Ref(Ty Path str)
+        Ret Ty Path Result<Ty Path u32, Ty Path String>
+        Block(Expr Expr Method(Expr Method(Expr Method(Expr Field(Expr Path self, bindings), get, [Expr Path name]), map, [Expr Closure([Pat Wild], Expr LitInt 1)]), ok_or_else, [Expr Closure([], Expr MacCall(format ! Paren["unresolved: {}" , name]))]))
+    Item Fn@1874..2030 vis=pub ident=merge<T> where Ty Path T: Clone + Debug
+      Param name=a Ty Path Vec<Ty Path T>
+      Param name=b Ty Path Vec<Ty Path T>
+      Ret Ty Path Vec<Ty Path T>
+      Block(Let Pat Ident mut out = Expr Path a; Semi Expr Method(Expr Path out, extend, [Expr Path b]); Expr Expr Path out)

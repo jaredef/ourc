@@ -1,0 +1,1 @@
+fn main() { let v = vec![1, 2, 3, 4]; let f = v.iter().fold(String::new(), |acc, x| format!("{}{}", acc, x)); let m = v.iter().map(|x| x * x).max().unwrap(); let z: Vec<(usize, i64)> = v.iter().cloned().enumerate().filter(|(i, _)| i % 2 == 0).collect(); println!("{} {} {:?}", f, m, z); }

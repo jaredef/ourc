@@ -1,0 +1,14 @@
+ir main -> i32
+  v0: i32 = const 0
+  v1: i32 = ref v0
+  v2: i32 = const 0
+  v3: i32 = const 72
+  putb v1 v2 v3
+  v4: i32 = const 1
+  v5: i32 = const 73
+  putb v1 v4 v5
+  v6: i32 = argc
+  v7: i32 = sub v6 v4
+  v8: i32 = getb v1 v7
+  ret v8
+end

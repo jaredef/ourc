@@ -1,0 +1,132 @@
+CFAIL borrow_double_mut.rs
+CFAIL borrow_replace_struct.rs
+CRASH borrow_retfield.rs
+FEHANG closures_in_struct_box.rs
+GARBAGE closures_in_struct.rs (24117256)
+CRASH closures_return_boxed.rs
+CFAIL convert_bad_charcast.rs
+CRASH convert_float_to_int.rs
+CRASH convert_from_impl.rs
+CRASH convert_into.rs
+CRASH convert_int_to_float.rs
+CRASH convert_tryfrom.rs
+GARBAGE ctrlflow_qmark_none.rs (24121364)
+GARBAGE ctrlflow_qmark_option.rs (24121368)
+CFAIL ctrlflow_unsound_missing_arm.rs
+CRASH ctrlflow_whilelet_nested.rs
+GARBAGE fmt_dbg_tuple.rs (24117256)
+GARBAGE fmt_dbg_vec.rs (24117256)
+GARBAGE genenum_map_err.rs (24117256)
+GARBAGE genenum_ok_or_else.rs (24117256)
+CRASH genenum_result_chain.rs
+CRASH grow10_andthen_result_11.rs
+GARBAGE grow10_assoc_type_bound_25.rs (134217730)
+CRASH grow10_bytes_filter_count_28.rs
+CRASH grow10_char_to_digit_22.rs
+GARBAGE grow10_chunks_exact_16.rs (24121352
+24121352
+24121352
+24121352
+24121352
+24121352
+24121352)
+CRASH grow10_matches_guard_9.rs
+CRASH grow10_ordering_cmp_match_19.rs
+GARBAGE grow10_rotate_left_15.rs (24117256)
+GARBAGE grow10_scan_6.rs (24117256)
+CFAIL grow11_calc_9.rs
+CRASH grow11_csv_3.rs
+GARBAGE grow11_dijkstra_12.rs (1000000)
+CRASH grow11_json_2.rs
+CRASH grow11_pq_4.rs
+CRASH grow11_rle_7.rs
+CRASH grow11_roman_6.rs
+CRASH grow11_trie_14.rs
+CRASH grow11_vm_1.rs
+CRASH grow11_wordfreq_5.rs
+CFAIL grow2_match_slice.rs
+GARBAGE grow3_2d_matmul.rs (19224350)
+CRASH grow3_fmt_precision.rs
+CFAIL grow3_impl_iterator.rs
+HANG grow3_labeled_break_value.rs
+GARBAGE grow3_match_guard.rs (1123434)
+CRASH grow3_question_option.rs
+CRASH grow3_string_byte_iter.rs
+CRASH grow4_charmeth_1.rs
+CFAIL grow4_vecstring_1.rs
+CRASH grow5_default_1.rs
+GARBAGE grow5_vectuple_3.rs (72364120)
+GARBAGE grow6_fnmutparam_8.rs (144703568)
+HANG grow6_labeledbreak_2.rs
+GARBAGE grow6_letelse_14.rs (72376355)
+GARBAGE grow6_nestedclosure_12.rs (48234544)
+CRASH grow7_enumerate_tuples.rs
+CRASH grow7_hashmap_stringkey.rs
+GARBAGE grow7_string_trim_parse.rs (24117257)
+GARBAGE grow8_checksum_fold_14.rs (154422441)
+GARBAGE grow8_factorial_i64_16.rs (2432902008176640000)
+GARBAGE grow8_i64_bigmul_1.rs (15000000000)
+GARBAGE grow8_mix_i32_i64_3.rs (6000000000000)
+GARBAGE grow9_calc_12.rs (24125464)
+CRASH grow9_closurefield_18.rs
+CFAIL grow9_iter_8.rs
+CRASH grow9_matrix_7.rs
+CRASH grow9_maxby_4.rs
+CRASH grow9_memofib_10.rs
+CRASH hashmap_getmiss.rs
+GARBAGE hashmap_getmut.rs (24117264)
+GARBAGE hashmap_get.rs (24182800)
+CRASH hashmap_overwrite.rs
+CRASH hashmap_valsmut.rs
+GARBAGE ints_shift_left.rs (1048576)
+GARBAGE ints_u64_big.rs (4294967295)
+CRASH iters_minmax.rs
+GARBAGE iters_peekable.rs (24117270)
+GARBAGE iters_scan.rs (24117256)
+GARBAGE misc_chain_iter_fold.rs (24117256)
+GARBAGE misc_nested_closure.rs (24117272)
+GARBAGE nestgen_genret.rs (24121360)
+GARBAGE nestgen_hmvec.rs (24182800)
+GARBAGE nestgen_optopt.rs (24117264)
+CRASH nestgen_optvec.rs
+GARBAGE nestgen_veccollect.rs (24121360)
+GARBAGE nestgen_vecopt.rs (24117256)
+GARBAGE nestgen_vecresult.rs (24117256)
+GARBAGE nestgen_vectuple.rs (48250968)
+CFAIL nestgen_vecvec.rs
+CFAIL operators_bad_noimpl.rs
+CRASH operators_index.rs
+CRASH operators_neg.rs
+CFAIL patterns_or_mismatch.rs
+CFAIL patterns_or_variant.rs
+CRASH patterns_ref_binding.rs
+CFAIL patterns_slice.rs
+FEHANG patterns_struct_bind.rs
+FEHANG patterns_struct_dotdot.rs
+CRASH recurse_deep.rs
+GARBAGE recurse_factorial.rs (3628800)
+CRASH slices_max_min.rs
+CRASH slices_reverse.rs
+CRASH slices_sort_by.rs
+CRASH slices_sort.rs
+CRASH strs_bytes_sum.rs
+CRASH structs_builder_self.rs
+GARBAGE structs_shorthand.rs (24117256)
+CRASH traits2_where_fn.rs
+GARBAGE traits_assoc_const.rs (24117256)
+GARBAGE traits_default_chain.rs (24117256)
+GARBAGE traits_default_override.rs (24117256)
+GARBAGE traits_default_self_field.rs (24117256)
+CRASH traits_from_direct.rs
+CRASH traits_from_into.rs
+GARBAGE traits_generic_method.rs (24117256)
+CRASH traits_into_param.rs
+GARBAGE traits_multi_bound.rs (268435456)
+GARBAGE traits_supertrait_multi.rs (24117256)
+GARBAGE traits_supertrait.rs (24117256)
+CFAIL typeck_field_miss.rs
+CFAIL typeck_method_miss.rs
+CFAIL typeck_struct_mismatch.rs
+GARBAGE vecmeth_drain.rs (24117261)
+GARBAGE vecmeth_pushpop.rs (24121363)
+GARBAGE vecmeth_swapremove.rs (241172562)

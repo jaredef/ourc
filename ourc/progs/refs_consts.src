@@ -1,0 +1,13 @@
+const LIMIT: int = 10;
+const NAME: str = "answer";
+struct P { x: int, y: int }
+fn total(p: &P) -> int { p.x + p.y }
+fn bump(p: &mut P) -> int { p.x += 1; 0 }
+let mut s = 0;
+for i in 0..LIMIT { s += i; }
+print_int(s);
+print(NAME);
+let q = P { 20, 21 };
+bump(&mut q);
+print_int(total(&q));
+total(&q)

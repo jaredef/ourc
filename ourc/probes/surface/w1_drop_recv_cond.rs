@@ -1,0 +1,1 @@
+struct T(i64); impl Drop for T { fn drop(&mut self) { println!("drop {}", self.0); } } impl T { fn ok(&self) -> bool { self.0 < 3 } } fn mk(n: i64) -> T { T(n) } fn main(){ let mut i = 0; while mk(i).ok() { println!("body {}", i); i += 1; } if mk(9).ok() { println!("no"); } println!("e"); }

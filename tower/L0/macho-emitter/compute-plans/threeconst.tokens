@@ -1,0 +1,7 @@
+mov_x0_10
+mov_x1_20
+mov_x2_5
+add_x3_x0_x2
+mov_x0_x3
+mov_x16_exit
+svc_0x80

@@ -1,0 +1,1 @@
+fn main() { let v: Vec<(String, u32)> = vec![("a".into(), 1), ("b".into(), 2)]; let n = "b"; println!("{:?} {:?}", v.iter().position(|(k, _)| k == n), v.iter().position(|(k, _)| k.as_str() == "a")); }

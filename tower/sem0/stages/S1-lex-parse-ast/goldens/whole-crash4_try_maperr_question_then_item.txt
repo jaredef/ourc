@@ -1,0 +1,9 @@
+Crate
+  Item Impl@79..273 Ty Path S
+    Item Fn@92..260 vis=priv ident=a
+      Param name=&mut self ImplicitSelf
+      Ret Ty Path R
+      Block(Let Pat Ident e Ty Path P<Ty Path _> = Expr TryBlock(Block(Expr Expr If(Expr Bin Ne(Expr Field(Expr Path p, t), Expr Path x), Block()); Expr Expr Path expr)); Let Pat Ident e = Expr Try(Expr Method(Expr Path e, map_err, [Expr Closure([Pat Ident err], Expr Block(Block(Semi Expr Method(Expr Path err, emit, []))))])))
+    Item Fn@260..271 vis=priv ident=b
+      Ret Default
+      Block()

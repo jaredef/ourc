@@ -1,0 +1,1 @@
+let v: Vec<Vec<int>> = vec_new(); let inner: Vec<int> = vec_new(); inner.push(42); v.push(inner); let w = v.get(0); w.get(0)

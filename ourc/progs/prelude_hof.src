@@ -1,0 +1,10 @@
+let v = range(10);
+print_int(sum(v));
+let doubled = map(v, |x| x * 2);
+print_int(sum(doubled));
+let evens = filter(v, |x| if x == x / 2 * 2 { 1 } else { 0 });
+print_int(sum(evens));
+let p = fold(v, 0, |a, x| a + x * x);
+print_int(p);
+print_int(vmax(v));
+sum(doubled) - 48

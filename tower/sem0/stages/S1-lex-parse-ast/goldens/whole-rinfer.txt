@@ -1,0 +1,40 @@
+Crate
+  Item Use@0..25 vis=priv
+    Use Simple std::cell::RefCell
+  Item Struct@25..53 vis=pub ident=TyVid
+    Tuple(Ty Path u32)
+  Item Enum@53..145 vis=pub ident=InferTy
+    Variant ident=TyVar Tuple(Ty Path TyVid)
+    Variant ident=IntVar Tuple(Ty Path u32)
+    Variant ident=FloatVar Tuple(Ty Path u32)
+    Variant ident=Fresh Tuple(Ty Path u32)
+  Item Enum@145..265 vis=pub ident=Constraint<'tcx>
+    Variant ident=Eq Tuple(Ty Path InferTy, Ty Path InferTy)
+    Variant ident=Subtype Tuple(Ty Path InferTy, Ty Path InferTy)
+    Variant ident=Outlives Tuple(Ty Path TyVid, Ty Ref('tcx Ty Path str))
+  Item Struct@265..382 vis=pub ident=InferCtxt<'tcx>
+    Field vis=pub ident=constraints Ty Path RefCell<Ty Path Vec<Ty Path Constraint<Ty Lifetime 'tcx>>>
+    Field vis=pub ident=next_var Ty Path RefCell<Ty Path u32>
+  Item Impl@382..957<'tcx> Ty Path InferCtxt<Ty Lifetime 'tcx>
+    Item Fn@415..569 vis=pub ident=new
+      Ret Ty Path Self
+      Block(Expr Expr Struct(InferCtxt, [constraints: Expr Call(Expr Path RefCell::new, [Expr Call(Expr Path Vec::new, [])]), next_var: Expr Call(Expr Path RefCell::new, [Expr LitInt 0])]))
+    Item Fn@569..719 vis=pub ident=fresh_var
+      Param name=&self ImplicitSelf
+      Ret Ty Path TyVid
+      Block(Let Pat Ident mut n = Expr Method(Expr Field(Expr Path self, next_var), borrow_mut, []); Let Pat Ident id = Expr Deref(Expr Path n); Semi Expr AssignOp(AddAssign Expr Deref(Expr Path n) Expr LitInt 1); Expr Expr Call(Expr Path TyVid, [Expr Path id]))
+    Item Fn@719..839 vis=pub ident=eq
+      Param name=&self ImplicitSelf
+      Param name=a Ty Path InferTy
+      Param name=b Ty Path InferTy
+      Ret Default
+      Block(Semi Expr Method(Expr Method(Expr Field(Expr Path self, constraints), borrow_mut, []), push, [Expr Call(Expr Path Constraint::Eq, [Expr Path a, Expr Path b])]))
+    Item Fn@839..954 vis=pub ident=is_resolved
+      Param name=&self ImplicitSelf
+      Param name=t Ty Ref(Ty Path InferTy)
+      Ret Ty Path bool
+      Block(Expr Expr Unary Not(Expr MacCall(matches ! Paren[t , InferTy :: TyVar ( _ ) | InferTy :: Fresh ( _ )])))
+  Item Fn@957..1087 vis=pub ident=count_outlives
+    Param name=cs Ty Ref(Ty Slice(Ty Path Constraint<Ty Lifetime '_>))
+    Ret Ty Path usize
+    Block(Expr Expr Method(Expr Method(Expr Method(Expr Path cs, iter, []), filter, [Expr Closure([Pat Ident c], Expr MacCall(matches ! Paren[c , Constraint :: Outlives ( .. )]))]), count, []))

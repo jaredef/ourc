@@ -1,0 +1,60 @@
+Crate
+  Item Const@147..184 vis=priv ident=SIZE_INFINITY
+    Ty Path isize
+    Expr LitInt 65535
+  Item Const@184..215 vis=priv ident=INDENT_UNIT
+    Ty Path usize
+    Expr LitInt 4
+  Item Enum@215..284 vis=priv ident=Token
+    Attr derive(Clone)
+    Variant ident=Word Tuple(Ty Path String)
+    Variant ident=Break Tuple(Ty Path isize)
+  Item Impl@284..622 Ty Path Token
+    Item Fn@301..473 vis=priv ident=width
+      Param name=&self ImplicitSelf
+      Ret Ty Path isize
+      Block(Expr Expr Match(Expr Path self, [Arm(Pat TupleStruct(Token::Word, [Pat Ident s]) => Expr Cast(Expr Method(Expr Path s, len, []), Ty Path isize)), Arm(Pat TupleStruct(Token::Break, [Pat Ident n]) => Expr Deref(Expr Path n)), Arm(Pat Wild => Expr LitInt 0)]))
+    Item Fn@473..619 vis=priv ident=is_hardbreak
+      Param name=&self ImplicitSelf
+      Ret Ty Path bool
+      Block(Expr Expr Match(Expr Path self, [Arm(Pat TupleStruct(Token::Break, [Pat Ident n]) => Expr Bin Eq(Expr Deref(Expr Path n), Expr Path SIZE_INFINITY)), Arm(Pat Wild => Expr LitBool false)]))
+  Item Struct@622..733 vis=priv ident=Printer
+    Field vis=priv ident=out Ty Path String
+    Field vis=priv ident=margin Ty Path isize
+    Field vis=priv ident=space Ty Path isize
+    Field vis=priv ident=buf Ty Path Vec<Ty Path Token>
+    Field vis=priv ident=col Ty Path usize
+  Item Impl@733..1987 Ty Path Printer
+    Item Fn@752..983 vis=priv ident=new
+      Ret Ty Path Self
+      Block(Let Pat Ident margin = Expr LitInt 78; Expr Expr Struct(Printer, [out: Expr Call(Expr Path String::new, []), margin: Expr Path margin, space: Expr Path margin, buf: Expr Call(Expr Path Vec::with_capacity, [Expr LitInt 16]), col: Expr LitInt 0]))
+    Item Fn@983..1102 vis=priv ident=scan
+      Param name=&mut self ImplicitSelf
+      Param name=tok Ty Path Token
+      Ret Default
+      Block(Semi Expr Assign(Expr Field(Expr Path self, space) = Expr Bin Sub(Expr Field(Expr Path self, space), Expr Method(Expr Path tok, width, []))); Semi Expr Method(Expr Field(Expr Path self, buf), push, [Expr Path tok]))
+    Item Fn@1102..1190 vis=priv ident=word
+      Param name=&mut self ImplicitSelf
+      Param name=s Ty Ref(Ty Path str)
+      Ret Default
+      Block(Semi Expr Method(Expr Path self, scan, [Expr Call(Expr Path Token::Word, [Expr Method(Expr Path s, to_string, [])])]))
+    Item Fn@1190..1259 vis=priv ident=space
+      Param name=&mut self ImplicitSelf
+      Ret Default
+      Block(Semi Expr Method(Expr Path self, scan, [Expr Call(Expr Path Token::Break, [Expr LitInt 1])]))
+    Item Fn@1259..1344 vis=priv ident=hardbreak
+      Param name=&mut self ImplicitSelf
+      Ret Default
+      Block(Semi Expr Method(Expr Path self, scan, [Expr Call(Expr Path Token::Break, [Expr Path SIZE_INFINITY])]))
+    Item Fn@1344..1618 vis=priv ident=commasep
+      Param name=&mut self ImplicitSelf
+      Param name=items Ty Ref(Ty Slice(Ty Path String))
+      Ret Default
+      Block(Let Pat Ident mut first = Expr LitBool true; Expr Expr ForLoop(Pat Ident it in Expr Path items, Block(Expr Expr If(Expr Unary Not(Expr Path first), Block(Semi Expr Method(Expr Path self, word, [Expr Str ","]); Semi Expr Method(Expr Path self, space, []))); Semi Expr Method(Expr Path self, word, [Expr Path it]); Semi Expr Assign(Expr Path first = Expr LitBool false))))
+    Item Fn@1618..1984 vis=priv ident=render
+      Param name=&mut self ImplicitSelf
+      Ret Ty Path String
+      Block(Expr Expr ForLoop(Pat Ident tok in Expr AddrOf(Expr Field(Expr Path self, buf)), Block(Expr Expr If(Expr Method(Expr Path tok, is_hardbreak, []), Block(Semi Expr Method(Expr Field(Expr Path self, out), push, [Expr Char '\n']); Semi Expr Assign(Expr Field(Expr Path self, col) = Expr LitInt 0)), Expr If(Expr Let(Pat TupleStruct(Token::Word, [Pat Ident s]) = Expr Path tok), Block(Semi Expr Method(Expr Field(Expr Path self, out), push_str, [Expr Path s]); Semi Expr Assign(Expr Field(Expr Path self, col) = Expr Bin Add(Expr Field(Expr Path self, col), Expr Method(Expr Method(Expr Path s, chars, []), count, [])))))))); Expr Expr Method(Expr Field(Expr Path self, out), clone, []))
+  Item Fn@1987..2269 vis=priv ident=main
+    Ret Default
+    Block(Let Pat Ident mut p = Expr Call(Expr Path Printer::new, []); Semi Expr Assign(Expr Field(Expr Path p, space) = Expr Cast(Expr Path INDENT_UNIT, Ty Path isize)); Semi Expr Method(Expr Path p, word, [Expr Str "hello"]); Semi Expr Method(Expr Path p, space, []); Let Pat Ident parts = Expr MacCall(vec ! Bracket[String :: from ( "a" ) , String :: from ( "b" )]); Semi Expr Method(Expr Path p, commasep, [Expr AddrOf(Expr Path parts)]); Semi Expr Method(Expr Path p, hardbreak, []); Let Pat Ident rendered = Expr Method(Expr Path p, render, []); Semi Expr MacCall(println ! Paren["{}" , rendered]))

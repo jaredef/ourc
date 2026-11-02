@@ -1,0 +1,237 @@
+# rzir -> ELF emitter (2-const-1-op) authored in M0.
+# Each instruction encoding is a %-macro defined ONCE (the audited library below);
+# the body reads as named instructions with multi-char labels and =/&/} addresses.
+# The encoding-error class is contained to these definitions. Built by M0 (no cc).
+
+# === instruction-encoding library (audit these once) ===
+%xor_eax_eax    31c0
+%xor_edi_edi    31ff
+%xor_ecx_ecx    31c9
+%mov_esi_i      be
+%mov_edx_i      ba
+%mov_ebx_i      bb
+%mov_edi_i      bf
+%mov_eax_i      b8
+%syscall        0f05
+%ret            c3
+%jmp            e9
+%call           e8
+%jz             0f84
+%je             0f84
+%jne            0f85
+%ja             0f87
+%lea_r13_rbxrax 4c8d2c03
+%mov_rdx_rbx    4889da
+%mov_rdx_r12    4c89e2
+%mov_r12_rax    4989c4
+%mov_rsi_rax    4889c6
+%mov_r14d_eax   4189c6
+%mov_r15d_eax   4189c7
+%test_rax_rax   4885c0
+%movb_at        c60425
+%mov_at_r14d    44893425
+%mov_at_r15d    44893c25
+%mov_r8_rdx     4989d0
+%mov_rax_r8     4c89c0
+%add_rax_rsi    4801f0
+%cmp_rax_r13    4c39e8
+%cmp_rcx_rsi    4839f1
+%movzx_r8rcx    410fb60408
+%movzx_rdircx   0fb6140f
+%cmp_al_dl      38d0
+%inc_rcx        48ffc1
+%inc_r8         49ffc0
+%lea_rax_r8rsi  498d0430
+%movzx_rsi      0fb606
+%movzx_rsi1     0fb65601
+%sub_eax_30     83e830
+%sub_edx_30     83ea30
+%cmp_edx_9      83fa09
+%imul_eax_10    6bc00a
+%add_eax_edx    01d0
+# operand-order resolution: map each op operand's vN to a const value
+%mov_rdi_r12    4c89e7
+%mov_rax_rdi    4889f8
+%dec_rax        48ffc8
+%movzx_rax_dl   0fb610
+%cmp_dl_0a      80fa0a
+%movzx_rax_4    0fb64004
+%mov_r9d_eax    4189c1
+%movzx_r12_1    410fb6442401
+%movzx_r12_4    410fb6442404
+%cmp_al_r9b     4438c8
+%mov_ecx_r14d   4489f1
+%mov_ecx_r15d   4489f9
+%mov_at_ecx     890c25
+%mov_at_eax     890425
+# vN -> value table (VALS[10] dwords at 0x460000, indexed by the vN digit)
+%mov_r14_rax    4989c6
+%mov_rdi_rax    4889c7
+%mov_r14_rbx    4989de
+%mov_rdx_r14    4c89f2
+%mov_rsi_r14    4c89f6
+%sub_al_30      2c30
+%sub_cl_30      80e930
+%mov_vals_r9    4289048d00004600
+%mov_eax_vals_c 8b048d00004600
+%movzx_r12_1c   410fb64c2401
+%movzx_r12_4c   410fb64c2404
+
+# === emitter ELF header (entry =code, filesz &end, memsz fixed) ===
+7f454c46 02010100 00000000 00000000
+0200 3e00 01000000
+=code 00000000
+40000000 00000000
+00000000 00000000
+00000000 4000 3800 0100 0000 00000000
+01000000 07000000
+00000000 00000000
+00004000 00000000
+00004000 00000000
+&end 00000000
+00000700 00000000
+00100000 00000000
+
+# === output template (149) with patch-slot labels ===
+:template
+7f454c46 02010100 00000000 00000000
+0200 3e00 01000000
+78004000 00000000
+40000000 00000000
+00000000 00000000
+00000000 4000 3800 0100 0000 00000000
+01000000 05000000
+00000000 00000000
+00004000 00000000
+00004000 00000000
+95000000 00000000
+95000000 00000000
+00100000 00000000
+49c7c1 :a_slot 00000000
+49c7c2 :b_slot 00000000
+4d :op_slot 01 d1
+4c89cf
+48c7c0 3c000000
+0f05
+
+# === needles ===
+:const_needle
+636f6e737420
+:sub_needle
+73756220
+:add_needle
+61646420
+
+# === code ===
+:code
+xor_eax_eax
+xor_edi_edi
+mov_esi_i =end
+mov_edx_i 00000100
+syscall
+mov_ebx_i =end
+lea_r13_rbxrax
+# build VALS[10]: VALS[vN digit] = value, for every const line
+mov_r14_rbx               # cursor = INBUF
+:cloop
+mov_rdx_r14
+mov_edi_i =const_needle
+mov_esi_i 06000000
+call }find
+test_rax_rax
+jz }cdone                 # no more consts
+mov_r14_rax               # cursor = this const pos
+mov_rdi_rax               # backscan to the line start for its vN
+call }scan_back_nl
+movzx_rax_4               # eax = vN char
+sub_al_30                 # eax = vN digit
+mov_r9d_eax               # r9 = digit (survives pd)
+mov_rsi_r14
+call }pd                  # eax = value
+mov_vals_r9               # VALS[digit] = value
+jmp }cloop
+:cdone
+# find the op line + operand pointer: try "add " (op stays add); else "sub "
+mov_edi_i =add_needle
+mov_esi_i 04000000
+mov_rdx_rbx
+call }find
+test_rax_rax
+jne }have_ops
+mov_edi_i =sub_needle
+mov_esi_i 04000000
+mov_rdx_rbx
+call }find
+movb_at =op_slot 29       # op = sub
+:have_ops
+mov_r12_rax               # r12 = "vA vB"
+# A = VALS[operand0 digit]
+movzx_r12_1c              # ecx = operand0 vN char (at +1)
+sub_cl_30                 # ecx = digit
+mov_eax_vals_c            # eax = VALS[digit]
+mov_at_eax =a_slot
+# B = VALS[operand1 digit]
+movzx_r12_4c
+sub_cl_30
+mov_eax_vals_c
+mov_at_eax =b_slot
+mov_eax_i 01000000
+mov_edi_i 01000000
+mov_esi_i =template
+mov_edx_i 95000000
+syscall
+mov_eax_i 3c000000
+xor_edi_edi
+syscall
+
+# find: rdi=needle rsi=len rdx=start -> rax = ptr after match, or 0
+:find
+mov_r8_rdx
+:f_outer
+mov_rax_r8
+add_rax_rsi
+cmp_rax_r13
+ja }f_none
+xor_ecx_ecx
+:f_inner
+cmp_rcx_rsi
+je }f_hit
+movzx_r8rcx
+movzx_rdircx
+cmp_al_dl
+jne }f_next
+inc_rcx
+jmp }f_inner
+:f_next
+inc_r8
+jmp }f_outer
+:f_hit
+lea_rax_r8rsi
+ret
+:f_none
+xor_eax_eax
+ret
+
+# pd: rsi = ptr -> eax = 1-2 digit decimal
+:pd
+movzx_rsi
+sub_eax_30
+movzx_rsi1
+sub_edx_30
+cmp_edx_9
+ja }pd_one
+imul_eax_10
+add_eax_edx
+:pd_one
+ret
+
+# scan_back_nl: rdi=ptr -> rax = the preceding newline (so [rax+4] is the line's vN)
+:scan_back_nl
+mov_rax_rdi
+:sbn_loop
+dec_rax
+movzx_rax_dl
+cmp_dl_0a
+jne }sbn_loop
+ret
+:end

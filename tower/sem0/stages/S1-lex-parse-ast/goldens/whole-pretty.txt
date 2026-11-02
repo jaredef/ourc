@@ -1,0 +1,28 @@
+Crate
+  Item Enum@0..104 vis=pub ident=TokenKind
+    Attr derive(Clone)
+    Variant ident=Ident Tuple(Ty Path String)
+    Variant ident=Literal Struct(value Ty Path String)
+    Variant ident=Newline Unit
+  Item Struct@104..175 vis=pub ident=Printer<'a>
+    Field vis=priv ident=out Ty Ref('a mut Ty Path String)
+    Field vis=priv ident=depth Ty Path usize
+  Item Impl@175..917<'a> Ty Path Printer<Ty Lifetime 'a>
+    Item Fn@202..301 vis=pub ident=new
+      Param name=out Ty Ref('a mut Ty Path String)
+      Ret Ty Path Printer<Ty Lifetime 'a>
+      Block(Expr Expr Struct(Printer, [out: Expr Path out, depth: Expr LitInt 0]))
+    Item Fn@301..450 vis=pub ident=strip
+      Param name=name Ty Ref(Ty Path str)
+      Ret Ty Ref(Ty Path str)
+      Block(Expr Expr If(Expr Method(Expr Path name, starts_with, [Expr Str "r#"]), Block(Expr Expr AddrOf(Expr Index(Expr Path name, Expr Range(Expr LitInt 2 .. _)))), Expr Block(Block(Expr Expr Path name))))
+    Item Fn@450..720 vis=pub ident=emit
+      Param name=&mut self ImplicitSelf
+      Param name=tok Ty Path TokenKind
+      Ret Default
+      Block(Expr Expr Match(Expr Path tok, [Arm(Pat TupleStruct(TokenKind::Ident, [Pat Ident s]) => Expr Method(Expr Field(Expr Path self, out), push_str, [Expr AddrOf(Expr Path s)])), Arm(Pat Struct(TokenKind::Literal, [value, ..]) => Expr Method(Expr Field(Expr Path self, out), push_str, [Expr AddrOf(Expr Path value)])), Arm(Pat Path TokenKind::Newline => Expr Method(Expr Field(Expr Path self, out), push, [Expr Char '\n']))]))
+    Item Fn@720..915 vis=pub ident=run<I> where Ty Path I: IntoIterator<Assoc Item = Ty Path TokenKind>
+      Param name=&mut self ImplicitSelf
+      Param name=toks Ty Path I
+      Ret Ty Path Result<Ty Tup(), Ty Path Error>
+      Block(Expr Expr ForLoop(Pat Ident t in Expr Path toks, Block(Semi Expr Method(Expr Path self, emit, [Expr Path t]))); Expr Expr Call(Expr Path Ok, [Expr Tuple([])]))

@@ -1,0 +1,6 @@
+# =A reserves eight bytes, then resolves A as a forward label at offset 9.
+# Preferred address: 0x00000001000002b9.
+=A
+00
+:A
+

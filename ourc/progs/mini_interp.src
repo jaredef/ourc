@@ -1,0 +1,32 @@
+struct St { s: str, i: int, names: Vec<str>, vals: Vec<int> }
+fn peek(t: St) -> int { if t.i < len(t.s) { str_at(t.s, t.i) } else { 0 } }
+fn bump(t: St) -> int { t.i = t.i + 1; 0 }
+fn skip_ws(t: St) -> int { while peek(&mut t) == 32 { bump(&mut t); } 0 }
+fn is_digit(c) -> int { if c >= 48 { if c <= 57 { 1 } else { 0 } } else { 0 } }
+fn is_alpha(c) -> int { if c >= 97 { if c <= 122 { 1 } else { 0 } } else { 0 } }
+fn ident(t: St) -> str { let b = t.i; while is_alpha(peek(&mut t)) == 1 { bump(&mut t); } str_sub(t.s, b, t.i - b) }
+fn number(t: St) -> int { let mut v = 0; while is_digit(peek(&mut t)) == 1 { v = v * 10 + (peek(&mut t) - 48); bump(&mut t); } v }
+fn lookup(t: St, n: str) -> int { let mut i = 0; while i < vec_len(t.names) { if vec_get(t.names, i) == n { return vec_get(t.vals, i); } i = i + 1; } 0 }
+fn setvar(t: St, n: str, v: int) -> int { let mut i = 0; while i < vec_len(t.names) { if vec_get(t.names, i) == n { vec_set(t.vals, i, v); return 0; } i = i + 1; } vec_push(t.names, n); vec_push(t.vals, v); 0 }
+fn atomv(t: St) -> int { skip_ws(&mut t); if is_digit(peek(&mut t)) == 1 { number(&mut t) } else { let n = ident(&mut t); lookup(&t, n) } }
+fn termv(t: St) -> int { let mut v = atomv(&mut t); skip_ws(&mut t); while peek(&mut t) == 42 { bump(&mut t); v = v * atomv(&mut t); skip_ws(&mut t); } v }
+fn exprv(t: St) -> int { let mut v = termv(&mut t); skip_ws(&mut t); while peek(&mut t) == 43 { bump(&mut t); v = v + termv(&mut t); skip_ws(&mut t); } v }
+fn stmt(t: St) -> int {
+  skip_ws(&mut t);
+  let save = t.i;
+  if is_alpha(peek(&mut t)) == 1 {
+    let n = ident(&mut t); skip_ws(&mut t);
+    if peek(&mut t) == 61 { bump(&mut t); let v = exprv(&mut t); setvar(&mut t, n, v); return v; }
+    t.i = save;
+  }
+  exprv(&mut t) }
+fn run(src: str) -> int {
+  let ns: Vec<str> = vec_new();
+  let vs: Vec<int> = vec_new();
+  let t = St { src, 0, ns, vs };
+  let mut last = 0;
+  while t.i < len(t.s) { last = stmt(&mut t); skip_ws(&mut t); if peek(&mut t) == 59 { bump(&mut t); } skip_ws(&mut t); }
+  last }
+print_int(run("x = 2; y = x * 3; y + 36"));
+print_int(run("a = 6; b = 7; a * b"));
+run("z = 40; z + 2")

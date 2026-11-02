@@ -1,0 +1,55 @@
+# S7 STAGE-BOUNDARY FREEZE (checker tiers: type / borrow / overflow / bounds / resolution) -- keeper-authorized 2026-08-10
+
+WHAT: the S7 checker-tier stage in s1_parser.rs is frozen at the checker stage boundary (design doc
+telos-achievement-design-2026-08-05.md section 2 Stage 7). A CHECKPOINT of the S-stage compiler; the final S-stage of
+the front-end pipeline (S1 lex/parse/AST -> S2 macros -> S3 resolve -> S4 HIR -> S5 typeck+traits -> S6 mono -> S7
+checkers). Pairs with STAGE-S2/S3/S4/S5/S6-FROZEN-AT.
+
+FROZEN ARTIFACT: sub-arcs/S7-checker-tiers/s1_parser.rs.S7-frozen
+  (byte-identical snapshot of S1-lex-parse-ast/s1_parser.rs at this freeze)
+  live source: sub-arcs/S1-lex-parse-ast/s1_parser.rs  (3512 lines, 266661 bytes)
+FROZEN AT COMMIT: (this commit)
+
+CAPABILITY FROZEN -- S7 TELOS CLOSED (dual-compiled rustc == rzrs stage0; S1-S6 gates held throughout):
+  s1_parser's //@S7CHECK post-parse emit_check(&ast) ACCEPT/REJECT VERDICT (and E-code) == rustc, CONSERVATIVELY
+  (Rule-14: never a false-reject of a valid program), across 28 witnesses, all GREEN + BOOTSTRAP rz==rc:
+    CHK-1 E0308  -- a fn whose block-tail bound var has a concrete type != the declared return type.
+    CHK-2 E0382  -- use-after-move: a non-Copy value moved (into a let) then reused (block_has_moved_reuse).
+    CHK-3 E0499/E0502 -- alias/mut-borrow: two borrows of one place where the earlier binding is used after the later
+      borrow (not both-shared, no shadowing) -> live-across conflict. Provably-safe liveness approximation.
+    CHK-4 E0080  -- overflow const-fold: a const/static init Bin of two int literals leaving the declared bounded-int range.
+    CHK-5 E0080  -- const-index OOB: an array-literal index with a LitInt index >= the literal length.
+    CHK-6 E0425  -- undefined call: a bare lowercase call naming no crate fn/const/static, no param/local, not drop
+      (skipped if the crate has any use/extern-crate/mod).
+  GROUP-A (triage 2026-07-28, unsound-accepts rustc rejects that L6 ran): 4/6 CLOSED -- consts_unsound_oob (CHK-5),
+  ints_overflow_add (CHK-4), borrow_use_after_move (CHK-2), recurse_undefined_call (CHK-6). 2 deferred as
+  machinery-blocked: closures_unsound_movecap (closure move-capture liveness -- subtle capture/use, false-reject risk),
+  ctrlflow_qmark_type_mismatch (E0277 From-trait, needs the trait solver). Recorded for a future rung.
+
+ARCHITECTURE: //@S7CHECK marker (10-byte sniff) -> emit_check(&ast); a pure post-parse Krate walk, NO Parser field, so
+S1-S6 goldens are untouched. Emits a single VERDICT line (an ACCEPT/REJECT decision, not a parity dump). Tier order in
+emit_check: E0080(overflow) -> E0080(index) -> E0425 -> E0308 -> E0382 -> E0499/E0502 -> ACCEPT.
+
+STAGE0 SUBSET FINDINGS (recorded during S7): S7-F1 -- the "R51 code-size ceiling" was a Pin-Art soft-mask; newstage0
+truncates on a multi-level loop inlined through a destructured Box/Option/Vec-index field (finding #8); FIX = extract
+every multi-level walk into a &Block/&Item/&Krate-param free fn. S7-F2 -- re-parsing a format!-built RETURNED record
+string via a byte-scan yields garbage in rz; FIX = operate on Vec-iter elements directly, never re-parse a returned
+record. Both disciplines are load-bearing for any further checker growth.
+
+GATES AT FREEZE: s7-check 28/28 GREEN (12 reject + 16 accept, zero false-rejects, BOOTSTRAP rz==rc on all); s1-ast 70;
+s2-expand 13; s3-resolve 56; s4-hir 11; s5-typeck 12; s6-mono 6. Trust gates carried -- S7 did NOT edit L6/stage0.
+
+INSTRUMENT: s7-check-diff.sh (EXPECTED = rustc ACCEPT/first-E-code; ACTUAL = //@S7CHECK VERDICT; BOOTSTRAP rz==rc).
+Witnesses: witnesses/chk0..chk6 + chkclose_* (the CHK-CLOSE differential).
+
+# SNAPSHOT RE-MINTED 2026-08-14 (keeper-directed, after the coherence residual): refreshed to the live s1_parser.rs
+# (5666 lines, 414872 bytes) after residual (A) coherence landed in the //@S7CHECK lane. CAPABILITY ADDED since the
+# S7 freeze (all VERDICT == rustc, BOOTSTRAP rz==rc, CONSERVATIVE Rule-14 no false-reject):
+#   - CHK-5 E0119 conflicting implementations (db2463aa): two trait-impls with a syntactically identical (trait, self-ty)
+#     header -> VERDICT E0119. impl_header_count + check_coherence_overlap (two single-level &Krate loops, finding 8).
+#   - CHK-6 E0117 orphan rule (b38b0853): impl <foreign-trait> for <primitive> -> VERDICT E0117. path_base + is_primitive_ty
+#     + is_local_trait + check_orphan; fires only when trait foreign AND self-ty primitive (a local trait or non-primitive
+#     self-ty ACCEPTs). Broader overlap (blanket/generic-arg unification) + orphan (foreign non-primitive self-types,
+#     #[fundamental]) are later rungs.
+# GATES AT RE-MINT (all GREEN): s7-check 30/30; s5-typeck 26; s1-ast; s2 13; s3-resolve 56 + realcrate 15; s4-hir 11 +
+#   hirres 13; s6-mono 6. Trust chain untouched (coherence edited ONLY s1_parser.rs + S7 witnesses/trajectory).

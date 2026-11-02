@@ -1,0 +1,2 @@
+use std::path::{Path, PathBuf};
+fn main() { let p = Path::new("/usr/lib/rustlib/x86_64/lib.rs"); println!("{:?} {:?} {:?} {:?} {} {}", p.file_name(), p.file_stem(), p.extension(), p.parent(), p.is_absolute(), p.components().count()); let mut pb = PathBuf::from("src"); pb.push("main.rs"); pb.set_extension("txt"); println!("{} {} {} {}", pb.display(), Path::new("a").join("b").join("c.rs").display(), pb.starts_with("src"), Path::new("x/y").is_relative()); }

@@ -1,0 +1,1 @@
+enum E { Foo { f: i64, g: bool }, Bar } fn k(e: &E) -> i64 { match e { E::Foo { f: 1, .. } => 1, E::Foo { f: x, g: true } => x * 10, E::Foo { f, g: false } => *f + 100, E::Bar => 0 } } fn main() { println!("{} {} {} {}", k(&E::Foo { f: 1, g: false }), k(&E::Foo { f: 3, g: true }), k(&E::Foo { f: 4, g: false }), k(&E::Bar)); }

@@ -1,0 +1,8 @@
+struct P { x: int, y: int }
+let ps: Vec<P> = vec_new();
+vec_push(ps, P { 10, 4 });
+vec_push(ps, P { 20, 8 });
+let mut t = 0;
+let mut i = 0;
+while i < vec_len(ps) { let p = vec_get(ps, i); t = t + p.x + p.y; i = i + 1; }
+t

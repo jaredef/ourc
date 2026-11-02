@@ -1,0 +1,5 @@
+fn main() {
+    let a = [1, 2, 3];
+    let i = 5;
+    println!("{}", a[i]);
+}

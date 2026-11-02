@@ -1,0 +1,1 @@
+#[derive(Debug, Default, PartialEq, Clone, Copy)] enum E { A, #[default] B, C } #[derive(Debug, Default)] struct S { e: E, n: i64 } fn main() { let e = E::default(); println!("{:?} {} {:?}", e, e == E::B, S::default()); }

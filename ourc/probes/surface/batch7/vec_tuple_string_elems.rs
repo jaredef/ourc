@@ -1,0 +1,1 @@
+fn main() { let v: Vec<(String, i64)> = vec![(String::from("a"), 1), (String::from("bc"), 2)]; println!("{} {}", v[0].0, v[1].1); let p = v[1].clone(); println!("{:?}", p); for q in v.iter() { print!("{} ", q.0); } println!(); }

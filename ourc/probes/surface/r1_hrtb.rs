@@ -1,0 +1,1 @@
+fn apply(f: &dyn for<'b> Fn(&'b i64) -> i64) -> i64 { f(&20) } fn twice<F>(f: F) -> i64 where F: for<'c> Fn(&'c i64) -> i64 { f(&1) + f(&2) } fn main(){ println!("{} {}", apply(&|v| v + 1), twice(|v| v * 10)); }

@@ -1,0 +1,4 @@
+# exit-42 via instruction macros.
+%exit42 400580d2300080d2011000d4
+exit42
+

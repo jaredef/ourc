@@ -1,0 +1,10 @@
+# Forward imm19 conditional branch reference.
+# ?54000000:body patches a b.eq word to branch over the failing exit.
+?54000000:body
+200080d2
+300080d2
+011000d4
+:body
+400580d2
+300080d2
+011000d4

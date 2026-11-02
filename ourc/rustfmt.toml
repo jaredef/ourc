@@ -1,0 +1,4 @@
+# ourc source formatting (rustfmt 1.9). ourc is compiled by SEM0, not rustc: formatting is checked to be
+# semantics-free by building the formatted crates and comparing every probe's emitted output (see fmt.sh).
+# String literals are never split by rustfmt -- the prelude in odrv.rs stays one long line.
+edition = "2021"

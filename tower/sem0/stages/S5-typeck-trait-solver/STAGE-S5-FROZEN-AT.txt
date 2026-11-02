@@ -1,0 +1,102 @@
+# S5 STAGE-BOUNDARY FREEZE (type inference + trait solver) -- keeper-authorized 2026-08-10
+
+WHAT: the S5 type-inference + trait-solver stage in s1_parser.rs is frozen at the typeck stage boundary (design doc
+telos-achievement-design-2026-08-05.md section 4). A CHECKPOINT of the S-stage compiler; the live s1_parser.rs continues
+into S6/S7. Pairs with STAGE-S2/S3/S4-FROZEN-AT. Supersedes STAGE-S5-HOIST-SURFACED.txt (the pending marker).
+
+FROZEN ARTIFACT: sub-arcs/S5-typeck-trait-solver/s1_parser.rs.S5-frozen
+  (byte-identical snapshot of S1-lex-parse-ast/s1_parser.rs at this freeze)
+  live source: sub-arcs/S1-lex-parse-ast/s1_parser.rs  (3054 lines, 236496 bytes)
+FROZEN AT COMMIT: (this commit)  [prior tip df2073c9]
+
+CAPABILITY FROZEN -- S5 TELOS CLOSED (dual-compiled rustc == rzrs stage0; S1+S2+S3+S4 gates held throughout):
+  s1_parser's //@S5TYPED post-parse emit_typed(&ast) typed-HIR dump == rustc -Zunpretty=hir,typed (every expr wrapped
+  "(EXPR as TYPE)"), across 11 witnesses + a composite:
+    TYPE INFERENCE: literal-default i32 + expected-type push-down (annotations/params/binop propagation); let-
+      propagation via the threaded env; binop result typing (arith -> operand, cmp/logical -> bool); block-tail/fn-ret
+      typing; unit.
+    CALLS/METHODS: fn-item types "fn(P) -> R {name}"; call result = ret type; args vs params; inherent method
+      resolution "Base::method" + &self body typing; struct field types.
+    GENERICS: generic-fn defs (uninstantiated type-params); MONOMORPHIZATION at the call site (infer type-args from
+      args, substitute, "id::<i32>" mono key).
+    TRAITS (the seed's TELOS): trait decls + impls; the OBLIGATION SOLVER -- a method call on a type-param receiver with
+      a "<X: T>" bound discharges via "T::method" (not name-lookup); multi-bound "<X: P + Q>" + explicit where-clauses;
+      associated-type decls + bindings.
+
+ARCHITECTURE: //@S5TYPED marker mode (10-byte sniff) dispatches post-parse to emit_typed(&ast) -- a PURE Krate walk, NO
+Parser field, so the Parser init sites + S1-S4 goldens are byte-untouched. The var->type ENV is an &TyEnv ctx param
+(keeper-decided 2026-08-10); veccopy per-stmt snapshot + env_type parallel-iterate keep-last lookup are the load-bearing
+rzrs-subset idioms (finding S5.1). Global tables (fns, fields, methods, trait methods, unit-struct values, type-param
+bounds) FOLD into the block env (no extra ctx param). Sig/mono helpers byte-scan &str params (subset-safe).
+
+GATES AT FREEZE: s5-typeck 11/11 GREEN; s1-ast GREEN; s2-expand 13/13; s3-resolve 56/0; s3-crate-native 12/0; s4-hir
+10/10. Trust gates (selfhost/provenance/corpus) carried -- S5 did NOT edit L6/stage0.
+
+INSTRUMENT: s5-typeck-diff.sh (EXPECTED = normalized rustc -Zunpretty=hir,typed; ACTUAL = //@S5TYPED "TYPED "-prefixed
+dump; both tr -s ws-collapsed; BOOTSTRAP rz==rc). Witnesses: witnesses/ty{0_scalar,2_annot,3_call,4_method,5_generic,
+5b_mono,6a_trait_decl,6_trait,7_where,8_assoc}.rs + ty_close_composite.rs.
+
+DEFERRED (recorded; not blocking the typed-HIR telos):
+  - TYCK-9 COHERENCE: rustc emits E0119 (an error), NOT typed HIR, on a conflicting-impl violation -> an ACCEPT/REJECT
+    verdict differential, a DIFFERENT instrument (arguably an S7 checker-tier concern). Keeper-directed: separate
+    accept/reject instrument, or route to S7.
+  - assoc-type PROJECTION "<X as Trait>::Item" + GAT (TYCK-8); transitive SUPERTRAIT chains (TYCK-7); generic inference
+    beyond arg=bare-type-var -- nested Vec<T>/return-position/multi-constraint (S5.3); residual typed-context exprs
+    (Struct-literal/Index/If/Match/Ref/Deref/Cast/Str/Char/Tuple/Array).
+  - S1-AST gaps (parsing-frozen -> S1-unfreezing candidates): closure move/ret-type/async (S4) + method receiver form
+    self / &mut self (S5.2).
+  - TYCK-F1 (dump()-path 174MB rz runaway on trait/generic input): a standalone S1-tier finding; the //@S5TYPED typed
+    path bypasses dump() (rz==rc throughout), so NOT S5-blocking.
+
+RESUME (S6/S7): the frozen s1_parser is the S5 baseline the next stage builds ON.
+
+# SNAPSHOT RE-MINTED 2026-08-10 (keeper-directed, commit b39005ec): refreshed to the live s1_parser.rs after the S1
+# UNFREEZE amendments (method receiver form + closure move/ret + async block/fn). All gates GREEN at re-mint (s1-ast,
+# s2-expand 13, s3-resolve 56 + crate-native 12, s4-hir 11, s5-typeck 12). The snapshot is again byte-identical to the
+# live source; the per-stage CAPABILITY described above is unchanged (S1 amendments only refined AST fidelity).
+
+# SNAPSHOT RE-MINTED 2026-08-14 (keeper-directed S5 HOIST, prior tip 2ebfa9db): refreshed to the live s1_parser.rs
+# (5559 lines, 408175 bytes) after the S5-DEFERRED set closed the residual typed-HIR projection surface. CAPABILITY
+# ADDED since the 2026-08-10 freeze (all == rustc -Zunpretty=hir,typed, BOOTSTRAP rz==rc, EMIT-path, no Parser field):
+#   - GENERIC-CONTEXT ASSOC PROJECTION (ty19): a method-ret `Self::Item` on a type-param receiver `T` (bound `T: Ct`)
+#     renders the QUALIFIED projection `<T as Ct>::Item` (not concretized, not raw Self::Item). project_assoc generic
+#     branch: concrete `assoc:<base>::<Item>` miss + a `bound:base` trait -> `<base as Trait>::Item`. [aef22ec5]
+#   - WHERE-CLAUSE / MULTI-PREDICATE PROJECTION (ty20): `where T: Ct, T: Mk` merges the repeated `bound:T` predicates
+#     into one ` + `-joined UNION (env_type keeps-last would else clobber, dropping method-res to unit). Inline
+#     last-match scan over the LOCAL pn/pt (a &Vec<String> param does NOT lower in rz -- finding S5-G). [9ce299e4]
+#   - GAT ASSOC-TYPE GENERICS RENDER (ty21): trait-item AssocTyDecl + impl-item TypeAlias now emit the `<X>` generics
+#     (`type Item<X>;` / `type Item<X> = X;`) via gparams_names(g); the S1 grammar already parsed them. [bf8185bd]
+# SUBSET FINDINGS added to the S5 ledger: S5-F ((String,String) tuple returns mis-lower inside a match arm -> single-
+#   String helpers, ty_arm_block/ty_block_tail); S5-G (&Vec<String> param does NOT lower in rz -> &TyEnv field access or
+#   an inline scan over LOCAL Vecs, mirroring env_type's &TyEnv shape).
+# GATES AT RE-MINT (all GREEN): s5-typeck 25/25; s1-ast GREEN; s2-expand 13; s3-resolve 56 + s3-realcrate 15; s4-hir 11
+#   + s4-hirres 13; s6-mono 6; s7-check 28. Trust gates carried -- the deferred set edited ONLY s1_parser.rs + S5
+#   witnesses/trajectory, NOT L6/stage0/hex.
+# DEFERRED-SET RESIDUALS (two, both KEEPER-SCALE, recorded 2026-08-14 [2ebfa9db], NOT in this frozen capability):
+#   - GAT PROJECTION-UNDER-INFERENCE: `t.get(0i32)` needs generic method-argument inference (infer X=i32 from the call
+#     arg) + GAT-arg substitution through `Self::Item<X>` -> `<T as Ct>::Item<i32>` + literal-suffix. Same subsystem
+#     class as full method-generic type inference; not a single-rung lift.
+#   - TYCK-9 COHERENCE (E0119/E0117): a REJECT verdict, not a hir,typed render; its correct owner is the S7 //@S7CHECK
+#     ACCEPT/REJECT lane (emit_check), which is ALSO FROZEN. Shallowest landable piece = an E0119 overlap detector (two
+#     &Krate loops counting identical (trait, self-ty) impl headers -> VERDICT E0119); orphan (E0117) additionally needs
+#     local-vs-foreign trait/type knowledge (S3 crate-graph). Both await a keeper-authorized S7 unfreeze/continuation.
+# The S5 typed-HIR render/projection surface within loop-rung reach is EXHAUSTED at this freeze.
+
+# SNAPSHOT RE-MINTED 2026-08-14 (keeper-directed, after the GAT residual): refreshed to the live s1_parser.rs (5666
+# lines, 414872 bytes) after residual (B) GAT projection-under-inference B3 landed. CAPABILITY ADDED:
+#   - B3 GAT-arg substitution (29bc43ec): at ty_of(Method), when the ret carries a GAT arg <X> that is the k-th formal
+#     param's type (a method type-param bound by the call arg), infer X from that argument's actual type and splice it
+#     into the projection -> `<T as Ct>::Item<i32>` (ty22_gatproj == rustc). ret_gat_arg / param_pos_of / splice_first_gat
+#     (all &str; args iterated inline -- a &Vec<ExprK> param would not lower, S5-G). B2 (method-arg render) was already
+#     correct for a typed param arg; non-GAT rets pass through project_assoc unchanged (ty18/ty19 no regression).
+# FINDING S5-H (B1 literal-suffix -- a DEEP-RZ LIFT, NOT landable): preserving an integer-literal type suffix (`0i32`
+#   renders `0i32` + types by the suffix; `5u8` types u8 not i32) requires a SECOND FIELD on Tok::Int / ExprK::LitInt
+#   (value + suffix). BOTH a String field AND a Copy i64-tag field were tried: each GLOBALLY SEGFAULTS rz on the largest
+#   S5 witness (ty_close_composite) while cg6 + a small suffixed witness pass -- so it is the 2-FIELD-NESS of the
+#   ultra-hot literal variant, matched/constructed at scale, that the rz stage0 cannot lower (finding-4 realized at the
+#   payload level; finding-8 global-segfault). The blocker is BELOW the parser in the rz toolchain's variant-lowering
+#   codegen (same class as the CD-22 struct-layout LIFT), so B1 is out of reach even under keeper S1-unfreeze authorization;
+#   it is a deep-rz-substrate LIFT. Reverted per Rule-13 (verified: String and i64-tag fail identically; small witnesses
+#   pass). B1 remains the one open residual, owner = rz stage0 codegen (not S1 logic).
+# GATES AT RE-MINT (all GREEN): s5-typeck 26/26 (composite green post-B1-revert); s7-check 30; s1-ast; s2 13; s3-resolve
+#   56 + realcrate 15; s4-hir 11 + hirres 13; s6-mono 6. Trust chain untouched.

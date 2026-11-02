@@ -1,0 +1,1 @@
+struct A { b: i64 } impl Drop for A { fn drop(&mut self) { println!("drop {}", self.b); } } fn main(){ let v = vec![A { b: 1 }, A { b: 2 }]; for x in &v { println!("in {}", x.b); } for y in v.iter() { println!("it {}", y.b); } println!("after"); }

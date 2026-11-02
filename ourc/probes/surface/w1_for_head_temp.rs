@@ -1,0 +1,1 @@
+struct A { b: i64 } impl Drop for A { fn drop(&mut self) { println!("drop {}", self.b); } } fn main(){ for _x in &[A { b: 1 }, A { b: 2 }] { println!("in"); } for _ in &[A { b: 7 }] { println!("in"); } println!("after"); }

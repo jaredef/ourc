@@ -1,0 +1,5 @@
+[toolchain]
+# The ORACLE rustc for every gate (gauge, full tests/ui run, surface, board, tower oracle steps): 1.99.1, matching the
+# rustc-1.99.1-src tests/ui tree. Pinned 2026-10-29 (was the host default 1.98.1 while seeds named 1.95).
+channel = "1.99.1"
+profile = "minimal"

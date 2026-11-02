@@ -1,0 +1,4 @@
+fn if
+  v0: i32 = const 0
+  ret v0
+end

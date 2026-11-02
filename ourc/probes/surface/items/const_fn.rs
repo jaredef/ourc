@@ -1,0 +1,1 @@
+const fn sq(x: i64) -> i64 { x * x } const N: i64 = sq(4); struct A { v: u32 } impl A { const fn new(v: u32) -> A { A { v } } const fn get(&self) -> u32 { self.v } } fn main() { let a = A::new(7); println!("{} {} {}", sq(3), N, a.get()); }

@@ -1,0 +1,1 @@
+fn main() { let a: i32 = i32::MAX; let b = a.wrapping_add(1); let c: u8 = 200; let d = c.checked_add(100); let e = (-7i64).rem_euclid(3); let f = 7i64.pow(3); let g = (-8i64) >> 1; println!("{} {:?} {} {} {} {}", b, d, e, f, g, u64::MAX); }

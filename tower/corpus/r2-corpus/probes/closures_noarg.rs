@@ -1,0 +1,4 @@
+fn main() {
+    let f = || 42;
+    println!("{}", f());
+}

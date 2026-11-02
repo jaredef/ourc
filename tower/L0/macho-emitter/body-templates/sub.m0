@@ -1,0 +1,5 @@
+# M0-authored arm64 exit body for flat rzir fixture: sub -> 38.
+%mov_x0_38 c00480d2
+mov_x0_38
+mov_x16_exit
+svc_0x80

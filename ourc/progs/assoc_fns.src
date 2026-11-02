@@ -1,0 +1,10 @@
+struct Pt { x: int, y: int }
+impl Pt {
+  fn new(a: int, b: int) -> Self { Pt { a, b } }
+  fn origin() -> Self { Pt { 0, 0 } }
+  fn sum(self) -> int { self.x + self.y }
+}
+let p = Pt::new(20, 22);
+let o = Pt::origin();
+print_int(p.sum());
+p.sum() + o.sum()

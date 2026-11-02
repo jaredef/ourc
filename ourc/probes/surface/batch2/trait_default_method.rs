@@ -1,0 +1,1 @@
+trait Shape { fn area(&self) -> i64; fn name(&self) -> String { String::from("shape") } } struct Sq(i64); impl Shape for Sq { fn area(&self) -> i64 { self.0 * self.0 } } fn main() { let s = Sq(4); println!("{} {}", s.name(), s.area()); }

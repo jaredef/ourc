@@ -1,0 +1,1 @@
+enum S { P { a: i64, b: i64 }, Q } fn f(s: S) -> i64 { let S::P { a, b } = s else { return -1; }; a * 10 + b } fn main() { let x = if true { 1 } else { 2 }; println!("{} {} {}", f(S::P { a: 4, b: 2 }), f(S::Q), x); }

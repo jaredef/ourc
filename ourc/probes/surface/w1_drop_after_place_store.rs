@@ -1,0 +1,1 @@
+struct A { b: i64 } impl Drop for A { fn drop(&mut self) { println!("drop {}", self.b); } } fn main(){ { let mut v = vec![A { b: 1 }, A { b: 2 }]; for x in v.iter_mut() { x.b += 10; } } { let mut p = A { b: 3 }; p.b = 9; } println!("after"); }

@@ -1,0 +1,49 @@
+Crate
+  Item Enum@0..73 vis=pub ident=Level
+    Variant ident=Bug Unit
+    Variant ident=Error Unit
+    Variant ident=Warning Unit
+    Variant ident=Note Unit
+    Variant ident=Help Unit
+  Item Struct@73..128 vis=pub ident=Span
+    Field vis=pub ident=lo Ty Path u32
+    Field vis=pub ident=hi Ty Path u32
+  Item Struct@128..304 vis=pub ident=Diagnostic
+    Field vis=pub ident=level Ty Path Level
+    Field vis=pub ident=message Ty Path String
+    Field vis=pub ident=span Ty Path Option<Ty Path Span>
+    Field vis=pub ident=children Ty Path Vec<Ty Path SubDiagnostic>
+    Field vis=pub ident=code Ty Path Option<Ty Ref('static Ty Path str)>
+  Item Struct@304..409 vis=pub ident=SubDiagnostic
+    Field vis=pub ident=level Ty Path Level
+    Field vis=pub ident=message Ty Path String
+    Field vis=pub ident=span Ty Path Option<Ty Path Span>
+  Item Impl@409..1215 Ty Path Diagnostic
+    Item Fn@431..674 vis=pub ident=new
+      Param name=level Ty Path Level
+      Param name=message Ty Impl(Into<Ty Path String>)
+      Ret Ty Path Self
+      Block(Expr Expr Struct(Diagnostic, [level: Expr Path level, message: Expr Method(Expr Path message, into, []), span: Expr Path None, children: Expr Call(Expr Path Vec::new, []), code: Expr Path None]))
+    Item Fn@674..776 vis=pub ident=span
+      Param name=&mut self ImplicitSelf
+      Param name=sp Ty Path Span
+      Ret Ty Ref(mut Ty Path Self)
+      Block(Semi Expr Assign(Expr Field(Expr Path self, span) = Expr Call(Expr Path Some, [Expr Path sp])); Expr Expr Path self)
+    Item Fn@776..895 vis=pub ident=with_code
+      Param name=&mut self ImplicitSelf
+      Param name=code Ty Ref('static Ty Path str)
+      Ret Ty Ref(mut Ty Path Self)
+      Block(Semi Expr Assign(Expr Field(Expr Path self, code) = Expr Call(Expr Path Some, [Expr Path code])); Expr Expr Path self)
+    Item Fn@895..1117 vis=pub ident=note
+      Param name=&mut self ImplicitSelf
+      Param name=msg Ty Ref(Ty Path str)
+      Ret Ty Ref(mut Ty Path Self)
+      Block(Semi Expr Method(Expr Field(Expr Path self, children), push, [Expr Struct(SubDiagnostic, [level: Expr Path Level::Note, message: Expr Method(Expr Path msg, to_string, []), span: Expr Path None])]); Expr Expr Path self)
+    Item Fn@1117..1212 vis=pub ident=is_error
+      Param name=&self ImplicitSelf
+      Ret Ty Path bool
+      Block(Expr Expr MacCall(matches ! Paren[self . level , Level :: Bug | Level :: Error]))
+  Item Fn@1215..1312 vis=pub ident=emit
+    Param name=diags Ty Ref(Ty Slice(Ty Path Diagnostic))
+    Ret Ty Path usize
+    Block(Expr Expr Method(Expr Method(Expr Method(Expr Path diags, iter, []), filter, [Expr Closure([Pat Ident d], Expr Method(Expr Path d, is_error, []))]), count, []))

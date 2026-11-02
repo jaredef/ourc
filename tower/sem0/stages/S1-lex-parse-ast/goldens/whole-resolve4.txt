@@ -1,0 +1,91 @@
+Crate
+  Item Use@0..32 vis=priv
+    Use Simple std::collections::HashMap
+  Item Struct@32..138 vis=pub ident=DefId
+    Attr derive(Clone, Copy, PartialEq, Eq, Hash)
+    Field vis=pub ident=krate Ty Path u32
+    Field vis=pub ident=index Ty Path u32
+  Item Struct@138..190 vis=pub ident=NodeId
+    Attr derive(Clone, Copy)
+    Tuple(Ty Path u32)
+  Item Enum@190..269 vis=pub ident=Namespace
+    Attr derive(Clone, Copy)
+    Variant ident=Type Unit
+    Variant ident=Value Unit
+    Variant ident=Macro Unit
+  Item Enum@269..371 vis=pub ident=Res
+    Attr derive(Clone)
+    Variant ident=Def Tuple(Ty Path DefId, Ty Path Namespace)
+    Variant ident=Local Tuple(Ty Path NodeId)
+    Variant ident=SelfTy Unit
+    Variant ident=Err Unit
+  Item Enum@371..431 vis=pub ident=ScopeKind
+    Variant ident=Module Unit
+    Variant ident=Block Unit
+    Variant ident=Closure Unit
+  Item Struct@431..508 vis=pub ident=Rib
+    Field vis=priv ident=kind Ty Path ScopeKind
+    Field vis=priv ident=bindings Ty Path HashMap<Ty Path String, Ty Path Res>
+  Item Impl@508..796 Ty Path Rib
+    Item Fn@523..624 vis=pub ident=new
+      Param name=kind Ty Path ScopeKind
+      Ret Ty Path Rib
+      Block(Expr Expr Struct(Rib, [kind: Expr Path kind, bindings: Expr Call(Expr Path HashMap::new, [])]))
+    Item Fn@624..793 vis=pub ident=get
+      Param name=&self ImplicitSelf
+      Param name=name Ty Ref(Ty Path str)
+      Ret Ty Path Option<Ty Path Res>
+      Block(Expr Expr Match(Expr Method(Expr Field(Expr Path self, bindings), get, [Expr Path name]), [Arm(Pat TupleStruct(Some, [Pat Ident r]) => Expr Call(Expr Path Some, [Expr Method(Expr Path r, clone, [])])), Arm(Pat Ident None => Expr Path None)]))
+  Item Struct@796..863 vis=pub ident=Segment
+    Field vis=pub ident=ident Ty Path String
+    Field vis=pub ident=id Ty Path NodeId
+  Item Enum@863..950 vis=pub ident=PathResult
+    Variant ident=Resolved Tuple(Ty Path Res)
+    Variant ident=Unresolved Tuple(Ty Path String)
+    Variant ident=Indeterminate Unit
+  Item Mod@950..1205 vis=priv ident=prim
+    Item Fn@965..1123 vis=pub ident=is_prim
+      Param name=name Ty Ref(Ty Path str)
+      Ret Ty Path bool
+      Block(Expr Expr Match(Expr Path name, [Arm(Pat Lit(Expr Str "u32") => Expr LitBool true), Arm(Pat Lit(Expr Str "bool") => Expr LitBool true), Arm(Pat Wild => Expr LitBool false)]))
+    Item Mod@1123..1202 vis=pub ident=tables
+      Item Fn@1148..1200 vis=pub ident=arity
+        Ret Ty Path u32
+        Block(Expr Expr LitInt 5)
+  Item Struct@1205..1329 vis=pub ident=Resolver<'a>
+    Field vis=priv ident=session Ty Ref('a Ty Path str)
+    Field vis=priv ident=ribs Ty Path Vec<Ty Path Rib>
+    Field vis=priv ident=next Ty Path u32
+    Field vis=priv ident=definitions Ty Path HashMap<Ty Path u32, Ty Path DefId>
+  Item Impl@1329..2887<'a> Ty Path Resolver<Ty Lifetime 'a>
+    Item Fn@1357..1557 vis=pub ident=new
+      Param name=session Ty Ref('a Ty Path str)
+      Ret Ty Path Resolver<Ty Lifetime 'a>
+      Block(Let Pat Ident ribs = Expr MacCall(vec ! Bracket[Rib :: new ( ScopeKind :: Module )]); Expr Expr Struct(Resolver, [session: Expr Path session, ribs: Expr Path ribs, next: Expr LitInt 0, definitions: Expr Call(Expr Path HashMap::new, [])]))
+    Item Fn@1557..1686 vis=pub ident=fresh
+      Param name=&mut self ImplicitSelf
+      Ret Ty Path NodeId
+      Block(Let Pat Ident id = Expr Field(Expr Path self, next); Semi Expr Assign(Expr Field(Expr Path self, next) = Expr Bin Add(Expr Field(Expr Path self, next), Expr LitInt 1)); Expr Expr Call(Expr Path NodeId, [Expr Path id]))
+    Item Fn@1686..1894 vis=pub ident=with_scope<F> where Ty Path F: FnOnce(Ty Ref(mut Ty Path Resolver<Ty Lifetime 'a>))
+      Param name=&mut self ImplicitSelf
+      Param name=kind Ty Path ScopeKind
+      Param name=body Ty Path F
+      Ret Default
+      Block(Semi Expr Method(Expr Field(Expr Path self, ribs), push, [Expr Call(Expr Path Rib::new, [Expr Path kind])]); Semi Expr Call(Expr Path body, [Expr Path self]); Semi Expr Method(Expr Field(Expr Path self, ribs), pop, []))
+    Item Fn@1894..2193 vis=pub ident=define
+      Param name=&mut self ImplicitSelf
+      Param name=name Ty Impl(Into<Ty Path String>)
+      Param name=index Ty Path u32
+      Ret Default
+      Block(Let Pat Ident def = Expr Struct(DefId, [krate: Expr LitInt 0, index: Expr Path index]); Semi Expr Method(Expr Field(Expr Path self, definitions), insert, [Expr Path index, Expr Path def]); Let Pat Ident last = Expr Bin Sub(Expr Method(Expr Field(Expr Path self, ribs), len, []), Expr LitInt 1); Semi Expr Method(Expr Field(Expr Index(Expr Field(Expr Path self, ribs), Expr Path last), bindings), insert, [Expr Method(Expr Path name, into, []), Expr Call(Expr Path Res::Def, [Expr Path def, Expr Path Namespace::Value])]))
+    Item Fn@2193..2472 vis=pub ident=resolve_ident
+      Param name=&self ImplicitSelf
+      Param name=name Ty Ref(Ty Path str)
+      Ret Ty Path Option<Ty Path Res>
+      Block(Let Pat Ident depth = Expr Method(Expr Method(Expr Method(Expr Field(Expr Path self, ribs), iter, []), rev, []), position, [Expr Closure([Pat Ident rib], Expr Method(Expr Method(Expr Path rib, get, [Expr Path name]), is_some, []))]); Expr Expr Match(Expr Path depth, [Arm(Pat TupleStruct(Some, [Pat Ident d]) => Expr Method(Expr Index(Expr Field(Expr Path self, ribs), Expr Bin Sub(Expr Bin Sub(Expr Method(Expr Field(Expr Path self, ribs), len, []), Expr LitInt 1), Expr Path d)), get, [Expr Path name])), Arm(Pat Ident None => Expr Path None)]))
+    Item Fn@2472..2885 vis=pub ident=resolve_path<P> where Ty Path P: FnMut(Ty Ref(Ty Path Res)) -> Ty Path bool
+      Param name=&self ImplicitSelf
+      Param name=segs Ty Path Vec<Ty Path Segment>
+      Param name=pred Ty Path P
+      Ret Ty Path PathResult
+      Block(Let Pat Wild = Expr Path pred; Expr Expr ForLoop(Pat Ident seg in Expr Path segs, Block(Expr Expr Match(Expr Method(Expr Path self, resolve_ident, [Expr AddrOf(Expr Field(Expr Path seg, ident))]), [Arm(Pat TupleStruct(Some, [Pat Ident res]) => Expr Ret(Expr Call(Expr Path PathResult::Resolved, [Expr Path res]))), Arm(Pat Ident None => Expr Ret(Expr Call(Expr Path PathResult::Unresolved, [Expr Field(Expr Path seg, ident)])))]))); Expr Expr Path PathResult::Indeterminate)

@@ -1,0 +1,17 @@
+A/arith OK
+A/exit0_explicit OK
+A/exit1 OK
+A/exit3 OK
+A/exit_after_print OK
+A/plain_main OK
+A/return_early OK
+B/empty OK
+B/extra_closer OK
+B/garbage OK
+B/stray_closer OK
+B/unterminated_brace OK
+B/unterminated_brack OK
+B/unterminated_paren OK
+B/unterminated_str OK
+B/valid_fn OK
+B/valid_small OK

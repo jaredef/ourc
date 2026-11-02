@@ -1,0 +1,1 @@
+#[derive(PartialEq, Debug, Clone, Copy)] enum Foo { A, B } struct P { x: i64 } impl PartialEq for P { fn eq(&self, o: &P) -> bool { self.x % 10 == o.x % 10 } } fn main() { let a = Foo::A; let b = Foo::B; println!("{} {} {} {}", a.eq(&a), a.ne(&b), P { x: 13 }.eq(&P { x: 23 }), 5i64 == 5); }

@@ -1,0 +1,1 @@
+fn main() { let mut b = Box::new(vec![1, 2]); b.push(3); let s: i32 = b.iter().sum(); println!("{} {}", b.len(), s); let mut t = Box::new(String::from("ab")); t.push_str("cd"); println!("{}", t.len()); }

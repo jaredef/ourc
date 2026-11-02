@@ -1,0 +1,52 @@
+Crate
+  Item Use@500..590 vis=priv
+    Use Simple std::collections::HashMap
+  Item Struct@590..699 vis=pub ident=HirId
+    Attr derive(Clone, Copy, PartialEq)
+    Tuple(Ty Path u32)
+  Item Struct@699..825 vis=pub ident=ItemId
+    Attr derive(Clone, Copy)
+    Field vis=pub ident=owner Ty Path u32
+  Item Struct@825..1147 vis=pub ident=BodyId
+    Field vis=pub ident=hir_id Ty Path HirId
+  Item Enum@1147..1394 vis=pub ident=ExprKind<'hir>
+    Variant ident=Lit Tuple(Ty Path i64)
+    Variant ident=Path Tuple(Ty Ref('hir Ty Path str))
+    Variant ident=Call Tuple(Ty Ref('hir Ty Path Expr<Ty Lifetime 'hir>), Ty Ref('hir Ty Slice(Ty Path Expr<Ty Lifetime 'hir>)))
+    Variant ident=Binary Tuple(Ty Ref('hir Ty Path Expr<Ty Lifetime 'hir>), Ty Ref('hir Ty Path Expr<Ty Lifetime 'hir>))
+    Variant ident=Block Tuple(Ty Ref('hir Ty Path Block<Ty Lifetime 'hir>))
+  Item Struct@1394..1544 vis=pub ident=Expr<'hir>
+    Field vis=pub ident=hir_id Ty Path HirId
+    Field vis=pub ident=kind Ty Path ExprKind<Ty Lifetime 'hir>
+  Item Struct@1544..1707 vis=pub ident=Block<'hir>
+    Field vis=pub ident=stmts Ty Ref('hir Ty Slice(Ty Path Expr<Ty Lifetime 'hir>))
+    Field vis=pub ident=expr Ty Path Option<Ty Ref('hir Ty Path Expr<Ty Lifetime 'hir>)>
+  Item Struct@1707..1851 vis=pub ident=Body<'hir>
+    Field vis=pub ident=params Ty Ref('hir Ty Slice(Ty Path HirId))
+    Field vis=pub ident=value Ty Ref('hir Ty Path Expr<Ty Lifetime 'hir>)
+  Item Enum@1851..2305 vis=pub ident=Node<'hir>
+    Variant ident=Expr Tuple(Ty Ref('hir Ty Path Expr<Ty Lifetime 'hir>))
+    Variant ident=Block Tuple(Ty Ref('hir Ty Path Block<Ty Lifetime 'hir>))
+    Variant ident=Body Tuple(Ty Ref('hir Ty Path Body<Ty Lifetime 'hir>))
+  Item Struct@2305..2412 vis=pub ident=Map<'hir>
+    Field vis=priv ident=nodes Ty Path HashMap<Ty Path u32, Ty Path Node<Ty Lifetime 'hir>>
+    Field vis=priv ident=bodies Ty Path HashMap<Ty Path u32, Ty Ref('hir Ty Path Body<Ty Lifetime 'hir>)>
+  Item Impl@2412..3650<'hir> Ty Path Map<Ty Lifetime 'hir>
+    Item Fn@2471..2672 vis=pub ident=new
+      Ret Ty Path Map<Ty Lifetime 'hir>
+      Block(Expr Expr Struct(Map, [nodes: Expr Call(Expr Path HashMap::new, []), bodies: Expr Call(Expr Path HashMap::new, [])]))
+    Item Fn@2672..2816 vis=pub ident=find
+      Param name=&self ImplicitSelf
+      Param name=id Ty Path HirId
+      Ret Ty Path Option<Ty Ref(Ty Path Node<Ty Lifetime 'hir>)>
+      Block(Expr Expr Method(Expr Field(Expr Path self, nodes), get, [Expr AddrOf(Expr Field(Expr Path id, 0))]))
+    Item Fn@2816..3287 vis=pub ident=body_value
+      Param name=&self ImplicitSelf
+      Param name=id Ty Path BodyId
+      Ret Ty Path Option<Ty Ref('hir Ty Path Expr<Ty Lifetime 'hir>)>
+      Block(Expr Expr Match(Expr Method(Expr Field(Expr Path self, bodies), get, [Expr AddrOf(Expr Field(Expr Field(Expr Path id, hir_id), 0))]), [Arm(Pat TupleStruct(Some, [Pat Ident body]) => Expr Call(Expr Path Some, [Expr Field(Expr Path body, value)])), Arm(Pat Ident None => Expr Path None)]))
+    Item Fn@3287..3648 vis=pub ident=classify<'a>
+      Param name=&self ImplicitSelf
+      Param name=expr Ty Ref('hir Ty Path Expr<Ty Lifetime 'hir>)
+      Ret Ty Path u32
+      Block(Expr Expr Match(Expr AddrOf(Expr Field(Expr Path expr, kind)), [Arm(Pat TupleStruct(ExprKind::Lit, [Pat Wild]) => Expr LitInt 1), Arm(Pat TupleStruct(ExprKind::Path, [Pat Wild]) => Expr LitInt 2), Arm(Pat TupleStruct(ExprKind::Call, [Pat Ident callee, Pat Wild]) => Expr Method(Expr Path self, classify, [Expr Path callee])), Arm(Pat TupleStruct(ExprKind::Binary, [Pat Ident lhs, Pat Ident rhs]) => Expr Bin Add(Expr Method(Expr Path self, classify, [Expr Path lhs]), Expr Method(Expr Path self, classify, [Expr Path rhs]))), Arm(Pat TupleStruct(ExprKind::Block, [Pat Wild]) => Expr LitInt 5)]))

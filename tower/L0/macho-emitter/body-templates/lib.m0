@@ -1,0 +1,4 @@
+# Shared M0-authored arm64 exit-body vocabulary.
+%mov_x16_exit 300080d2
+%svc_0x80 011000d4
+

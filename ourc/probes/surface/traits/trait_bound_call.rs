@@ -1,0 +1,1 @@
+trait Area { fn area(&self) -> i64; } struct Sq { s: i64 } impl Area for Sq { fn area(&self) -> i64 { self.s * self.s } } fn tot<T: Area>(x: &T) -> i64 { x.area() } fn main() { println!("{}", tot(&Sq { s: 6 }) + 6); }

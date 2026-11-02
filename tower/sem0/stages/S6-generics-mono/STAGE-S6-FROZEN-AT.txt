@@ -1,0 +1,46 @@
+# S6 STAGE-BOUNDARY FREEZE (generics + monomorphization) -- keeper-authorized 2026-08-10
+
+WHAT: the S6 monomorphization-collector stage in s1_parser.rs is frozen at the mono stage boundary (design doc
+telos-achievement-design-2026-08-05.md section 2 Stage 6). A CHECKPOINT of the S-stage compiler; the live s1_parser.rs
+continues into S7. Pairs with STAGE-S2/S3/S4/S5-FROZEN-AT. Supersedes STAGE-S6-HOIST-SURFACED.txt.
+
+FROZEN ARTIFACT: sub-arcs/S6-generics-mono/s1_parser.rs.S6-frozen
+  (byte-identical snapshot of S1-lex-parse-ast/s1_parser.rs at this freeze)
+  live source: sub-arcs/S1-lex-parse-ast/s1_parser.rs  (3218 lines, 250335 bytes)
+FROZEN AT COMMIT: (this commit)  [prior tip e0de2234]
+
+CAPABILITY FROZEN -- S6 TELOS CLOSED (dual-compiled rustc == rzrs stage0; S1-S5 gates held throughout):
+  s1_parser's //@S6MONO post-parse emit_mono(&ast) mono-item SET == rustc -Zprint-mono-items=yes (user-crate filtered),
+  across 6 witnesses, all GREEN + BOOTSTRAP rz==rc:
+    ROOTS: each non-generic top-level fn collected bare.
+    MULTI-PARAM: `pair::<u8, i32>` -- each distinct type-arg-SET a distinct instance (id::<i32> AND id::<u8> both, NOT
+      i32-fallback-collapsed -- the exact L6 name-mangling miscompile this fixes).
+    TRANSITIVE: an instantiated generic body's own generic calls collected under substitution (wrap::<u8> -> id::<u8>);
+      worklist to fixpoint via depth-capped recursion (mono_instance <-> mono_walk_expr/block; build_instance_env +
+      subst_all; no &mut worklist; the instrument's sort -u dedups).
+    GENERIC-TYPE METHODS: a method on a `W<u8>` receiver -> `W::<u8>::get` (has_angle + gtype_base/gtype_args).
+    CONST-GENERIC: an explicit turbofish `arr::<3>()` (callee_turbofish + render_targ).
+    DEDUP: same instance reached multiple ways collected once.
+  A real substitution-driven collector (reusing S5's mono_type/infer_gparam/subst_var/base_of_sig/starts_generic + the
+  &TyEnv idiom) replacing L6's single-dominant-type name-mangling.
+
+ARCHITECTURE: //@S6MONO marker (9-byte sniff) -> emit_mono(&ast); a pure post-parse Krate walk, NO Parser field, so
+S1-S5 goldens are untouched. Side-effect printer (`MONO <key>` per item; instrument sorts+uniqs). Helpers byte-scan
+&str params (subset-safe). S1-F1 discipline: rz==rc gate = the witness BOOTSTRAP, never the self-dump.
+
+GATES AT FREEZE: s6-mono 6/6 GREEN; s1-ast GREEN; s2-expand 13; s3-resolve 56; s3-crate-native 12; s4-hir 11;
+s5-typeck 12. Trust gates carried -- S6 did NOT edit L6/stage0.
+
+INSTRUMENT: s6-mono-diff.sh. Witnesses: witnesses/mono0_multiparam / mono1_transitive / mono2_typemethod /
+mono3_recursion / mono4_constgeneric / mono_close_composite.
+
+DEFERRED (recorded; keeper-decided 2026-08-10 = accept as ceiling-blocked, NOT pursued now):
+  - FINDING S6-R51: the mono collector (~20 fns) has reached the rzrs-subset R51 CODE-SIZE CEILING. Struct-literal
+    inference for UN-annotated generic-struct locals is CORRECT under rustc but adding its ~6 helpers (or any 3-level
+    nested loop) mis-compiles the whole rz stage0 binary (bisected: one helper OK, the cumulative set SEGFAULTS).
+    Closing it (and the other deferrals) needs a REFACTOR shrinking the mono area, or a stage0/R51 investigation. The
+    ANNOTATION path already works (`let a: W<u8> = ..` -> W::<u8>::get); only the un-annotated case is blocked.
+  - trait-impl method instances `<A as T>::m`; method-BODY transitivity (a generic method calling further generics);
+    int-literal suffix (an S1-AST change, keeper-gated); drop-glue/vtable/dyn-dispatch shims (filtered by the instrument).
+
+RESUME (S7): the frozen s1_parser is the S6 baseline the S7 checker-tiers stage builds ON.

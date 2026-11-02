@@ -1,0 +1,14 @@
+# Output:
+#   00
+#   label A at offset 1
+#   aa
+#   &A -> 01 00 00 00
+#   label E at offset 6
+#   &E -> 06 00 00 00
+00
+:A
+aa
+&A
+:E
+&E
+

@@ -1,0 +1,1 @@
+fn main() { let v: Vec<(String, u32)> = vec![("a".into(), 1), ("b".into(), 2)]; let r = v.iter().find(|(k, _)| k.as_str() == "b"); match r { Some(t) => println!("{} {}", t.0, t.1), None => println!("none") } }

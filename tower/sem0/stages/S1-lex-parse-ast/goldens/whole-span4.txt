@@ -1,0 +1,90 @@
+Crate
+  Item Use@0..31 vis=priv
+    Use Simple std::collections::HashMap
+  Item Use@31..58 vis=priv
+    Use Nested std::ops { Simple Add, Simple Sub }
+  Item Trait@58..147 vis=pub ident=Pos
+    Item Fn@78..115 vis=priv ident=from_usize
+      Param name=n Ty Path usize
+      Ret Ty Path Self
+      Body None
+    Item Fn@115..144 vis=priv ident=to_usize
+      Param name=&self ImplicitSelf
+      Ret Ty Path usize
+      Body None
+  Item Struct@147..238 vis=pub ident=BytePos
+    Attr derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)
+    Tuple(Ty Path u32)
+  Item Struct@238..331 vis=pub ident=CharPos
+    Attr derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)
+    Tuple(Ty Path usize)
+  Item Impl@331..494 Ty Path Pos for Ty Path BytePos
+    Item Fn@358..431 vis=priv ident=from_usize
+      Param name=n Ty Path usize
+      Ret Ty Path BytePos
+      Block(Expr Expr Call(Expr Path BytePos, [Expr Cast(Expr Path n, Ty Path u32)]))
+    Item Fn@431..491 vis=priv ident=to_usize
+      Param name=&self ImplicitSelf
+      Ret Ty Path usize
+      Block(Expr Expr Cast(Expr Field(Expr Path self, 0), Ty Path usize))
+  Item Impl@494..629 Ty Path Add for Ty Path BytePos
+    Item TypeAlias@521..548 vis=priv ident=Output
+      = Ty Path BytePos
+    Item Fn@548..626 vis=priv ident=add
+      Param name=self ImplicitSelf
+      Param name=rhs Ty Path BytePos
+      Ret Ty Path BytePos
+      Block(Expr Expr Call(Expr Path BytePos, [Expr Bin Add(Expr Field(Expr Path self, 0), Expr Field(Expr Path rhs, 0))]))
+  Item Impl@629..764 Ty Path Sub for Ty Path BytePos
+    Item TypeAlias@656..683 vis=priv ident=Output
+      = Ty Path BytePos
+    Item Fn@683..761 vis=priv ident=sub
+      Param name=self ImplicitSelf
+      Param name=rhs Ty Path BytePos
+      Ret Ty Path BytePos
+      Block(Expr Expr Call(Expr Path BytePos, [Expr Bin Sub(Expr Field(Expr Path self, 0), Expr Field(Expr Path rhs, 0))]))
+  Item Struct@764..840 vis=pub ident=SyntaxContext
+    Attr derive(Clone, Copy, PartialEq, Eq, Hash)
+    Tuple(Ty Path u32)
+  Item Impl@840..994 Ty Path SyntaxContext
+    Item Fn@865..933 vis=pub ident=root
+      Ret Ty Path SyntaxContext
+      Block(Expr Expr Call(Expr Path SyntaxContext, [Expr LitInt 0]))
+    Item Fn@933..991 vis=pub ident=is_root
+      Param name=&self ImplicitSelf
+      Ret Ty Path bool
+      Block(Expr Expr Bin Eq(Expr Field(Expr Path self, 0), Expr LitInt 0))
+  Item Struct@994..1130 vis=pub ident=Span
+    Attr derive(Clone, Copy, PartialEq, Eq, Hash)
+    Field vis=pub ident=lo Ty Path BytePos
+    Field vis=pub ident=hi Ty Path BytePos
+    Field vis=pub ident=ctxt Ty Path SyntaxContext
+  Item Impl@1130..1883 Ty Path Span
+    Item Fn@1146..1257 vis=pub ident=new
+      Param name=lo Ty Path BytePos
+      Param name=hi Ty Path BytePos
+      Ret Ty Path Span
+      Block(Expr Expr Struct(Span, [lo: Expr Path lo, hi: Expr Path hi, ctxt: Expr Call(Expr Path SyntaxContext::root, [])]))
+    Item Fn@1257..1342 vis=pub ident=with_lo
+      Param name=&self ImplicitSelf
+      Param name=lo Ty Path BytePos
+      Ret Ty Path Span
+      Block(Expr Expr Struct(Span, [lo: Expr Path lo, ..Expr Deref(Expr Path self)]))
+    Item Fn@1342..1410 vis=pub ident=len
+      Param name=&self ImplicitSelf
+      Ret Ty Path u32
+      Block(Expr Expr Bin Sub(Expr Field(Expr Field(Expr Path self, hi), 0), Expr Field(Expr Field(Expr Path self, lo), 0)))
+    Item Fn@1410..1526 vis=pub ident=contains
+      Param name=&self ImplicitSelf
+      Param name=other Ty Path Span
+      Ret Ty Path bool
+      Block(Expr Expr Bin And(Expr Bin Le(Expr Field(Expr Field(Expr Path self, lo), 0), Expr Field(Expr Field(Expr Path other, lo), 0)), Expr Bin Le(Expr Field(Expr Field(Expr Path other, hi), 0), Expr Field(Expr Field(Expr Path self, hi), 0))))
+    Item Fn@1526..1741 vis=pub ident=to
+      Param name=&self ImplicitSelf
+      Param name=end Ty Path Span
+      Ret Ty Path Span
+      Block(Let Pat Ident lo = Expr If(Expr Bin Lt(Expr Field(Expr Field(Expr Path self, lo), 0), Expr Field(Expr Field(Expr Path end, lo), 0)), Block(Expr Expr Field(Expr Path self, lo)), Expr Block(Block(Expr Expr Field(Expr Path end, lo)))); Let Pat Ident hi = Expr If(Expr Bin Gt(Expr Field(Expr Field(Expr Path self, hi), 0), Expr Field(Expr Field(Expr Path end, hi), 0)), Block(Expr Expr Field(Expr Path self, hi)), Expr Block(Block(Expr Expr Field(Expr Path end, hi)))); Expr Expr Call(Expr Path Span::new, [Expr Path lo, Expr Path hi]))
+    Item Fn@1741..1881 vis=pub ident=is_dummy
+      Param name=&self ImplicitSelf
+      Ret Ty Path bool
+      Block(Expr Expr Match(Expr Tuple([Expr Field(Expr Field(Expr Path self, lo), 0), Expr Field(Expr Field(Expr Path self, hi), 0)]), [Arm(Pat Tuple(Pat Lit(Expr LitInt 0), Pat Lit(Expr LitInt 0)) => Expr LitBool true), Arm(Pat Wild => Expr LitBool false)]))

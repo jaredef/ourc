@@ -1,0 +1,1 @@
+use std::fmt::Display; fn foo(f: impl Display + Clone) -> String { let g = f.clone(); format!("{} + {}", f, g) } fn twice(x: impl Copy + std::ops::Add<Output = i64>) -> i64 { x + x } fn main() { println!("{} {} {}", foo(format!("22")), foo(7), twice(5)); }

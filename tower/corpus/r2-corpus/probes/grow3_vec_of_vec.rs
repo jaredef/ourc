@@ -1,0 +1,1 @@
+fn main(){ let mut g:Vec<Vec<i64>>=Vec::new(); for i in 0..3i64 { let mut r=Vec::new(); for j in 0..3i64 { r.push(i*3+j); } g.push(r); } let mut s=0i64; for i in 0..3usize { for j in 0..3usize { s+=g[i][j]; } } println!("{}", s); }

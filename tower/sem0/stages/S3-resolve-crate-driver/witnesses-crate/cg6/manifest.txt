@@ -1,0 +1,5 @@
+# crate-driver fixture manifest: <file> crate=<name> [root=1] [mod=1] [dep=1]
+# main crate: main.rs (root) + geometry.rs (sibling mod); deputil: a stubbed dep crate.
+main.rs crate=main root=1
+geometry.rs crate=main mod=1
+deputil.rs crate=deputil dep=1

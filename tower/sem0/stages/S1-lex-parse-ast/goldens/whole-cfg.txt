@@ -1,0 +1,27 @@
+Crate
+  Item Struct@0..73 vis=pub ident=Config
+    Field vis=priv ident=level Ty Path u32
+    Field vis=priv ident=ratio Ty Path f64
+    Field vis=priv ident=name Ty Path String
+  Item Impl@73..574 Ty Path Config
+    Item Const@91..130 vis=pub ident=DEFAULT_LEVEL
+      Ty Path u32
+      Expr LitInt 3
+    Item Fn@130..292 vis=pub ident=tweak
+      Param name=base Ty Path Config
+      Param name=up Ty Path bool
+      Ret Ty Path Config
+      Block(Let Pat Ident lvl = Expr If(Expr Path up, Block(Expr Expr Bin Add(Expr Field(Expr Path base, level), Expr LitInt 1)), Expr Block(Block(Expr Expr Field(Expr Path base, level)))); Expr Expr Struct(Config, [level: Expr Path lvl, ..Expr Path base]))
+    Item Fn@292..357 vis=pub ident=score
+      Param name=&self ImplicitSelf
+      Ret Ty Path f64
+      Block(Expr Expr Bin Mul(Expr Field(Expr Path self, ratio), Expr LitFloat 1.5))
+    Item Fn@357..571 vis=pub ident=pick
+      Param name=&self ImplicitSelf
+      Param name=opt Ty Path Option<Ty Path u32>
+      Ret Ty Path u32
+      Block(Expr Expr If(Expr Let(Pat TupleStruct(Some, [Pat Ident x]) = Expr Path opt), Block(Expr Expr Path x), Expr If(Expr Bin Gt(Expr Field(Expr Path self, level), Expr Path Self::DEFAULT_LEVEL), Block(Expr Expr Field(Expr Path self, level)), Expr Block(Block(Expr Expr LitInt 0)))))
+  Item Mod@574..634 vis=priv ident=inner
+    Item Fn@590..632 vis=pub ident=helper
+      Ret Ty Path i32
+      Block(Expr Expr Unary Neg(Expr LitInt 3))

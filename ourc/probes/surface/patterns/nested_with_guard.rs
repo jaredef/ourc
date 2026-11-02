@@ -1,0 +1,1 @@
+enum E { A(Option<i64>), B } fn f(e: E) -> i64 { match e { E::A(Some(v)) if v > 10 => v, E::A(Some(v)) => 0 - v, E::A(None) => 1, E::B => 2 } } fn main() { println!("{} {} {}", f(E::A(Some(40))), f(E::A(Some(3))), f(E::B)); }

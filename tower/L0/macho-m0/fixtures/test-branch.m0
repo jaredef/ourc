@@ -1,0 +1,10 @@
+# Multi-character label with a forward arm64 b reference.
+@body
+00000000
+00000000
+00000000
+:body
+400580d2
+300080d2
+011000d4
+

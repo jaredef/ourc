@@ -1,0 +1,1 @@
+enum Op { Add(i64, i64), Neg(i64) } fn ev(o: &Op) -> i64 { match o { Op::Add(a, b) => a + b, Op::Neg(a) => -a } } fn main() { let ops = vec![Op::Add(2, 3), Op::Neg(4)]; for o in &ops { println!("{}", ev(o)); } }

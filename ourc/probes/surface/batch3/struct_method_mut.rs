@@ -1,0 +1,1 @@
+struct Stack { v: Vec<i64> } impl Stack { fn new() -> Self { Stack { v: Vec::new() } } fn push(&mut self, x: i64) { self.v.push(x); } fn pop(&mut self) -> Option<i64> { self.v.pop() } } fn main() { let mut s = Stack::new(); s.push(1); s.push(2); println!("{:?} {:?} {:?}", s.pop(), s.pop(), s.pop()); }

@@ -1,0 +1,6 @@
+mod shapes;
+mod nums;
+let q = shapes::mk(6);
+print_int(shapes::area(&q));
+print_int(nums::triple(14));
+shapes::area(&q) + nums::triple(2) - 0

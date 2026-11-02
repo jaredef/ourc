@@ -1,0 +1,1901 @@
+[
+{
+"area": "ints",
+"name": "ints_abs",
+"category": "MISCOMP",
+"derived": "ok:-12345",
+"oracle": "ok:12345",
+"feature": "i32 abs()",
+"reduction": "a.abs() returns the receiver unchanged; .abs() is a no-op in the derived frontend (unknown method passes receiver through). Same root as pow/min/max/saturating_add."
+},
+{
+"area": "ints",
+"name": "ints_pow",
+"category": "MISCOMP",
+"derived": "ok:2",
+"oracle": "ok:1099511627776",
+"feature": "i64 pow(40)",
+"reduction": "a.pow(40) returns receiver (2) unchanged; pow method unimplemented, treated as identity on receiver."
+},
+{
+"area": "ints",
+"name": "ints_min_max",
+"category": "MISCOMP",
+"derived": "ok:5",
+"oracle": "ok:14",
+"feature": "i32 min/max",
+"reduction": "a.min(b)/a.max(b) return receiver a(=5) => prints 5; min/max unimplemented (identity on receiver)."
+},
+{
+"area": "ints",
+"name": "ints_saturating",
+"category": "MISCOMP",
+"derived": "ok:200",
+"oracle": "ok:255",
+"feature": "u8 saturating_add",
+"reduction": "a.saturating_add(100) returns receiver (200) unchanged; saturating_add unimplemented (identity on receiver)."
+},
+{
+"area": "ints",
+"name": "ints_checked_none",
+"category": "MISCOMP",
+"derived": "ok:(empty)",
+"oracle": "ok:overflow",
+"feature": "u8 checked_add None arm",
+"reduction": "checked_add value does not match the None arm as rustc does; match prints nothing. Option-returning checked_* arithmetic unsupported."
+},
+{
+"area": "ints",
+"name": "ints_hex_bin_oct",
+"category": "MISCOMP",
+"derived": "ok:255",
+"oracle": "ok:280",
+"feature": "0b/0o integer literals",
+"reduction": "0xff parses (255) but 0b1010 and 0o17 contribute 0; binary/octal literal prefixes mis-lexed to 0. Reduce: println!(\"{}\",0b1010) => 0 instead of 10."
+},
+{
+"area": "ints",
+"name": "ints_i64_cast_i32",
+"category": "MISCOMP",
+"derived": "ok:4294967297",
+"oracle": "ok:1",
+"feature": "i64 as i32 truncation",
+"reduction": "(0x1_0000_0001 as i32) not truncated to low 32 bits; narrowing as-cast is a no-op."
+},
+{
+"area": "ints",
+"name": "ints_i8_neg_cast",
+"category": "MISCOMP",
+"derived": "ok:200",
+"oracle": "ok:-56",
+"feature": "u8 as i8 sign reinterpret",
+"reduction": "200u8 as i8 should reinterpret to -56; derived keeps 200. Narrowing/sign-reinterpret casts unimplemented."
+},
+{
+"area": "ints",
+"name": "ints_signed_shr",
+"category": "MISCOMP",
+"derived": "ok:1073741760",
+"oracle": "ok:-64",
+"feature": "signed i32 arithmetic shift-right",
+"reduction": "-256 >> 2 done as logical (unsigned) shift => 1073741760 instead of arithmetic -64; signedness of >> not tracked (32-bit unsigned value model)."
+},
+{
+"area": "ints",
+"name": "ints_u64_big",
+"category": "MISCOMP",
+"derived": "ok:4294967295",
+"oracle": "ok:18446744073709551615",
+"feature": "u64 max literal",
+"reduction": "u64::MAX literal truncated to 32 bits; pervasive 32-bit value model. Reduce: println!(\"{}\",4294967296u64) => 0."
+},
+{
+"area": "ints",
+"name": "ints_overflow_add",
+"category": "UNSOUND",
+"derived": "ok:garbled",
+"oracle": "REJECT",
+"feature": "compile-time i32 overflow const 2147483647+1",
+"reduction": "rustc rejects the const-evaluable overflow at compile time even under -O; derived accepts and runs, printing a truncated value. Frontend does no const-overflow check."
+},
+{
+"area": "slices",
+"name": "slices_arr_sum",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:15:0",
+"feature": "[T;N].iter().sum()",
+"reduction": "a.iter().sum() called directly on an array [i32;N] yields a garbage pointer-like value (24117256); the equivalent through a slice ref (see subslice OK) is correct. Root: array-direct .iter() autoref not lowered to a slice iterator."
+},
+{
+"area": "slices",
+"name": "slices_contains",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:1:0",
+"feature": "[T;N].contains(&x)",
+"reduction": "a.contains(&6) on an array returns garbage, not a bool; same array-direct method-dispatch defect as arr_sum (identical 24117256 signature)."
+},
+{
+"area": "slices",
+"name": "slices_iter_count",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:3:0",
+"feature": ".iter().filter().count()",
+"reduction": "filter+count over array .iter() returns garbage; array-direct iterator chain miscompiled (same 24117256 signature)."
+},
+{
+"area": "slices",
+"name": "slices_max_min",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:91:0",
+"feature": ".iter().max()/.min()",
+"reduction": "*a.iter().max().unwrap() on an array segfaults (SIGSEGV 139); array-direct iterator returning Option then deref crashes."
+},
+{
+"area": "slices",
+"name": "slices_first_last",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:508:0",
+"feature": ".first()/.last()",
+"reduction": "*a.first().unwrap() on array segfaults; Option<&T> from array accessor mishandled."
+},
+{
+"area": "slices",
+"name": "slices_windows",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:20:0",
+"feature": ".windows(2)",
+"reduction": "for w in a.windows(2) segfaults; windows iterator on array not implemented/miscompiled."
+},
+{
+"area": "slices",
+"name": "slices_chunks",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:375:0",
+"feature": ".chunks(2)",
+"reduction": "for c in a.chunks(2) segfaults; chunks iterator on array not implemented/miscompiled."
+},
+{
+"area": "slices",
+"name": "slices_sort",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:12345:0",
+"feature": ".sort() then for x in a",
+"reduction": "a.sort() (or the subsequent by-value `for x in a`) segfaults; in-place sort on a stack array mishandled."
+},
+{
+"area": "slices",
+"name": "slices_sort_by",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:54321:0",
+"feature": ".sort_by(closure)",
+"reduction": "a.sort_by(|x,y| y.cmp(x)) segfaults; comparator-driven sort on array unimplemented/crashes."
+},
+{
+"area": "slices",
+"name": "slices_reverse",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:4321:0",
+"feature": ".reverse() then for x in a",
+"reduction": "a.reverse() then by-value iteration segfaults; in-place mutation of stack array then move-iter crashes."
+},
+{
+"area": "slices",
+"name": "slices_split_at",
+"category": "MISCOMP",
+"derived": "ok:102:0",
+"oracle": "ok:312:0",
+"feature": ".split_at(n)",
+"reduction": "split_at(2) on [1..5] should give sub-sums 3 and 12 (->312); derived produced 102, i.e. it did not split at index 2 correctly. split_at tuple/len handling wrong."
+},
+{
+"area": "slices",
+"name": "slices_binsearch",
+"category": "MISCOMP",
+"derived": "ok::0",
+"oracle": "ok:3:0",
+"feature": ".binary_search(&x)",
+"reduction": "binary_search(&7) should be Ok(3); derived prints nothing yet exits 0 -> the Ok/Err match arm produced no output; binary_search Result not wired."
+},
+{
+"area": "slices",
+"name": "slices_oob",
+"category": "UNSOUND",
+"derived": "ok:0:0",
+"oracle": "REJECT",
+"feature": "const-OOB index a[5]",
+"reduction": "rustc -O rejects a[5] on [i32;3] (const-eval OOB, deny-by-default lint); derived compiles and prints 0 with no bounds check -> silent OOB read. Minimal: let i=5; a[i] on a len-3 array."
+},
+{
+"area": "strs",
+"name": "strs_chars_count",
+"category": "MISCOMP",
+"derived": "ok:hello",
+"oracle": "ok:5",
+"feature": "chars/count",
+"reduction": "s.chars().count() unimplemented; the .chars().count() chain is elided and the receiver string is printed instead of 5"
+},
+{
+"area": "strs",
+"name": "strs_bytes_sum",
+"category": "MISCOMP",
+"derived": "ok:13853284",
+"oracle": "ok:294",
+"feature": "bytes",
+"reduction": "for b in \"abc\".bytes() yields garbage; bytes() iterator not implemented, loop body sums pointer/garbage words -> 13853284"
+},
+{
+"area": "strs",
+"name": "strs_find",
+"category": "MISCOMP",
+"derived": "ok:hello world",
+"oracle": "ok:6",
+"feature": "find",
+"reduction": "s.find(\"world\").unwrap() returns the receiver string; find() not implemented, unknown method returns receiver"
+},
+{
+"area": "strs",
+"name": "strs_find_none",
+"category": "MISCOMP",
+"derived": "ok:hello",
+"oracle": "ok:true",
+"feature": "find/is_none",
+"reduction": "find()+is_none() chain elided; receiver 'hello' printed instead of bool true"
+},
+{
+"area": "strs",
+"name": "strs_contains",
+"category": "MISCOMP",
+"derived": "ok:hello world",
+"oracle": "ok:true",
+"feature": "contains",
+"reduction": "contains() not implemented; returns receiver string instead of bool"
+},
+{
+"area": "strs",
+"name": "strs_starts_ends",
+"category": "MISCOMP",
+"derived": "ok:filename.txt 0",
+"oracle": "ok:true true",
+"feature": "starts_with/ends_with",
+"reduction": "starts_with returns receiver string, ends_with returns 0; neither bool predicate implemented"
+},
+{
+"area": "strs",
+"name": "strs_replace",
+"category": "MISCOMP",
+"derived": "ok:a.b.c",
+"oracle": "ok:a-b-c",
+"feature": "replace",
+"reduction": "replace() not implemented; returns receiver unchanged"
+},
+{
+"area": "strs",
+"name": "strs_trim",
+"category": "MISCOMP",
+"derived": "ok:[  hi  ]",
+"oracle": "ok:[hi]",
+"feature": "trim",
+"reduction": "trim() no-op; returns receiver with whitespace intact"
+},
+{
+"area": "strs",
+"name": "strs_trim_start",
+"category": "MISCOMP",
+"derived": "ok:[  hi]",
+"oracle": "ok:[hi]",
+"feature": "trim_start",
+"reduction": "trim_start() no-op; returns receiver unchanged"
+},
+{
+"area": "strs",
+"name": "strs_split_count",
+"category": "MISCOMP",
+"derived": "ok:a,b,c,d",
+"oracle": "ok:4",
+"feature": "split/count",
+"reduction": "split(',').count() elided; receiver string printed instead of 4"
+},
+{
+"area": "strs",
+"name": "strs_split_collect",
+"category": "MISCOMP",
+"derived": "ok:a,b,c",
+"oracle": "ok:b",
+"feature": "split/collect",
+"reduction": "split().collect::<Vec<&str>>() then v[1] prints whole receiver; split/collect not implemented"
+},
+{
+"area": "strs",
+"name": "strs_splitn",
+"category": "MISCOMP",
+"derived": "ok:k=v=w k=v=w",
+"oracle": "ok:k v=w",
+"feature": "splitn",
+"reduction": "splitn(2,'=').next() returns receiver each call; splitn iterator not implemented"
+},
+{
+"area": "strs",
+"name": "strs_split_ws",
+"category": "MISCOMP",
+"derived": "ok:  foo   bar baz ",
+"oracle": "ok:3",
+"feature": "split_whitespace",
+"reduction": "split_whitespace().count() elided; receiver printed instead of 3"
+},
+{
+"area": "strs",
+"name": "strs_uppercase",
+"category": "MISCOMP",
+"derived": "ok:abc",
+"oracle": "ok:ABC",
+"feature": "to_uppercase",
+"reduction": "to_uppercase() no-op; returns receiver lowercase"
+},
+{
+"area": "strs",
+"name": "strs_parse",
+"category": "MISCOMP",
+"derived": "ok:7340037",
+"oracle": "ok:43",
+"feature": "parse",
+"reduction": "\"42\".parse::<i32>().unwrap()+1 yields garbage 7340037; parse() returns pointer-like garbage, not 42"
+},
+{
+"area": "strs",
+"name": "strs_parse_err",
+"category": "MISCOMP",
+"derived": "ok:abc",
+"oracle": "ok:true",
+"feature": "parse/is_err",
+"reduction": "parse().is_err() chain elided; receiver 'abc' printed instead of bool true"
+},
+{
+"area": "strs",
+"name": "strs_repeat",
+"category": "MISCOMP",
+"derived": "ok:ab",
+"oracle": "ok:ababab",
+"feature": "repeat",
+"reduction": "\"ab\".repeat(3) not implemented; returns receiver unrepeated"
+},
+{
+"area": "iters",
+"name": "iters_zip",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:140:0",
+"feature": "zip",
+"reduction": "a.iter().zip(b.iter()).map(|(x,y)|x*y).sum() prints the fixed garbage constant 24117256 (0x1700008); zip adapter + tuple-pattern closure arg is unimplemented, frontend emits a stub address instead of iterating."
+},
+{
+"area": "iters",
+"name": "iters_flatmap",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:6:0",
+"feature": "flat_map",
+"reduction": "flat_map(|&x|(0..x)).count() yields the same 24117256 stub; flat_map returning a nested range iterator is not lowered."
+},
+{
+"area": "iters",
+"name": "iters_chain",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:10:0",
+"feature": "chain",
+"reduction": "a.iter().chain(b.iter()).sum() -> 24117256 stub constant; chain adapter unimplemented."
+},
+{
+"area": "iters",
+"name": "iters_scan",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:20:0",
+"feature": "scan",
+"reduction": "scan(0,|acc,x|{*acc+=x;Some(*acc)}).sum() -> 24117256 stub; scan with mutable state accumulator unimplemented."
+},
+{
+"area": "iters",
+"name": "iters_takewhile",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:10:0",
+"feature": "take_while",
+"reduction": "(1..100).take_while(|&x|x<5).sum() -> 24117256 stub; take_while predicate adapter unimplemented (contrast: take works)."
+},
+{
+"area": "iters",
+"name": "iters_skipwhile",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:24:0",
+"feature": "skip_while",
+"reduction": "(1..10).skip_while(|&x|x<7).sum() -> 24117256 stub; skip_while unimplemented (contrast: skip works)."
+},
+{
+"area": "iters",
+"name": "iters_any",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:true:0",
+"feature": "any",
+"reduction": "v.iter().any(|&x|x==2) prints 24117256 instead of bool 'true'; any() terminal + bool Display via {} both mishandled, returns stub constant."
+},
+{
+"area": "iters",
+"name": "iters_all",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:true:0",
+"feature": "all",
+"reduction": "v.iter().all(|&x|x%2==0) prints 24117256 instead of 'true'; all() terminal unimplemented."
+},
+{
+"area": "iters",
+"name": "iters_peekable",
+"category": "MISCOMP",
+"derived": "ok:24117270:0",
+"oracle": "ok:7:0",
+"feature": "peekable/peek",
+"reduction": "peekable().peek() gives 24117270 (stub 0x1700008 + garbage from the +s sum); peek/peekable unimplemented."
+},
+{
+"area": "iters",
+"name": "iters_position",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:2:0",
+"feature": "position",
+"reduction": "v.iter().position(|&x|x==7).unwrap() crashes (SIGSEGV, exit 139, empty output); position() returns Option that is not built, unwrap dereferences the stub."
+},
+{
+"area": "iters",
+"name": "iters_minmax",
+"category": "MISCOMP",
+"derived": "ok::101",
+"oracle": "ok:8:0",
+"feature": "min/max",
+"reduction": "*v.iter().min().unwrap() aborts (exit 101, empty output); min()/max() return Option not properly constructed, unwrap panics/aborts."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_pushpop",
+"category": "MISCOMP",
+"derived": "ok:24121363:0",
+"oracle": "ok:7:0",
+"feature": "push/pop",
+"reduction": "push then pop().unwrap() returns a garbage pointer value instead of 4; pop is not implemented (returns uninitialized/pointer)."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_insert",
+"category": "MISCOMP",
+"derived": "ok:4:0",
+"oracle": "ok:7:0",
+"feature": "insert",
+"reduction": "v.insert(2,3) is a no-op; v[2] stays 4 and v[3] is out-of-range garbage-free path so sum reflects unshifted vec \u2014 insert does not shift/grow."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_remove",
+"category": "MISCOMP",
+"derived": "ok:24117259:0",
+"oracle": "ok:22:0",
+"feature": "remove",
+"reduction": "v.remove(1) returns garbage pointer (not 20) and does not shrink; return value of remove unimplemented."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_retain",
+"category": "MISCOMP",
+"derived": "ok:21:0",
+"oracle": "ok:12:0",
+"feature": "retain",
+"reduction": "retain(closure) is a no-op; sum stays 21 (full 1..6) instead of 12 (evens) \u2014 predicate never filters."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_dedup",
+"category": "MISCOMP",
+"derived": "ok:7:0",
+"oracle": "ok:4:0",
+"feature": "dedup",
+"reduction": "dedup is a no-op; len stays 7 (original) instead of 4."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_extend",
+"category": "MISCOMP",
+"derived": "ok:3:0",
+"oracle": "ok:15:0",
+"feature": "extend",
+"reduction": "v.extend(vec![...]) is a no-op; sum stays 3 ([1,2]) instead of 15 \u2014 extend does not append."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_contains",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:1:0",
+"feature": "contains",
+"reduction": "v.contains(&x) returns a garbage pointer rather than a bool; `as i64` of it prints heap address."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_sortbykey",
+"category": "MISCOMP",
+"derived": "ok:312:0",
+"oracle": "ok:123:0",
+"feature": "sort_by_key",
+"reduction": "sort_by_key is a no-op; vec stays [3,1,2] -> prints 312 instead of sorted 123."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_drain",
+"category": "MISCOMP",
+"derived": "ok:24117261:0",
+"oracle": "ok:8:0",
+"feature": "drain",
+"reduction": "v.drain(1..3) yields a garbage pointer sum and does not remove elements; drain range unimplemented."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_truncate",
+"category": "MISCOMP",
+"derived": "ok:5:0",
+"oracle": "ok:2:0",
+"feature": "truncate",
+"reduction": "truncate(2) is a no-op; len stays 5."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_swap",
+"category": "MISCOMP",
+"derived": "ok:123:0",
+"oracle": "ok:321:0",
+"feature": "swap",
+"reduction": "v.swap(0,2) is a no-op; order stays 1,2,3 instead of 3,2,1."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_itermut",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:60:0",
+"feature": "iter_mut mutation",
+"reduction": "for x in v.iter_mut() { *x *= 10 } segfaults (exit 139, no output); iter_mut mutable deref-store unsupported."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_firstlast",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:16:0",
+"feature": "first/last",
+"reduction": "first()/last() unwrap returns garbage pointer instead of element value 7/9."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_isempty",
+"category": "MISCOMP",
+"derived": "ok:48234512:0",
+"oracle": "ok:1:0",
+"feature": "is_empty",
+"reduction": "is_empty() returns a garbage pointer not a bool; sum of two `as i64` casts prints an address."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_clear",
+"category": "MISCOMP",
+"derived": "ok:3:0",
+"oracle": "ok:0:0",
+"feature": "clear",
+"reduction": "clear() is a no-op; len stays 3 instead of 0."
+},
+{
+"area": "vecmeth",
+"name": "vecmeth_swapremove",
+"category": "MISCOMP",
+"derived": "ok:241172562:0",
+"oracle": "ok:24:0",
+"feature": "swap_remove",
+"reduction": "swap_remove(1) returns garbage pointer and does not move last elem into the hole; concatenation prints pointer followed by unshifted v[1]."
+},
+{
+"area": "patterns",
+"name": "patterns_or_mismatch",
+"category": "REJECT-OK",
+"derived": "REJECT: non-exhaustive patterns",
+"oracle": "REJECT",
+"feature": "binding absent in one or-alt (invalid)",
+"reduction": "Both reject E::A(n)|E::B(_); derived's diagnostic is non-exhaustive rather than the true 'variable not bound in all patterns', but rejection is correct."
+},
+{
+"area": "patterns",
+"name": "patterns_or_variant",
+"category": "GAP",
+"derived": "REJECT: non-exhaustive patterns",
+"oracle": "ok:9",
+"feature": "or-pattern across enum variants E::A(n)|E::B(n)",
+"reduction": "Minimal: `match v { E::A(n) | E::B(n) => n, E::C(n) => n+1 }`. Derived does not treat a single variant-spanning or-arm as covering both variants, so exhaustiveness check fails. Frontend models or-patterns per-alternative but loses that both A and B are matched by one arm."
+},
+{
+"area": "patterns",
+"name": "patterns_nested_enum",
+"category": "MISCOMP",
+"derived": "ok:(empty output), exit0",
+"oracle": "ok:7",
+"feature": "nested enum pattern W::X(E::B(n))",
+"reduction": "`match W::X(E::B(7)) { W::X(E::B(n)) => n, ... }` binds nothing usable: derived runs but println emits empty. Nested variant-in-variant destructure fails to extract the inner payload n; the value threaded to println is wrong/empty."
+},
+{
+"area": "patterns",
+"name": "patterns_at_nested",
+"category": "MISCOMP",
+"derived": "ok:(empty),exit0",
+"oracle": "ok:12",
+"feature": "@ binding nested inside enum variant E::N(x @ 1..=10)",
+"reduction": "`E::N(x @ 1..=10) => x*3` \u2014 same class as nested_enum: an @ binding one level inside a variant pattern doesn't bind; println prints empty. Combines @-binding with nested destructure."
+},
+{
+"area": "patterns",
+"name": "patterns_ref_binding",
+"category": "MISCOMP",
+"derived": "ok:(empty),exit0",
+"oracle": "ok:70",
+"feature": "ref/deref pattern Some(&n)",
+"reduction": "`match v.first() { Some(&n) => n+sum, ... }` \u2014 the by-reference sub-pattern Some(&n) fails to bind n (the dereferenced value); output empty. Reference-destructuring patterns unsupported/miscompiled."
+},
+{
+"area": "patterns",
+"name": "patterns_ref_mut",
+"category": "MISCOMP",
+"derived": "ok:5",
+"oracle": "ok:15",
+"feature": "ref mut binding mutating through pattern",
+"reduction": "`match n { ref mut x => *x += 10 }` then print n. Derived prints 5 (unchanged) vs 15: the `ref mut x` binding does not alias the scrutinee, so `*x += 10` writes a copy. Pattern-created mutable references are not wired to the original storage."
+},
+{
+"area": "patterns",
+"name": "patterns_struct_bind",
+"category": "MISCOMP",
+"derived": "ok:0",
+"oracle": "ok:24",
+"feature": "struct field-rename binding P{x:a,y:b}",
+"reduction": "`let P{x:a,y:b}=p; a*b` yields 0 not 24. Field-to-new-name struct destructuring in a let binds a and b to 0; struct pattern field extraction with renamed bindings is broken."
+},
+{
+"area": "patterns",
+"name": "patterns_tuple_nested",
+"category": "MISCOMP",
+"derived": "ok:0",
+"oracle": "ok:5",
+"feature": "nested tuple destructure in let ((a,_),(_,d))",
+"reduction": "`let ((a,_),(_,d)) = ((1,2),(3,4)); a+d` yields 0 not 5. Nested tuple destructuring in a let binds inner elements to 0; only one level of tuple projection is handled."
+},
+{
+"area": "patterns",
+"name": "patterns_struct_dotdot",
+"category": "MISCOMP",
+"derived": "ok:(empty),exit139",
+"oracle": "ok:1",
+"feature": "struct pattern with .. rest, let S{a,..}",
+"reduction": "`let S{a,..}=s;` then print a -> derived segfaults (139). The `..` rest in a struct pattern is mishandled, corrupting field-offset resolution and crashing at runtime."
+},
+{
+"area": "patterns",
+"name": "patterns_slice",
+"category": "MISCOMP",
+"derived": "ok:(empty),exit139",
+"oracle": "ok:5",
+"feature": "slice pattern with rest [first,..,last]",
+"reduction": "`match a { [first,..,last] => first+last }` on [1,2,3,4] segfaults (139). Slice/array subslice patterns with `..` are unsupported; the frontend emits code that dereferences bad offsets."
+},
+{
+"area": "genenum",
+"name": "genenum_and_then",
+"category": "MISCOMP",
+"derived": "ok:4:0",
+"oracle": "ok:40:0",
+"feature": "Option::and_then",
+"reduction": "and_then ignores the closure's returned Option and yields the original inner value (4) instead of the mapped Some(40); combinator is a no-op."
+},
+{
+"area": "genenum",
+"name": "genenum_filter",
+"category": "MISCOMP",
+"derived": "ok:5:0",
+"oracle": "ok:-1:0",
+"feature": "Option::filter",
+"reduction": "filter never applies the predicate (5 is odd -> should become None -> unwrap_or(-1)); returns original Some(5)."
+},
+{
+"area": "genenum",
+"name": "genenum_or",
+"category": "MISCOMP",
+"derived": "ok::101",
+"oracle": "ok:9:0",
+"feature": "Option::or",
+"reduction": "None.or(Some(9)) not substituted; unwrap on still-None panics (exit 101) instead of yielding 9."
+},
+{
+"area": "genenum",
+"name": "genenum_get_or_insert",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:8:0",
+"feature": "Option::get_or_insert",
+"reduction": "get_or_insert(8) on None does not insert; deref of returned ref reads 0 instead of 8."
+},
+{
+"area": "genenum",
+"name": "genenum_map_err",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:103:0",
+"feature": "Result::map_err",
+"reduction": "map_err returns garbage (uninitialized/pointer-like 24117256); closure e+100 not applied to Err payload."
+},
+{
+"area": "genenum",
+"name": "genenum_map_or",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:4:0",
+"feature": "Option::map_or",
+"reduction": "map_or(default, f) yields garbage instead of f(3)=4; two-arg default+closure combinator unimplemented."
+},
+{
+"area": "genenum",
+"name": "genenum_ok_or_else",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:5:0",
+"feature": "Option::ok_or_else",
+"reduction": "ok_or_else on None returns garbage; the else-closure error value 5 not produced."
+},
+{
+"area": "genenum",
+"name": "genenum_unwrap_or_else",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:42:0",
+"feature": "Option::unwrap_or_else",
+"reduction": "unwrap_or_else on None returns garbage rather than invoking the closure to get 42."
+},
+{
+"area": "genenum",
+"name": "genenum_result_chain",
+"category": "MISCOMP",
+"derived": "ok:4:0",
+"oracle": "ok:2:0",
+"feature": "Result::and_then chaining",
+"reduction": "half(8).and_then(half): derived stops at first result (4); and_then does not thread through second call (should be 2). Same and_then no-op as Option case."
+},
+{
+"area": "genenum",
+"name": "genenum_generic_enum",
+"category": "HANG",
+"derived": "HANG",
+"oracle": "ok:11:0",
+"feature": "generic enum<T> (Maybe<T>)",
+"reduction": "Declaring `enum Maybe<T>{Just(T),Nothing}` hangs the frontend; generic-parameter enum decl not parsed (infinite loop)."
+},
+{
+"area": "genenum",
+"name": "genenum_generic_two",
+"category": "HANG",
+"derived": "HANG",
+"oracle": "ok:20:0",
+"feature": "generic enum<A,B>",
+"reduction": "Two-type-param `enum Pair<A,B>` also hangs frontend; same generic-enum parse loop."
+},
+{
+"area": "traits",
+"name": "traits_default_override",
+"category": "MISCOMP",
+"derived": "ok:24117256",
+"oracle": "ok:10",
+"feature": "default method + override; empty impl uses default",
+"reduction": "A.v() where impl uses trait default (empty impl block) prints garbage const 0x1700008; direct trait-method dispatch on concrete receiver miscompiles"
+},
+{
+"area": "traits",
+"name": "traits_supertrait",
+"category": "MISCOMP",
+"derived": "ok:24117256",
+"oracle": "ok:105",
+"feature": "supertrait Ext: Base, default calls supertrait required",
+"reduction": "S.plus() default in supertrait calling self.id() -> garbage const; concrete-receiver dispatch broken"
+},
+{
+"area": "traits",
+"name": "traits_from_into",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:12",
+"feature": "From/Into: 4i64.into()",
+"reduction": "let m: Meters = x.into() segfaults (139); .into() dispatch through From impl not lowered"
+},
+{
+"area": "traits",
+"name": "traits_from_direct",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:15",
+"feature": "From::from direct call",
+"reduction": "W::from(5) segfaults; From associated-fn call path crashes"
+},
+{
+"area": "traits",
+"name": "traits_multi_bound",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:7",
+"feature": "multiple trait bounds T: A + B",
+"reduction": "f<T:A+B>(&S) segfaults; two-trait bound dispatch on &T crashes"
+},
+{
+"area": "traits",
+"name": "traits_generic_method",
+"category": "MISCOMP",
+"derived": "ok:24117256",
+"oracle": "ok:8",
+"feature": "generic trait method fn conv<T: From<i64>>",
+"reduction": "T::from(8) inside generic method returns garbage const; generic-method + From miscompiles"
+},
+{
+"area": "traits",
+"name": "traits_default_chain",
+"category": "MISCOMP",
+"derived": "ok:24117256",
+"oracle": "ok:12",
+"feature": "default method calling another default (a->b)",
+"reduction": "S.b() chained defaults -> garbage const; concrete-receiver default dispatch broken"
+},
+{
+"area": "traits",
+"name": "traits_assoc_const",
+"category": "MISCOMP",
+"derived": "ok:24117256",
+"oracle": "ok:77",
+"feature": "associated const in trait, default reads Self::ID",
+"reduction": "S.get() reading Self::ID -> garbage const; assoc const not materialized"
+},
+{
+"area": "traits",
+"name": "traits_into_param",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:99",
+"feature": "impl Into<C> parameter",
+"reduction": "take(impl Into<C>) then v.into() segfaults; impl-Trait param + Into crashes"
+},
+{
+"area": "traits",
+"name": "traits_default_self_field",
+"category": "MISCOMP",
+"derived": "ok:24117256",
+"oracle": "ok:36",
+"feature": "default method self.side()*self.side() reading field",
+"reduction": "isolated: a trait method returning self.0 on a tuple struct, called directly (S(6).s()), already miscompiles to garbage const; generic-bound path is fine"
+},
+{
+"area": "traits",
+"name": "traits_supertrait_multi",
+"category": "MISCOMP",
+"derived": "ok:24117256",
+"oracle": "ok:25",
+"feature": "Z: X + Y multi-supertrait default",
+"reduction": "S.z() default summing self.x()+self.y() from two supertraits -> garbage const"
+},
+{
+"area": "closures",
+"name": "closures_fnmut",
+"category": "MISCOMP",
+"derived": "ok:1:0",
+"oracle": "ok:3:0",
+"feature": "FnMut mutating captured counter across calls",
+"reduction": "let mut c=0; let mut inc=||{c+=1;c}; three calls should yield 3, derived yields 1. FnMut mutation of a captured var is NOT persisted across invocations \u2014 the var is captured by value/copy each call rather than by &mut, so increments don't accumulate."
+},
+{
+"area": "closures",
+"name": "closures_capture_mut_state",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:15:0",
+"feature": "FnMut &mut capture accumulating in a loop",
+"reduction": "let mut sum=0; let mut add=|n|{sum+=n;}; sum after adding 1..=5 should be 15, derived gives 0. Same root cause as closures_fnmut: writes through a &mut captured var never reach the outer variable \u2014 captured-var mutation is dropped (outer sum stays at init 0)."
+},
+{
+"area": "closures",
+"name": "closures_return_boxed",
+"category": "MISCOMP",
+"derived": "ok:24117268:0",
+"oracle": "ok:42:0",
+"feature": "Box<dyn Fn> returned and called",
+"reduction": "Box::new(|x| x*3) returned as Box<dyn Fn(i64)->i64>, then f(14) should give 42; derived returns garbage 24117268. Trait-object closure dispatch through a Box (vtable/fat-pointer call) is miscompiled \u2014 the call target/arg is a raw address, not the invoked closure."
+},
+{
+"area": "closures",
+"name": "closures_in_struct",
+"category": "HANG",
+"derived": "HANG",
+"oracle": "ok:123:0",
+"feature": "closure stored in generic struct field F: Fn",
+"reduction": "struct Holder<F: Fn(i64)->i64>{f:F}; calling (h.f)(23) hangs the derived binary (timeout). Monomorphized closure-typed struct field + call-through-field is unsupported \u2014 codegen loops/faults instead of dispatching."
+},
+{
+"area": "closures",
+"name": "closures_in_struct_box",
+"category": "HANG",
+"derived": "HANG",
+"oracle": "ok:43:0",
+"feature": "Box<dyn Fn> stored in struct field",
+"reduction": "struct H{f:Box<dyn Fn(i64)->i64>}; (h.f)(50) hangs. Trait-object closure in a struct field: call-through-field fat-pointer dispatch never terminates \u2014 same trait-object-closure weakness as closures_return_boxed but as a hang."
+},
+{
+"area": "closures",
+"name": "closures_unsound_movecap",
+"category": "UNSOUND",
+"derived": "ok:2/2:0",
+"oracle": "REJECT",
+"feature": "use-after-move of captured value",
+"reduction": "let s=String::from(\"hi\"); let f=move||s.len(); then s.len() again. rustc rejects (borrow of moved value s). Derived accepts and runs (prints 2 twice) \u2014 no move/ownership check on move-closure captures, so use-after-move is not diagnosed."
+},
+{
+"area": "structs",
+"name": "structs_mut_field",
+"category": "MISCOMP",
+"derived": "ok:0",
+"oracle": "ok:42",
+"feature": "compound-assign to struct field (self-mutation)",
+"reduction": "Minimal: `let mut s=S{x:1}; s.x += 41; println!(s.x)` -> derived prints 0, rustc 42. Plain `s.x = 41` works (41) and a local `n += 41` works (42); ONLY compound-assign to a struct FIELD is miscompiled (reads stale/zero, drops the add)."
+},
+{
+"area": "structs",
+"name": "structs_self_mut",
+"category": "MISCOMP",
+"derived": "ok:0",
+"oracle": "ok:3",
+"feature": "&mut self method mutating a field with +=",
+"reduction": "Same root cause as structs_mut_field: `self.n += 1` inside &mut self compiles to a no-op/zero. Three inc() calls yield 0 instead of 3. Field compound-assignment broken."
+},
+{
+"area": "structs",
+"name": "structs_builder_self",
+"category": "MISCOMP",
+"derived": "ok:0",
+"oracle": "ok:15",
+"feature": "builder: `mut self` method returns Self after self.n += k",
+"reduction": "Reduces to the field compound-assign bug: `fn add(mut self,k){ self.n += k; self }`. Chained new().add(5).add(10) yields 0 not 15 because each `self.n += k` fails to update the field."
+},
+{
+"area": "structs",
+"name": "structs_shorthand",
+"category": "MISCOMP",
+"derived": "ok:24117256",
+"oracle": "ok:33",
+"feature": "field-init shorthand P{x,y} + struct returned by value from fn",
+"reduction": "Shorthand is NOT the cause: `P{x,y}` built inside main works (33). Real cause: returning a struct BY VALUE from a fn `fn mk(x,y)->P{P{x:x,y:y}}` then reading p.x+p.y yields garbage (24117256). By-value struct return miscompiles the returned aggregate."
+},
+{
+"area": "structs",
+"name": "structs_derive_default",
+"category": "MISCOMP",
+"derived": "ok:0",
+"oracle": "ok:99",
+"feature": "#[derive(Default)] + Default::default() construction",
+"reduction": "`let s:S=Default::default(); s.a+s.b+99` -> derived 0, rustc 99. Explicit `S{a:0,b:0}` + `+99` gives 99 correctly, and bare `println!(99)` with the derive present gives 99. Cause: a struct produced by Default::default() is not a usable aggregate \u2014 subsequent field reads collapse the whole expression (incl. the +99 constant) to 0."
+},
+{
+"area": "structs",
+"name": "structs_update_syntax",
+"category": "MISCOMP",
+"derived": "crash:139",
+"oracle": "ok:5",
+"feature": "functional record update S{a:5,..Default::default()}",
+"reduction": "Derived emits an ELF that segfaults (exit 139, no output) vs rustc 5. Same Default::default() cluster as structs_derive_default; the `..Default::default()` spread base is mishandled and corrupts the struct build, faulting at runtime."
+},
+{
+"area": "ctrlflow",
+"name": "ctrlflow_block_value",
+"category": "MISCOMP",
+"derived": "ok::13 (empty stdout, exit 13)",
+"oracle": "ok:13:0",
+"feature": "block expression as a value",
+"reduction": "`let x = { 5+8 }; println!(\"{}\",x)` -> derived prints nothing and leaks the block's value 13 into the process exit code. Confirmed minimal: `println!(\"{}\", {5+8})` -> out=0 rc=13. A brace-delimited block in value position is not lowered as an rvalue; its trailing expression escapes to the exit path instead of feeding the consumer. Plain `if/else` and `match` in value position work, so the gap is specifically the bare `{ }` block-as-value."
+},
+{
+"area": "ctrlflow",
+"name": "ctrlflow_iflet_else",
+"category": "MISCOMP",
+"derived": "ok:-1:0",
+"oracle": "ok:14:0",
+"feature": "if-let/else as an expression",
+"reduction": "`let v = if let Some(x)=Some(7) { x*2 } else { -1 };` -> derived takes the else arm (-1). Plain `if let Some(x)=o { .. } else { .. }` used as a STATEMENT matches correctly (prints 7), and `if cond {a} else {b}` as a value works. So the defect is if-LET specifically when used in expression/value position: the pattern-match test is dropped and the else branch is always chosen."
+},
+{
+"area": "ctrlflow",
+"name": "ctrlflow_iflet_chain",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:105:0",
+"feature": "if-let / else-if-let chain as value",
+"reduction": "Same root as ctrlflow_iflet_else: an `if let ... else if let ... else` chain in value position falls through every let-pattern arm to the final else (0). if-let-as-expression match tests are not emitted."
+},
+{
+"area": "ctrlflow",
+"name": "ctrlflow_match_return_arm",
+"category": "MISCOMP",
+"derived": "ok:7:0",
+"oracle": "ok:106:0",
+"feature": "early `return` inside a match arm",
+"reduction": "`match n { 0 => return 100, _ => {} }` then `n+1`: for f(0) derived ignores the arm's `return 100` and falls through to `n+1`=1; f(0)+f(5)=1+6=7 vs oracle 106. A `return` statement appearing as a match arm body is not honored as control flow."
+},
+{
+"area": "ctrlflow",
+"name": "ctrlflow_qmark_option",
+"category": "MISCOMP",
+"derived": "ok:24121360:0",
+"oracle": "ok:15:0",
+"feature": "? operator in fn returning Option",
+"reduction": "`let x = v.first()?; Some(x+10)` returns garbage. The `?` desugar on Option (unwrap-or-early-return + Some-wrap) is not correctly lowered; the bound value is uninitialized/garbage."
+},
+{
+"area": "ctrlflow",
+"name": "ctrlflow_qmark_none",
+"category": "MISCOMP",
+"derived": "ok:24121364:0",
+"oracle": "ok:-9:0",
+"feature": "? early-return on None path",
+"reduction": "Same `?`-on-Option lowering defect as ctrlflow_qmark_option; the None early-return branch is not produced, yielding garbage instead of the unwrap_or(-9) default."
+},
+{
+"area": "ctrlflow",
+"name": "ctrlflow_qmark_result",
+"category": "MISCOMP",
+"derived": "ok::139 (SIGSEGV)",
+"oracle": "ok:42:0",
+"feature": "? operator in fn returning Result, str::parse",
+"reduction": "`let n: i32 = s.parse()?; Ok(n+1)` segfaults (exit 139, no output). `?` on a Result from str::parse is unsupported/miscompiled at runtime."
+},
+{
+"area": "ctrlflow",
+"name": "ctrlflow_whilelet_nested",
+"category": "MISCOMP",
+"derived": "ok::139 (SIGSEGV)",
+"oracle": "ok:6:0",
+"feature": "nested while-let over Vec<Vec<i32>>",
+"reduction": "Two nested `while let Some = pop()` loops over a vec-of-vecs segfault (exit 139). Single-level while-let works (ctrlflow_whilelet OK), so the failure is the nested Vec<Vec<_>> / inner-pop case."
+},
+{
+"area": "ctrlflow",
+"name": "ctrlflow_unsound_missing_arm",
+"category": "UNSOUND",
+"derived": "ok:269484032:0",
+"oracle": "REJECT",
+"feature": "non-exhaustive match (should be rejected)",
+"reduction": "`match n { 1 => 10, 3 => 30 }` with no wildcard is a compile error under rustc (non-exhaustive). Derived accepts it and runs, returning garbage. No exhaustiveness check in the frontend."
+},
+{
+"area": "ctrlflow",
+"name": "ctrlflow_qmark_type_mismatch",
+"category": "UNSOUND",
+"derived": "ok:1:0",
+"oracle": "REJECT",
+"feature": "? on Option in fn returning Result (type error)",
+"reduction": "`fn f(o:Option<i32>)->Result<i32,String>{ let x=o?; Ok(x) }` is rejected by rustc (Option's `?` needs From into the Result error type / no such impl). Derived accepts and runs. The `?` operator does no error-type / trait compatibility checking."
+},
+{
+"area": "borrow",
+"name": "borrow_double_mut",
+"category": "REJECT-OK",
+"derived": "REJECT: cannot borrow mutably twice",
+"oracle": "REJECT",
+"feature": "two &mut to same local (aliasing)",
+"reduction": "borrow checker correctly rejects double &mut"
+},
+{
+"area": "borrow",
+"name": "borrow_use_after_move",
+"category": "UNSOUND",
+"derived": "ok:hi",
+"oracle": "REJECT",
+"feature": "use of moved String value",
+"reduction": "no move-tracking for String let b=a; a still usable -> derived accepts invalid program"
+},
+{
+"area": "borrow",
+"name": "borrow_methodmut",
+"category": "MISCOMP",
+"derived": "ok:0",
+"oracle": "ok:7",
+"feature": "&mut self method mutating self.n",
+"reduction": "c.inc() via &mut self does not persist self.n mutation; final self.n reads initial-derived 0 not 7"
+},
+{
+"area": "borrow",
+"name": "borrow_mutfield",
+"category": "MISCOMP",
+"derived": "ok:0",
+"oracle": "ok:10",
+"feature": "passing &mut Struct to fn, p.x+=7",
+"reduction": "bump(&mut p) mutation of p.x not written back; p.x reads 0 (whereas &mut i64 case works -> field-through-pointer store broken)"
+},
+{
+"area": "borrow",
+"name": "borrow_methodchain",
+"category": "HANG",
+"derived": "HANG",
+"oracle": "ok:7",
+"feature": "&mut self method returning &mut Self chained",
+"reduction": "c.add(3).add(4) returning self as &mut C -> infinite loop/hang in codegen of chained &mut Self return"
+},
+{
+"area": "borrow",
+"name": "borrow_retfield",
+"category": "MISCOMP",
+"derived": "crash exit139",
+"oracle": "ok:42",
+"feature": "fn returning &field (&p.x)",
+"reduction": "*getx(&p) where getx returns &i64 segfaults; returning address-of-field mishandled"
+},
+{
+"area": "borrow",
+"name": "borrow_swap",
+"category": "MISCOMP",
+"derived": "empty exit16",
+"oracle": "ok:73",
+"feature": "std::mem::swap(&mut a,&mut b)",
+"reduction": "std::mem::swap unsupported/unresolved -> no output, nonzero exit"
+},
+{
+"area": "borrow",
+"name": "borrow_swapfield",
+"category": "MISCOMP",
+"derived": "empty exit1",
+"oracle": "ok:21",
+"feature": "std::mem::swap on two struct fields",
+"reduction": "mem::swap of p.x/p.y not implemented"
+},
+{
+"area": "borrow",
+"name": "borrow_replace",
+"category": "MISCOMP",
+"derived": "empty exit16",
+"oracle": "ok:59",
+"feature": "std::mem::replace(&mut a,9)",
+"reduction": "std::mem::replace unsupported -> empty output"
+},
+{
+"area": "borrow",
+"name": "borrow_replace_struct",
+"category": "GAP",
+"derived": "REJECT: use of moved value",
+"oracle": "ok:59",
+"feature": "std::mem::replace on struct value",
+"reduction": "mem::replace(&mut p,P{..}) wrongly triggers move-of-p error; replace not modeled as non-consuming"
+},
+{
+"area": "borrow",
+"name": "borrow_take",
+"category": "MISCOMP",
+"derived": "empty exit16",
+"oracle": "ok:80",
+"feature": "std::mem::take(&mut a)",
+"reduction": "std::mem::take unsupported"
+},
+{
+"area": "borrow",
+"name": "borrow_take_vec",
+"category": "MISCOMP",
+"derived": "empty exit8",
+"oracle": "ok:3 0",
+"feature": "std::mem::take on Vec",
+"reduction": "mem::take of Vec unsupported"
+},
+{
+"area": "hashmap",
+"name": "hashmap_get",
+"category": "MISCOMP",
+"derived": "ok:24182800",
+"oracle": "ok:20",
+"feature": "get(&k) after insert",
+"reduction": "m.get(&2) after m.insert(2,20) returns a garbage/pointer-like value (~0x1700...) not 20; scalar lookup broken while len/contains/entry-iter store correctly -> get retrieves address, not value."
+},
+{
+"area": "hashmap",
+"name": "hashmap_getmiss",
+"category": "MISCOMP",
+"derived": "ok:24182800:139",
+"oracle": "ok:-1",
+"feature": "get miss -> unwrap_or",
+"reduction": "get(&99) on empty map should yield None->-1; derived returns garbage then exit 139. Miss not detected by lookup."
+},
+{
+"area": "hashmap",
+"name": "hashmap_getmut",
+"category": "MISCOMP",
+"derived": "ok:24117256",
+"oracle": "ok:17",
+"feature": "get_mut mutate in place",
+"reduction": "get_mut(&1) then *v+=7; m[&1] returns garbage pointer. Same scalar lookup returns address not stored i32."
+},
+{
+"area": "hashmap",
+"name": "hashmap_orinsert",
+"category": "MISCOMP",
+"derived": "ok:24117256",
+"oracle": "ok:8",
+"feature": "entry().or_insert += accumulate",
+"reduction": "*m.entry(1).or_insert(0)+=5 twice; m[&1] should be 8, derived garbage. or_insert deref-lookup returns address."
+},
+{
+"area": "hashmap",
+"name": "hashmap_orinsertwith",
+"category": "MISCOMP",
+"derived": "ok:24182804",
+"oracle": "ok:42",
+"feature": "or_insert_with closure",
+"reduction": "entry(7).or_insert_with(||42); *v should be 42, derived garbage pointer. Same deref-of-entry-slot bug."
+},
+{
+"area": "hashmap",
+"name": "hashmap_movekey",
+"category": "MISCOMP",
+"derived": "ok:24117256",
+"oracle": "ok:10",
+"feature": "String key entry/index",
+"reduction": "String-keyed m[\"a\"] returns garbage; scalar value lookup bug independent of key type."
+},
+{
+"area": "hashmap",
+"name": "hashmap_overwrite",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:109",
+"feature": "insert returns old Option",
+"reduction": "m.insert(1,99) should return Some(10); old.unwrap_or + m[&1] segfaults (139). insert-returns-old + lookup both fail."
+},
+{
+"area": "hashmap",
+"name": "hashmap_sumvals",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:60",
+"feature": "values() iterator",
+"reduction": "for v in m.values() segfaults. values() iterator broken while &m entry-iteration works."
+},
+{
+"area": "hashmap",
+"name": "hashmap_sumkeys",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:10",
+"feature": "keys() iterator",
+"reduction": "for k in m.keys() segfaults. Dedicated keys()/values() views are the gap; entry-iter over &m works."
+},
+{
+"area": "hashmap",
+"name": "hashmap_valsmut",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:30",
+"feature": "values_mut() iterator",
+"reduction": "for v in m.values_mut() segfaults. Mutable value view unimplemented."
+},
+{
+"area": "hashmap",
+"name": "hashmap_count",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:3",
+"feature": "entry counting then index",
+"reduction": "*entry.or_insert(0)+=1 loop then m[&3] segfaults; broken scalar-index lookup under a loop."
+},
+{
+"area": "hashmap",
+"name": "hashset_basic",
+"category": "MISCOMP",
+"derived": "ok:0",
+"oracle": "ok:4",
+"feature": "HashSet insert/len/contains",
+"reduction": "expected len(3)+contains(1)=4; derived prints 0 -> HashSet len==0 and contains false, backing non-functional."
+},
+{
+"area": "recurse",
+"name": "recurse_deep",
+"category": "MISCOMP",
+"derived": "ok::139 (SIGSEGV, empty output)",
+"oracle": "ok:5000",
+"feature": "deep recursion depth 5000 (stack usage)",
+"reduction": "Derived toolchain segfaults on deep single-arg recursion. Bisected: count(1000) OK, count(2000) crashes (exit 139) -> threshold between 1000 and 2000 frames. Oracle handles 5000 fine. Consistent with the fixed frame-base memory model (frame base 0x2000000): recursion frames collide/overflow the arena well before rustc's real stack limit. Real rung: limited/fixed call-stack region in cf backend."
+},
+{
+"area": "recurse",
+"name": "recurse_undefined_call",
+"category": "UNSOUND",
+"derived": "ok:0:0",
+"oracle": "REJECT",
+"feature": "call to undefined function (deliberately invalid)",
+"reduction": "Calling an undeclared fn `ghost(3)` is a compile error in rustc (E0425) but the derived frontend accepts it and emits a program that prints 0 and exits 0. Minimal: `fn main(){ println!(\"{}\", ghost(3)); }`. Frontend does no name-resolution check for callee existence -> unresolved call lowers to a 0-returning stub instead of a hard error."
+},
+{
+"area": "operators",
+"name": "operators_neg",
+"category": "MISCOMP",
+"derived": "ok:<crash>:139",
+"oracle": "ok:-5",
+"feature": "impl Neg for tuple struct (unary -)",
+"reduction": "-N(5) via user Neg impl: derived produces an ELF that SIGSEGVs (exit 139) instead of returning -5. Unary operator-overload dispatch for a user Neg impl is broken (crashes)."
+},
+{
+"area": "operators",
+"name": "operators_index",
+"category": "MISCOMP",
+"derived": "ok:8",
+"oracle": "ok:9",
+"feature": "impl Index<usize> returning &self.d[i]",
+"reduction": "a[2]->8 (should be 9), a[1]->7, a[0]->garbage(24117260). User Index impl is off-by-one: a[i] deref reads element i-1 with a[0] reading out of bounds. The &self.d[i] reference return through the overloaded index is mis-lowered."
+},
+{
+"area": "operators",
+"name": "operators_addassign",
+"category": "MISCOMP",
+"derived": "ok:0",
+"oracle": "ok:8",
+"feature": "impl AddAssign (a += b)",
+"reduction": "a starts v=5 (prints 5 correctly), a+=C{v:3} yields 0 not 8. The overloaded += on a struct is not dispatched to add_assign; the compound-assign path zeroes/discards the value."
+},
+{
+"area": "operators",
+"name": "operators_ord_tuplecmp",
+"category": "MISCOMP",
+"derived": "ok:0",
+"oracle": "ok:1",
+"feature": "#[derive(Ord)] lexicographic multi-field >",
+"reduction": "P{x:2,y:1} > P{x:1,y:9}: x is decisive (2>1) so true, but derived gives 0. Derived Ord derive does not compare fields lexicographically correctly (ignores/misorders the first field or falls through to y)."
+},
+{
+"area": "operators",
+"name": "operators_bad_noimpl",
+"category": "UNSOUND",
+"derived": "ok:0",
+"oracle": "REJECT",
+"feature": "== on struct WITHOUT PartialEq (should reject)",
+"reduction": "a==b on a struct with no PartialEq impl: rustc rejects (E0369), derived accepts and runs (prints 0). Frontend does no trait-bound check for == operands."
+},
+{
+"area": "fmt",
+"name": "fmt_bin",
+"category": "MISCOMP",
+"derived": "42",
+"oracle": "101010",
+"feature": "{:b} binary",
+"reduction": "println!(\"{:b}\",42) - the 'b' spec is ignored; value printed as plain decimal."
+},
+{
+"area": "fmt",
+"name": "fmt_oct",
+"category": "MISCOMP",
+"derived": "42",
+"oracle": "52",
+"feature": "{:o} octal",
+"reduction": "println!(\"{:o}\",42) - 'o' spec ignored, plain decimal emitted."
+},
+{
+"area": "fmt",
+"name": "fmt_hexup",
+"category": "MISCOMP",
+"derived": "255",
+"oracle": "FF",
+"feature": "{:X} uppercase hex",
+"reduction": "println!(\"{:X}\",255) - only lowercase {:x} is handled; {:X} falls through to decimal."
+},
+{
+"area": "fmt",
+"name": "fmt_altx",
+"category": "MISCOMP",
+"derived": "ff",
+"oracle": "0xff",
+"feature": "{:#x} alt hex prefix",
+"reduction": "'#' alternate flag ignored: no 0x prefix emitted (base hex still applied)."
+},
+{
+"area": "fmt",
+"name": "fmt_altb",
+"category": "MISCOMP",
+"derived": "5",
+"oracle": "0b101",
+"feature": "{:#b} alt binary prefix",
+"reduction": "both '#' and 'b' ignored; plain decimal 5 emitted."
+},
+{
+"area": "fmt",
+"name": "fmt_plus",
+"category": "MISCOMP",
+"derived": "7",
+"oracle": "+7",
+"feature": "{:+} force sign",
+"reduction": "'+' sign flag ignored; positive value printed without leading '+'."
+},
+{
+"area": "fmt",
+"name": "fmt_signhex",
+"category": "MISCOMP",
+"derived": "ff",
+"oracle": "+ff",
+"feature": "{:+x} sign+hex combo",
+"reduction": "'+' flag dropped; hex applied but no sign prefix."
+},
+{
+"area": "fmt",
+"name": "fmt_prec",
+"category": "MISCOMP",
+"derived": " 42",
+"oracle": "42",
+"feature": "{:.3} precision on int",
+"reduction": "println!(\"{:.3}\",42) - precision '.3' misparsed as width 3, right-padding to ' 42' instead of being ignored (rustc ignores precision for integers)."
+},
+{
+"area": "fmt",
+"name": "fmt_width_arg",
+"category": "MISCOMP",
+"derived": "5",
+"oracle": "   5",
+"feature": "{:1$} width from positional arg",
+"reduction": "println!(\"{:1$}\",5,4) - the '1$' width-from-arg reference is not resolved; no padding applied."
+},
+{
+"area": "fmt",
+"name": "fmt_exp",
+"category": "MISCOMP",
+"derived": "1000",
+"oracle": "1e3",
+"feature": "{:e} LowerExp",
+"reduction": "println!(\"{:e}\",1000) - 'e' scientific spec ignored, plain decimal emitted."
+},
+{
+"area": "fmt",
+"name": "fmt_dbg_tuple",
+"category": "MISCOMP",
+"derived": "24117256",
+"oracle": "(1, 2, 3)",
+"feature": "{:?} Debug of tuple",
+"reduction": "println!(\"{:?}\",(1,2,3)) - tuple Debug unimplemented; prints a raw pointer/garbage int instead of (1, 2, 3)."
+},
+{
+"area": "fmt",
+"name": "fmt_dbg_vec",
+"category": "MISCOMP",
+"derived": "24117256",
+"oracle": "[1, 2, 3]",
+"feature": "{:?} Debug of Vec<i32>",
+"reduction": "println!(\"{:?}\",vec![1,2,3]) - Vec Debug unimplemented; prints raw pointer value, not [1, 2, 3]."
+},
+{
+"area": "fmt",
+"name": "fmt_dbg_nested",
+"category": "MISCOMP",
+"derived": "P { x: 24117264 }",
+"oracle": "[P { x: 1 }, P { x: 2 }]",
+"feature": "{:?} Debug of Vec<struct>",
+"reduction": "Debug of a Vec of structs: prints a single struct with a garbage field instead of iterating the vec - nested/aggregate Debug not composed."
+},
+{
+"area": "fmt",
+"name": "fmt_neg_hex",
+"category": "MISCOMP",
+"derived": "/",
+"oracle": "ff",
+"feature": "{:x} of negative i8",
+"reduction": "println!(\"{:x}\",-1i8) - should two's-complement to ff; derived emits a single char '/' (0x2F), hex-of-negative path corrupt."
+},
+{
+"area": "consts",
+"name": "consts_const_fn",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:49:0",
+"feature": "const fn call evaluated in const initializer",
+"reduction": "const V = sq(7) where sq is const fn -> prints 0; a const initialized by a const-fn call is not evaluated, folds to 0. Plain arithmetic consts (const_ref_const) work, so the gap is const-fn evaluation in const context."
+},
+{
+"area": "consts",
+"name": "consts_nested_const_fn",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:12:0",
+"feature": "nested const fn calls in const initializer",
+"reduction": "same root as consts_const_fn: const-fn-initialized const yields 0."
+},
+{
+"area": "consts",
+"name": "consts_const_arr_n",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:40:0",
+"feature": "const [i64;N] array with const N, indexed",
+"reduction": "const A:[i64;5]=[..]; A[3] prints 0; const array data is not emitted/read, indexing yields 0."
+},
+{
+"area": "consts",
+"name": "consts_const_expr_len",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:35:0",
+"feature": "array length from const expr (2+3), .len()*elem",
+"reduction": "[7;N] with const N=2+3 -> a[0] reads 0 and/or len wrong; local const-sized array literal not materialized."
+},
+{
+"area": "consts",
+"name": "consts_const_fn_array",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:12:0",
+"feature": "const array whose elements are const-fn calls",
+"reduction": "combines const-array + const-fn-element bugs; all elements read 0."
+},
+{
+"area": "consts",
+"name": "consts_static_table",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:24:0",
+"feature": "static [i64;4] table summed at runtime",
+"reduction": "static T:[i64;4]=[3,5,7,9]; runtime sum -> 0; static array initializer data not placed/read, every element 0."
+},
+{
+"area": "consts",
+"name": "consts_static_idx_runtime",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:300:0",
+"feature": "static array indexed by runtime arg in a fn",
+"reduction": "T[i] via fn(i) -> 0; same static-array-data-not-emitted root."
+},
+{
+"area": "consts",
+"name": "consts_static_mut_like",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:14:0",
+"feature": "static array sized by const, summed over const bound",
+"reduction": "same static-array data root; SQUARES[i] all read 0."
+},
+{
+"area": "consts",
+"name": "consts_const_in_match",
+"category": "MISCOMP",
+"derived": "ok:100:0",
+"oracle": "ok:200:0",
+"feature": "const values used as match arm patterns",
+"reduction": "x=9 should hit HI=>200 but derived prints 100 (LO arm): a const identifier in a match arm is treated as a catch-all binding pattern (irrefutable) rather than a const comparison, so the first arm always matches."
+},
+{
+"area": "consts",
+"name": "consts_assoc_const_self",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:42:0",
+"feature": "associated const on struct via Self::K",
+"reduction": "impl C { const K:i64=42; } Self::K -> 0; associated const not resolved to its value."
+},
+{
+"area": "consts",
+"name": "consts_assoc_const_generic",
+"category": "MISCOMP",
+"derived": "ok:true:0",
+"oracle": "ok:33:0",
+"feature": "associated const on a generic type param (T::MAX)",
+"reduction": "m::<A>()+m::<B>() prints 'true' not 33; T::MAX on a generic param resolves to a bogus (bool-typed) value, generic assoc-const dispatch broken."
+},
+{
+"area": "consts",
+"name": "consts_enum_discrim_default",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:3:0",
+"feature": "enum discriminant default value (E::D as i64)",
+"reduction": "enum E{A,B,C,D}; E::D as i64 -> garbage 24117256 instead of 3; default discriminant sequencing not implemented, `as i64` casts a raw variant handle/pointer."
+},
+{
+"area": "consts",
+"name": "consts_enum_discrim",
+"category": "HANG",
+"derived": "HANG",
+"oracle": "ok:10:0",
+"feature": "explicit enum discriminant values (A = 5)",
+"reduction": "minimal 'enum E { A = 5 }' hangs the frontend (rc=124); the `Variant = <expr>` discriminant syntax is not parsed and sends the parser into an infinite loop. 'enum E { A }' parses fine."
+},
+{
+"area": "consts",
+"name": "consts_enum_discrim_expr",
+"category": "HANG",
+"derived": "HANG",
+"oracle": "ok:7:0",
+"feature": "enum discriminant from const expr (A = K, B = K+4)",
+"reduction": "same parser hang as consts_enum_discrim: any `Variant = ...` discriminant loops the frontend."
+},
+{
+"area": "consts",
+"name": "consts_unsound_oob",
+"category": "UNSOUND",
+"derived": "ok:0:0",
+"oracle": "REJECT",
+"feature": "compile-time out-of-bounds const array index",
+"reduction": "const X = A[5] on [i64;3] is a compile error in rustc (index out of bounds); derived accepts it and prints 0 \u2014 no const-eval bounds checking (consistent with const arrays folding to 0)."
+},
+{
+"area": "convert",
+"name": "convert_bad_charcast",
+"category": "UNSOUND",
+"derived": "ok:65:0",
+"oracle": "REJECT",
+"feature": "i64 as char (invalid cast)",
+"reduction": "`n as char` where n:i64 is rejected by rustc (only u8 may cast to char); derived accepts it and prints 65 -> no cast-legality check"
+},
+{
+"area": "convert",
+"name": "convert_float_to_int",
+"category": "GAP",
+"derived": "ok::139",
+"oracle": "ok:3:0",
+"feature": "f64 as i64",
+"reduction": "`3.9_f64 as i64` produces an ELF that segfaults (exit 139); float->int truncation cast unsupported in codegen"
+},
+{
+"area": "convert",
+"name": "convert_from_impl",
+"category": "GAP",
+"derived": "ok::139",
+"oracle": "ok:42:0",
+"feature": "From<i64> impl + ::from",
+"reduction": "user From impl / Cel::from associated call crashes (139); trait-based From not resolved"
+},
+{
+"area": "convert",
+"name": "convert_into",
+"category": "GAP",
+"derived": "ok::139",
+"oracle": "ok:42:0",
+"feature": ".into() via From",
+"reduction": "`21i64.into()` for a user From<i64> crashes (139); Into blanket-impl resolution absent"
+},
+{
+"area": "convert",
+"name": "convert_int_to_float",
+"category": "MISCOMP",
+"derived": "ok:3:0",
+"oracle": "ok:3.5:0",
+"feature": "i64 as f64 then /2.0",
+"reduction": "`7 as f64 / 2.0` yields 3 not 3.5; `as f64` is a no-op, value stays integer and division is integer division"
+},
+{
+"area": "convert",
+"name": "convert_narrow_trunc",
+"category": "MISCOMP",
+"derived": "ok:4294967297:0",
+"oracle": "ok:1:0",
+"feature": "u64 as u32 truncation",
+"reduction": "0x1_0000_0001 as u32 keeps all 64 bits; narrowing cast does not mask to 32 bits (no width tracking, everything is i64)"
+},
+{
+"area": "convert",
+"name": "convert_suffix_lit",
+"category": "MISCOMP",
+"derived": "ok:300:0",
+"oracle": "ok:44:0",
+"feature": "u8 literal suffix + wrapping_add",
+"reduction": "100u8.wrapping_add(200u8) gives 300 not 44; literal width suffix ignored, arithmetic done at i64 width with no u8 wrap"
+},
+{
+"area": "convert",
+"name": "convert_tryfrom",
+"category": "GAP",
+"derived": "ok::139",
+"oracle": "ok:true:0",
+"feature": "TryFrom / u8::try_from",
+"reduction": "u8::try_from(300i64).is_err() crashes (139); TryFrom + Result path unsupported"
+},
+{
+"area": "convert",
+"name": "convert_u32_to_char",
+"category": "MISCOMP",
+"derived": "ok:66:0",
+"oracle": "ok:B:0",
+"feature": "u8 as char then Display",
+"reduction": "println! of a char prints its codepoint 66 instead of 'B'; char Display formats as integer, not the character"
+},
+{
+"area": "nestgen",
+"name": "nestgen_vecvec",
+"category": "MISCOMP",
+"derived": "ok:48246824:0",
+"oracle": "ok:15:0",
+"feature": "Vec<Vec<i32>> iter().map(inner sum).sum",
+"reduction": "expected 15; r.iter().sum() over an inner Vec obtained from outer .iter() yields a pointer value, not the sum. Nested iterator adaptor over Vec<Vec<T>> mishandles the inner element type (Vec vs value)."
+},
+{
+"area": "nestgen",
+"name": "nestgen_vectuple",
+"category": "MISCOMP",
+"derived": "ok:48250968:0",
+"oracle": "ok:14:0",
+"feature": "Vec<(i32,i32)> iter().map(|&(a,b)| a*b).sum",
+"reduction": "expected 14; iterating a Vec of tuples and destructuring &(a,b) in the closure yields garbage. Tuple element loads inside map over a Vec use wrong offset/stride."
+},
+{
+"area": "nestgen",
+"name": "nestgen_vecvecstr",
+"category": "MISCOMP",
+"derived": "ok:2:0",
+"oracle": "ok:3:0",
+"feature": "Vec<Vec<&str>> iter().map(len).sum",
+"reduction": "expected 3, got 2; sum of inner .len() over Vec<Vec<&str>> undercounts (last inner row's len dropped) in nested iteration."
+},
+{
+"area": "nestgen",
+"name": "nestgen_genret",
+"category": "MISCOMP",
+"derived": "ok:24121360:0",
+"oracle": "ok:3:0",
+"feature": "generic fn returning Option<T>, then unwrap().len()",
+"reduction": "expected 3; wrap(vec![..]) -> Some(vec) monomorphized with T=Vec, then unwrap().len() returns a pointer. Generic Some(T) with T=Vec loses the vec header so .len() reads garbage."
+},
+{
+"area": "nestgen",
+"name": "nestgen_optopt",
+"category": "MISCOMP",
+"derived": "ok:24117264:0",
+"oracle": "ok:42:0",
+"feature": "Option<Option<i32>>.flatten().unwrap()",
+"reduction": "expected 42; Option<Option<i32>>.flatten() then unwrap returns pointer garbage. Nested Option flatten not lowered / inner payload offset wrong."
+},
+{
+"area": "nestgen",
+"name": "nestgen_structvecs",
+"category": "MISCOMP",
+"derived": "ok:24129576:0",
+"oracle": "ok:5:0",
+"feature": "Vec of struct{cells:Vec} iter().map(cells.len).sum",
+"reduction": "expected 5; r.cells.len() over Vec<Row> where Row holds a Vec field returns a pointer. Field-of-Vec .len() inside iter().map is miscompiled."
+},
+{
+"area": "nestgen",
+"name": "nestgen_veccollect",
+"category": "MISCOMP",
+"derived": "ok:24121360:0",
+"oracle": "ok:9:0",
+"feature": "(0..3).map(|i| vec![..]).collect::<Vec<Vec>>() then flatten().sum",
+"reduction": "expected 9; collect into Vec<Vec<i32>> then flatten().sum yields pointer garbage. Either collect of Vec-valued items or flatten over nested Vec is wrong."
+},
+{
+"area": "nestgen",
+"name": "nestgen_vecopt",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:4:0",
+"feature": "Vec<Option<i32>> filter_map(|x| *x).sum",
+"reduction": "expected 4; filter_map over Vec<Option<i32>> deref of the Option element returns garbage sum. Option element load/unwrap in the adaptor is wrong."
+},
+{
+"area": "nestgen",
+"name": "nestgen_vecresult",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:3:0",
+"feature": "Vec<Result<i32,()>> filter_map(r.ok()).sum",
+"reduction": "expected 3; Result::ok() inside filter_map over a Vec of Results yields pointer garbage. Result payload/discriminant handling in adaptor is wrong."
+},
+{
+"area": "nestgen",
+"name": "nestgen_hmvec",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:12:0",
+"feature": "HashMap<i32,Vec<i32>> entry().or_insert_with(Vec::new).push then m[&1].iter().sum",
+"reduction": "expected 12; HashMap with Vec values via entry/or_insert_with then indexed .iter().sum returns pointer. Vec-valued HashMap slot read miscompiled."
+},
+{
+"area": "nestgen",
+"name": "nestgen_optvec",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:60:0",
+"feature": "Option<Vec<i32>>.map(|v| v.iter().sum()).unwrap_or(0)",
+"reduction": "expected 60; SEGV (139). Option<Vec>.map closure summing the inner Vec crashes; unwrapping a Vec-payload Option inside map dereferences a bad pointer."
+},
+{
+"area": "nestgen",
+"name": "nestgen_hmveciter",
+"category": "MISCOMP",
+"derived": "ok::139",
+"oracle": "ok:12:0",
+"feature": "HashMap<&str,Vec<i32>> values() nested for-loop sum",
+"reduction": "expected 12; SEGV (139). Iterating m.values() (Vec items) then inner for over each Vec crashes; nested iteration over HashMap Vec-values dereferences a bad pointer."
+},
+{
+"area": "misc",
+"name": "misc_arr_destructure",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:60:0",
+"feature": "array destructuring in let: let [a,b,c]=[..]",
+"reduction": "let [a,b]=[10,20]; println!(a) prints 0 while a[0] indexing works (prints 10). Array/slice pattern in a let binding is not lowered; all bound names read 0."
+},
+{
+"area": "misc",
+"name": "misc_tuple_destructure",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:123:0",
+"feature": "nested tuple destructuring let (a,(b,c))",
+"reduction": "Flat let (a,b)=(10,20) works, but nested let (a,(b,c))=(1,(2,3)) makes b/c read 0. Nested/recursive tuple patterns not destructured."
+},
+{
+"area": "misc",
+"name": "misc_slice_pat_bind",
+"category": "MISCOMP",
+"derived": "ok::0",
+"oracle": "ok:14:0",
+"feature": "slice pattern with .. rest: if let [first,..,last]",
+"reduction": "if let [first,..,last]=a produces empty output; middle-rest slice pattern binding unsupported."
+},
+{
+"area": "misc",
+"name": "misc_slice_rest",
+"category": "MISCOMP",
+"derived": "ok:0:0",
+"oracle": "ok:13:0",
+"feature": "slice rest binding let [head, rest @ ..]",
+"reduction": "rest @ .. binding in an array let pattern; same root as array destructuring, bound names read 0."
+},
+{
+"area": "misc",
+"name": "misc_labeled_continue",
+"category": "MISCOMP",
+"derived": "ok:66:0",
+"oracle": "ok:30:0",
+"feature": "labeled continue 'o to outer loop",
+"reduction": "Unlabeled continue works; labeled `continue 'o` does not target the outer loop, inner iterations not skipped, sum is 66 not 30."
+},
+{
+"area": "misc",
+"name": "misc_labeled_break_val",
+"category": "MISCOMP",
+"derived": "ok:108:0",
+"oracle": "ok:99:0",
+"feature": "labeled break with value: break 'l 99",
+"reduction": "loop { break 'l 99 } as expression yields 108 instead of 99; labeled break value not propagated as the loop's value."
+},
+{
+"area": "misc",
+"name": "misc_nested_closure",
+"category": "MISCOMP",
+"derived": "ok:24117272:0",
+"oracle": "ok:15:0",
+"feature": "nested closure returning closure (curry) |a| move |b| a+b",
+"reduction": "Closure returning a move closure yields a garbage large value (pointer-class), captured environment not applied. Higher-order closure returns unsupported."
+},
+{
+"area": "misc",
+"name": "misc_chain_iter_fold",
+"category": "MISCOMP",
+"derived": "ok:24117256:0",
+"oracle": "ok:12:0",
+"feature": "vec![].iter().map().fold() chain",
+"reduction": "vec!/.iter().map().fold garbage (~24M, same pointer-class value as nested closure); Vec iterator with map+fold not evaluated to a real sum."
+}
+]

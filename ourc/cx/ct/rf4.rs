@@ -1,0 +1,1 @@
+fn main() { let e: Vec<((u32, u32), (u32, u32))> = vec![((1, 2), (3, 4))]; let v: Vec<&((u32, u32), (u32, u32))> = e.iter().collect(); println!("{}", v.len()); println!("{:?}", v[0]); println!("{}", v.iter().all(|(_, c)| c.0 == 3)); }

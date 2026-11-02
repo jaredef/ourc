@@ -1,0 +1,1 @@
+fn main() { let s = "héllo €😀"; let v: Vec<char> = s.chars().collect(); let r: String = s.chars().rev().collect(); println!("{} {} {} {:?} {} {}", s, s.len(), s.chars().count(), v[1], v[6], r); let mut t = String::new(); t.push(v[1]); t.push_str(&v[6].to_string()); println!("{} {}", t, t.len()); }

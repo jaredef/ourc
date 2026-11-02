@@ -1,0 +1,14 @@
+ir main -> i32
+v0: i32 = const 0
+v1: i32 = const 4587520
+v2: i32 = const 4587524
+v3: i32 = const 5
+v4: i32 = const 4587536
+v5: i32 = const 4587540
+store v1 v0
+store v2 v3
+v6: i64 = load8 v1
+store8 v4 v6
+v7: i32 = load v5
+ret v7
+end

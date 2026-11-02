@@ -1,0 +1,1 @@
+#[derive(Debug)] struct P { x: i64, name: String } fn main() { let mut v = vec![P { x: 1, name: String::from("a") }, P { x: 2, name: String::from("b") }]; for p in v.iter_mut() { p.x *= 10; p.name.push('!'); } v[0].x += 1; println!("{:?}", v); let t: i64 = v.iter().map(|p| p.x).sum(); println!("{}", t); }

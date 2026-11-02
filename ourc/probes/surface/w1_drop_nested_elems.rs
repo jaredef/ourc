@@ -1,0 +1,1 @@
+struct D(u32); impl Drop for D { fn drop(&mut self) { println!("d{}", self.0); } } struct W { d: D } fn main(){ { let _v = vec![W { d: D(1) }, W { d: D(2) }]; } { let _g = vec![vec![D(3)], vec![D(4), D(5)]]; } println!("e"); }

@@ -1,0 +1,956 @@
+Crate
+  Item Const@0..21 vis=pub ident=N
+    Ty Path u32
+    Expr LitInt 5
+Crate
+  Item Const@0..25 vis=pub ident=X
+    Ty Path a::b::C
+    Expr LitInt 5
+Crate
+  Item Const@0..22 vis=pub ident=A
+    Ty Ref(Ty Path u32)
+    Expr LitInt 0
+Crate
+  Item Const@0..26 vis=pub ident=B
+    Ty Ref(mut Ty Path u32)
+    Expr LitInt 0
+Crate
+  Item Const@0..28 vis=pub ident=C
+    Ty Ptr(const Ty Path u32)
+    Expr LitInt 0
+Crate
+  Item Const@0..26 vis=pub ident=D
+    Ty Ptr(mut Ty Path u32)
+    Expr LitInt 0
+Crate
+  Item Const@0..26 vis=pub ident=E
+    Ty Array(Ty Path u32; Expr LitInt 4)
+    Expr LitInt 0
+Crate
+  Item Const@0..23 vis=pub ident=F
+    Ty Slice(Ty Path u32)
+    Expr LitInt 0
+Crate
+  Item Const@0..27 vis=pub ident=G
+    Ty Tup(Ty Path u32, Ty Path u8)
+    Expr LitInt 0
+Crate
+  Item Const@0..26 vis=pub ident=H
+    Ty Path Vec<Ty Path u32>
+    Expr LitInt 0
+Crate
+  Item Const@0..30 vis=pub ident=I
+    Ty Path Option<Ty Path a::B>
+    Expr LitInt 0
+Crate
+  Item Const@0..30 vis=pub ident=AA
+    Ty Path i32
+    Expr Bin Add(Expr LitInt 1, Expr Bin Mul(Expr LitInt 2, Expr LitInt 3))
+Crate
+  Item Const@0..23 vis=pub ident=BB
+    Ty Path i32
+    Expr Unary Neg(Expr LitInt 5)
+Crate
+  Item Const@0..32 vis=pub ident=CC
+    Ty Path i32
+    Expr Bin Mul(Expr Paren(Expr Bin Add(Expr LitInt 1, Expr LitInt 2)), Expr LitInt 3)
+Crate
+  Item Const@0..25 vis=pub ident=PP
+    Ty Path i32
+    Expr Path a::B
+Crate
+  Item Const@0..28 vis=pub ident=QQ
+    Ty Path bool
+    Expr Bin Eq(Expr LitInt 1, Expr LitInt 2)
+Crate
+  Item Struct@0..36 vis=pub ident=S
+    Field vis=pub ident=a Ty Path u32
+    Field vis=priv ident=b Ty Path bool
+Crate
+  Item Enum@0..37 vis=pub ident=E
+    Variant ident=A Unit
+    Variant ident=B Tuple(Ty Path u32)
+    Variant ident=C Struct(x Ty Path u8)
+Crate
+  Item Fn@0..43 vis=pub ident=add
+    Param name=a Ty Path u32
+    Param name=b Ty Path u32
+    Ret Ty Path u32
+    Block(Expr Expr Bin Add(Expr Path a, Expr Path b))
+Crate
+  Item Fn@0..49 vis=pub ident=f
+    Param name=x Ty Path u32
+    Ret Ty Path u32
+    Block(Let Pat Ident y Ty Path u32 = Expr Bin Add(Expr Path x, Expr LitInt 1); Expr Expr Path y)
+Crate
+  Item Fn@0..45 vis=pub ident=nt
+    Param name=x Ty Path u32
+    Ret Ty Path u32
+    Block(Let Pat Ident z = Expr Bin Add(Expr Path x, Expr LitInt 2); Expr Expr Path z)
+Crate
+  Item Fn@0..73 vis=pub ident=g
+    Param name=c Ty Path u32
+    Ret Ty Path u32
+    Block(Let Pat Wild Ty Path u32 = Expr LitInt 1; Let Pat Tuple(Pat Ident a, Pat Ident b) Ty Tup(Ty Path u32, Ty Path u32) = Expr Path c; Expr Expr Path a)
+Crate
+  Item Fn@0..120 vis=pub ident=h
+    Param name=v Ty Path Vec<Ty Path u32>
+    Param name=s Ty Path Foo
+    Ret Ty Path u32
+    Block(Let Pat Ident n Ty Path u32 = Expr Method(Expr Path v, len, []); Let Pat Ident z Ty Path u32 = Expr Call(Expr Path g, [Expr Path n]); Let Pat Ident m Ty Path u32 = Expr Field(Expr Path s, x); Let Pat Ident k Ty Path u32 = Expr Index(Expr Path v, Expr LitInt 0); Expr Expr Path k)
+Crate
+  Item Fn@0..54 vis=pub ident=i
+    Param name=a Ty Path u32
+    Ret Ty Path u32
+    Block(Expr Expr If(Expr Bin Eq(Expr Path a, Expr LitInt 1), Block(Expr Expr LitInt 2), Expr Block(Block(Expr Expr LitInt 3))))
+Crate
+  Item Fn@0..69 vis=pub ident=j
+    Param name=o Ty Path Foo
+    Ret Ty Path u32
+    Block(Expr Expr Match(Expr Path o, [Arm(Pat TupleStruct(Bar, [Pat Ident x]) => Expr Path x), Arm(Pat Ident Baz => Expr LitInt 0), Arm(Pat Wild => Expr LitInt 9)]))
+Crate
+  Item Fn@0..68 vis=pub ident=n
+    Param name=x Ty Path u32
+    Ret Ty Path u32
+    Block(Expr Expr Match(Expr Path x, [Arm(Pat Lit(Expr LitInt 1) => Expr LitInt 10), Arm(Pat Or([Pat Lit(Expr LitInt 2), Pat Lit(Expr LitInt 3)]) => Expr LitInt 20), Arm(Pat Wild => Expr LitInt 0)]))
+Crate
+  Item Fn@0..36 vis=pub ident=gp<T: Clone>
+    Param name=x Ty Path T
+    Ret Ty Path T
+    Block(Expr Expr Path x)
+Crate
+  Item Struct@0..24 vis=pub ident=W<T>
+    Field vis=priv ident=v Ty Path T
+Crate
+  Item TypeAlias@0..17 vis=pub ident=A
+    = Ty Path u32
+Crate
+  Item Use@0..12 vis=priv
+    Use Simple a::b::C
+Crate
+  Item Mod@0..35 vis=pub ident=m
+    Item Const@12..34 vis=pub ident=K
+      Ty Path u32
+      Expr LitInt 1
+Crate
+  Item Impl@0..39 Ty Path S
+    Item Fn@9..38 vis=pub ident=m
+      Param name=&self ImplicitSelf
+      Ret Ty Path u32
+      Block(Expr Expr LitInt 0)
+Crate
+  Item Impl@0..47<T> Ty Path W<Ty Path T>
+    Item Fn@15..46 vis=pub ident=get
+      Param name=&self ImplicitSelf
+      Ret Ty Path u32
+      Block(Expr Expr LitInt 1)
+Crate
+  Item Struct@0..40 vis=pub ident=D
+    Attr derive(Clone)
+    Field vis=priv ident=x Ty Path u32
+Crate
+  Item Fn@0..34 vis=pub ident=si
+    Attr inline
+    Ret Ty Path u32
+    Block(Expr Expr LitInt 0)
+Crate
+  Item Fn@0..64 vis=pub ident=st
+    Attr stable(feature = "x", since = "1.0")
+    Ret Ty Path u32
+    Block(Expr Expr LitInt 0)
+Crate
+  Item Const@0..27 vis=pub ident=MSG
+    Ty Ref(Ty Path str)
+    Expr Str "hi"
+Crate
+  Item Const@0..24 vis=pub ident=C
+    Ty Path char
+    Expr Char 'a'
+Crate
+  Item Const@0..22 vis=pub ident=R
+    Ty Path u32
+    Expr AddrOf(Expr Path x)
+Crate
+  Item Const@0..23 vis=pub ident=Dr
+    Ty Path u32
+    Expr Deref(Expr Path p)
+Crate
+  Item Const@0..28 vis=pub ident=K
+    Ty Path u64
+    Expr Cast(Expr Path x, Ty Path u64)
+Crate
+  Item Const@0..25 vis=pub ident=F
+    Ty Path u32
+    Expr Closure([Pat Ident x], Expr Path x)
+Crate
+  Item Const@0..29 vis=pub ident=A
+    Ty Path u32
+    Expr Array([Expr LitInt 1, Expr LitInt 2, Expr LitInt 3])
+Crate
+  Item Const@0..26 vis=pub ident=T
+    Ty Path u32
+    Expr Tuple([Expr LitInt 1, Expr LitInt 2])
+Crate
+  Item Const@0..26 vis=pub ident=RG
+    Ty Path u32
+    Expr Range(Expr LitInt 0 .. Expr LitInt 10)
+Crate
+  Item Fn@0..37 vis=pub ident=nr
+    Param name=x Ty Path u32
+    Ret Default
+    Block(Let Pat Ident y Ty Path u32 = Expr Path x)
+Crate
+  Item Fn@0..58 vis=pub ident=wl
+    Param name=a Ty Path u32
+    Ret Ty Path u32
+    Block(Expr Expr While(Expr Path a, Block(Let Pat Ident x Ty Path u32 = Expr LitInt 1)); Expr Expr Path a)
+Crate
+  Item Fn@0..53 vis=pub ident=lp
+    Param name=a Ty Path u32
+    Ret Ty Path u32
+    Block(Expr Expr Loop(Block(Let Pat Ident y Ty Path u32 = Expr LitInt 2)))
+Crate
+  Item Fn@0..66 vis=pub ident=fl
+    Param name=v Ty Path Vec<Ty Path u32>
+    Ret Ty Path u32
+    Block(Expr Expr ForLoop(Pat Ident x in Expr Path v, Block(Let Pat Ident z Ty Path u32 = Expr Path x)); Expr Expr LitInt 0)
+Crate
+  Item Fn@0..62 vis=pub ident=asg
+    Param name=x Ty Path u32
+    Ret Ty Path u32
+    Block(Let Pat Ident y Ty Path u32 = Expr LitInt 0; Semi Expr Assign(Expr Path y = Expr Path x); Semi Expr AssignOp(AddAssign Expr Path y Expr LitInt 1); Expr Expr Path y)
+Crate
+  Item Fn@0..43 vis=pub ident=mk
+    Param name=a Ty Path u32
+    Ret Ty Path S
+    Block(Expr Expr Struct(S, [x: Expr Path a, y: Expr LitInt 1]))
+Crate
+  Item Fn@0..79 vis=pub ident=cnd
+    Param name=a Ty Path u32
+    Ret Ty Path u32
+    Block(Expr Expr If(Expr Bin Eq(Expr Path a, Expr LitInt 1), Block(Let Pat Ident s Ty Path S = Expr Struct(S, [x: Expr Path a]); Expr Expr Path a), Expr Block(Block(Expr Expr LitInt 0))))
+Crate
+  Item Trait@0..36 vis=pub ident=Tr
+    Item Fn@15..35 vis=priv ident=m
+      Param name=&self ImplicitSelf
+      Ret Ty Path u32
+      Body None
+Crate
+  Item Impl@0..42 Ty Path Tr for Ty Path S
+    Item Fn@16..41 vis=priv ident=m
+      Param name=&self ImplicitSelf
+      Ret Ty Path u32
+      Block(Expr Expr LitInt 0)
+Crate
+  Item Enum@0..37 vis=pub ident=E2
+    Attr derive(Clone)
+    Variant ident=A Unit
+    Variant ident=B Unit
+Crate
+  Item TypeAlias@0..29 vis=pub ident=Al
+    Attr repr(C)
+    = Ty Path u32
+Crate
+  Item Struct@0..33 vis=pub ident=Ref<'a>
+    Field vis=priv ident=r Ty Ref('a Ty Path str)
+Crate
+  Item Const@0..29 vis=pub(crate) ident=VC
+    Ty Path u32
+    Expr LitInt 7
+Crate
+  Item Fn@0..38 vis=pub ident=tq
+    Param name=o Ty Path Foo
+    Ret Ty Path u32
+    Block(Expr Expr Try(Expr Method(Expr Path o, next, [])))
+Crate
+  Item Fn@0..70 vis=pub ident=pp
+    Param name=k Ty Path E
+    Ret Ty Path u32
+    Block(Expr Expr Match(Expr Path k, [Arm(Pat Path E::A => Expr LitInt 1), Arm(Pat TupleStruct(E::B, [Pat Ident x]) => Expr Path x), Arm(Pat Wild => Expr LitInt 0)]))
+Crate
+  Item Const@0..26 vis=pub ident=BT
+    Ty Path bool
+    Expr LitBool true
+Crate
+  Item Fn@0..83 vis=pub ident=sp
+    Param name=p Ty Path P
+    Ret Ty Path u32
+    Block(Expr Expr Match(Expr Path p, [Arm(Pat Struct(P, [x, y]) => Expr Path x), Arm(Pat Struct(Q, [a: Pat Ident n, ..]) => Expr Path n), Arm(Pat Wild => Expr LitInt 0)]))
+Crate
+  Item Fn@0..71 vis=pub ident=il
+    Param name=o Ty Path Foo
+    Ret Ty Path u32
+    Block(Expr Expr If(Expr Let(Pat TupleStruct(Some, [Pat Ident c]) = Expr Method(Expr Path o, next, [])), Block(Expr Expr Path c), Expr Block(Block(Expr Expr LitInt 0))))
+Crate
+  Item Fn@0..44 vis=pub ident=wc<T> where Ty Path T: Clone
+    Param name=x Ty Path T
+    Ret Ty Path T
+    Block(Expr Expr Path x)
+Crate
+  Item Fn@0..40 vis=pub ident=tf
+    Ret Ty Path u32
+    Block(Expr Expr Call(Expr Path Vec<Ty Path u32>::new, []))
+Crate
+  Item Fn@0..43 vis=pub ident=mt
+    Param name=v Ty Path V
+    Ret Ty Path u32
+    Block(Expr Expr Method(Expr Path v, parse::<Ty Path u32>, []))
+Crate
+  Item Fn@0..51 vis=pub ident=lo
+    Param name=a Ty Path bool
+    Param name=b Ty Path bool
+    Ret Ty Path bool
+    Block(Expr Expr Bin Or(Expr Path a, Expr Bin And(Expr Path b, Expr Path a)))
+Crate
+  Item Fn@0..72 vis=pub ident=cp
+    Param name=c Ty Path char
+    Ret Ty Path bool
+    Block(Expr Expr Match(Expr Path c, [Arm(Pat Or([Pat Lit(Expr Char 'a'), Pat Lit(Expr Char 'b')]) => Expr LitBool true), Arm(Pat Wild => Expr LitBool false)]))
+Crate
+  Item Fn@0..72 vis=pub ident=rp
+    Param name=c Ty Path char
+    Ret Ty Path bool
+    Block(Expr Expr Match(Expr Path c, [Arm(Pat Range(Expr Char '0' ..= Expr Char '9') => Expr LitBool true), Arm(Pat Wild => Expr LitBool false)]))
+Crate
+  Item Fn@0..65 vis=pub ident=rb
+    Param name=o Ty Path Foo
+    Ret Ty Path u32
+    Block(Expr Expr Match(Expr Path o, [Arm(Pat TupleStruct(Some, [Pat Ident ref x]) => Expr LitInt 1), Arm(Pat Wild => Expr LitInt 0)]))
+Crate
+  Item Fn@0..44 vis=pub ident=cmp
+    Param name=x Ty Path u32
+    Param name=y Ty Path u32
+    Ret Ty Path bool
+    Block(Expr Expr Bin Lt(Expr Path x, Expr Path y))
+Crate
+  Item Fn@0..61 vis=pub ident=rt
+    Param name=x Ty Path u32
+    Ret Ty Path u32
+    Block(Expr Expr If(Expr Bin Gt(Expr Path x, Expr LitInt 0), Block(Semi Expr Ret(Expr Path x))); Semi Expr Ret(Expr LitInt 0))
+Crate
+  Item Fn@0..54 vis=pub ident=op
+    Param name=a Ty Path u32
+    Param name=b Ty Path u32
+    Ret Ty Path u32
+    Block(Expr Expr Bin BitOr(Expr Path a, Expr Bin BitXor(Expr Path b, Expr Bin BitAnd(Expr Path a, Expr Bin Rem(Expr Path b, Expr Path a)))))
+Crate
+  Item Fn@0..44 vis=pub ident=tc
+    Ret Ty Path u32
+    Block(Let Pat Ident g = Expr Closure([Pat Ident x: Ty Path u32], Expr Path x); Expr Expr LitInt 0)
+Crate
+  Item Fn@0..63 vis=pub ident=ab
+    Param name=n Ty Path u32
+    Ret Ty Path u32
+    Block(Expr Expr Match(Expr Path n, [Arm(Pat Ident x @ Pat Range(Expr LitInt 1 ..= Expr LitInt 5) => Expr Path x), Arm(Pat Wild => Expr LitInt 0)]))
+Crate
+  Item Fn@0..40 vis=pub ident=it
+    Param name=x Ty Path u32
+    Ret Ty Impl(Iterator)
+    Block(Expr Expr Path x)
+Crate
+  Item Fn@0..41 vis=pub ident=dt
+    Param name=x Ty Path Box<Ty Dyn(Trait)>
+    Ret Ty Path u32
+    Block(Expr Expr LitInt 0)
+Crate
+  Item Const@0..30 vis=pub ident=CM
+    Ty Path u32
+    Expr LitInt 5
+Crate
+  Item Fn@0..127 vis=pub ident=ca
+    Param name=x Ty Path u32
+    Ret Ty Path u32
+    Block(Let Pat Ident mut y = Expr LitInt 0; Semi Expr AssignOp(AddAssign Expr Path y Expr Path x); Semi Expr AssignOp(SubAssign Expr Path y Expr Path x); Semi Expr AssignOp(MulAssign Expr Path y Expr LitInt 2); Semi Expr AssignOp(DivAssign Expr Path y Expr LitInt 2); Semi Expr AssignOp(RemAssign Expr Path y Expr LitInt 3); Semi Expr AssignOp(BitAndAssign Expr Path y Expr Path x); Semi Expr AssignOp(BitOrAssign Expr Path y Expr Path x); Semi Expr AssignOp(BitXorAssign Expr Path y Expr Path x); Semi Expr AssignOp(ShlAssign Expr Path y Expr LitInt 1); Semi Expr AssignOp(ShrAssign Expr Path y Expr LitInt 1); Expr Expr Path y)
+Crate
+  Item Use@0..12 vis=priv
+    Use Simple a::b::c
+Crate
+  Item Use@0..14 vis=priv
+    Use Simple a::b as f
+Crate
+  Item Use@0..9 vis=priv
+    Use Glob a
+Crate
+  Item Use@0..22 vis=priv
+    Use Nested a::b { Simple c, Simple d as e }
+Crate
+  Item Fn@0..40 vis=pub ident=cf
+    Param name=x Ty Path u32
+    Ret Ty Path u32
+    Block(Expr Expr Bin Add(Expr Path x, Expr LitInt 1))
+Crate
+  Item Fn@0..52 vis=pub ident=ub
+    Param name=p Ty Path u32
+    Ret Ty Path u32
+    Block(Let Pat Ident y = Expr Unsafe(Block(Expr Expr Path p)); Expr Expr Path y)
+Crate
+  Item Fn@0..47 vis=pub ident=cl
+    Ret Default
+    Block(Let Pat Ident f = Expr Closure([], Expr Block(Block(Expr Expr LitInt 1))); Let Pat Ident g = Expr Closure([], Expr LitInt 2))
+Crate
+  Item Fn@0..36 vis=pub ident=ti
+    Param name=t Ty Path T
+    Ret Ty Path u32
+    Block(Expr Expr Bin Add(Expr Field(Expr Path t, 0), Expr Field(Expr Path t, 1)))
+Crate
+  Item Fn@0..66 vis=pub ident=br
+    Param name=a Ty Path bool
+    Ret Ty Path u32
+    Block(Expr Expr Loop(Block(Expr Expr If(Expr Path a, Block(Semi Expr Break(Expr LitInt 3))); Semi Expr Continue())))
+Crate
+  Item Fn@0..74 vis=pub ident=le
+    Param name=o Ty Path Option<Ty Path u32>
+    Ret Ty Path u32
+    Block(Let Pat TupleStruct(Some, [Pat Ident x]) = Expr Path o else Block(Semi Expr Ret(Expr LitInt 0)); Expr Expr Path x)
+Crate
+  Item Fn@0..66 vis=pub ident=mc
+    Param name=b Ty Path bool
+    Ret Default
+    Block(Let Pat Ident v = Expr MacCall(vec ! Bracket[1 , 2]); Semi Expr MacCall(assert ! Paren[b]); Semi Expr MacCall(foo ! Paren[a , b]))
+Crate
+  Item Fn@0..67 vis=pub ident=ll
+    Param name=x Ty Path bool
+    Ret Default
+    Block(Expr Expr Loop('a: Block(Expr Expr If(Expr Path x, Block(Semi Expr Break('a ))); Semi Expr Continue('a))))
+Crate
+  Item Struct@0..63 vis=pub ident=Fp
+    Field vis=priv ident=f Ty FnPtr(Ty Path u32, Ty Path bool) -> Ty Path u8
+    Field vis=priv ident=g Ty Path PhantomData<Ty FnPtr(Ty Path I)>
+Crate
+  Item Trait@0..65 vis=pub ident=Pos
+    Item Const@16..35 vis=priv ident=ZERO
+      Ty Path usize
+      None
+    Item Fn@35..64 vis=priv ident=to_usize
+      Param name=&self ImplicitSelf
+      Ret Ty Path usize
+      Body None
+Crate
+  Item Fn@0..79 vis=pub ident=sp
+    Param name=s Ty Ref(Ty Slice(Ty Path u32))
+    Ret Ty Path u32
+    Block(Expr Expr Match(Expr Path s, [Arm(Pat Slice([Pat Ident a, Pat Rest]) => Expr Deref(Expr Path a)), Arm(Pat Slice([Pat Ident x, Pat Ident y]) => Expr Path x), Arm(Pat Slice([]) => Expr LitInt 0)]))
+Crate
+  Item Fn@0..65 vis=pub ident=mg
+    Param name=n Ty Path u32
+    Ret Ty Path u32
+    Block(Expr Expr Match(Expr Path n, [Arm(Pat Ident x if Expr Bin Gt(Expr Path x, Expr LitInt 10) => Expr LitInt 2), Arm(Pat Wild => Expr LitInt 3)]))
+Crate
+  Item Fn@0..58 vis=pub ident=su
+    Param name=base Ty Path C
+    Param name=k Ty Path u32
+    Ret Ty Path C
+    Block(Expr Expr Struct(C, [level: Expr Path k, ..Expr Path base]))
+Crate
+  Item Fn@0..42 vis=pub ident=fl
+    Param name=r Ty Path f64
+    Ret Ty Path f64
+    Block(Expr Expr Bin Add(Expr Bin Mul(Expr Path r, Expr LitFloat 1.5), Expr LitFloat 0.0))
+Crate
+  Item Fn@0..67 vis=pub ident=ft
+    Param name=g Ty Impl(Fn(Ty Path u8) -> Ty Path u8)
+    Param name=h Ty Path Box<Ty Dyn(FnMut())>
+    Ret Ty Path u8
+    Block(Expr Expr Call(Expr Path g, [Expr LitInt 1]))
+Crate
+  Item Fn@0..63 vis=pub ident=mv
+    Param name=base Ty Path u32
+    Ret Ty Path u32
+    Block(Let Pat Ident g = Expr Closure(move [Pat Ident x], Expr Bin Add(Expr Path x, Expr Path base)); Expr Expr Call(Expr Path g, [Expr LitInt 2]))
+Crate
+  Item Fn@0..63 vis=pub ident=rw
+    Ret Ty Path u32
+    Block(Let Pat Ident a = Expr Str "C:\\p"; Let Pat Ident b = Expr Str "x \"q\" y"; Expr Expr LitInt 0)
+Crate
+  Item Fn@0..52 vis=pub ident=by
+    Ret Ty Path u8
+    Block(Let Pat Ident c = Expr LitInt 65; Let Pat Ident s = Expr ByteStr "xy"; Expr Expr Path c)
+Crate
+  Item Fn@0..94 vis=pub ident=nl
+    Ret Ty Path u32
+    Block(Let Pat Ident h = Expr LitInt 255; Let Pat Ident bn = Expr LitInt 10; Let Pat Ident u = Expr LitInt 1000; Let Pat Ident f = Expr LitFloat 1.5; Expr Expr Bin Add(Expr Path h, Expr Path bn))
+Crate
+  Item Fn@0..70 vis=pub ident=ld
+    Param name=c Ty Path bool
+    Ret Ty Path u32
+    Block(Let Pat Ident x Ty Path u32; Let Pat Ident y; Expr Expr If(Expr Path c, Block(Expr Expr LitInt 1), Expr Block(Block(Expr Expr LitInt 2))))
+Crate
+  Item Fn@0..58 vis=pub ident=ue
+    Ret Ty Path Result<Ty Tup(), Ty Path E>
+    Block(Let Pat Ident u = Expr Tuple([]); Semi Expr Call(Expr Path g, [Expr Tuple([])]); Expr Expr Call(Expr Path Ok, [Expr Tuple([])]))
+Crate
+  Item Fn@0..92 vis=pub ident=rg
+    Param name=a Ty Path A
+    Ret Ty Path u32
+    Block(Let Pat Ident p = Expr Index(Expr Path a, Expr Range(Expr LitInt 1 .. _)); Let Pat Ident q = Expr Index(Expr Path a, Expr Range(_ .. Expr LitInt 2)); Let Pat Ident r = Expr Index(Expr Path a, Expr Range(_ .. _)); Let Pat Ident s = Expr Index(Expr Path a, Expr Range(Expr LitInt 1 .. Expr LitInt 3)); Expr Expr LitInt 0)
+Crate
+  Item Impl@0..23 Ty Path Tr for Ty Path S
+Crate
+  Item Trait@0..32 vis=priv ident=Ut
+    Item Fn@18..31 vis=priv ident=m
+      Param name=&self ImplicitSelf
+      Ret Default
+      Body None
+Crate
+  Item Fn@0..28 vis=pub ident=nv
+    Ret Ty Never
+    Block(Expr Expr Loop(Block()))
+Crate
+  Item Struct@0..56 vis=pub ident=Ar
+    Field vis=priv ident=a Ty Array(Ty Path u8; Expr Path N)
+    Field vis=priv ident=b Ty Array(Ty Path u8; Expr LitInt 4)
+    Field vis=priv ident=c Ty Array(Ty Path u8; Expr Bin Mul(Expr Path M, Expr LitInt 2))
+Crate
+  Item Fn@0..20 vis=pub ident=af async
+    Ret Default
+    Block()
+Crate
+  Item Fn@0..62 vis=pub ident=ab
+    Ret Default
+    Block(Let Pat Ident x = Expr Async(Ref, Block(Expr Expr LitInt 1)); Let Pat Ident f = Expr Closure([Pat Ident y], Expr Path y))
+Crate
+  Item Fn@0..78 vis=pub ident=dr
+    Param name=x Ty Path T
+    Ret Ty Path u32
+    Block(Let Pat Ident p = Expr AddrOf(Expr AddrOf(Expr Path x)); Let Pat Ident d = Expr Field(Expr Field(Expr Path x, 0), 1); Expr Expr If(Expr Field(Expr Path x, 0), Block(Expr Expr LitInt 1), Expr Block(Block(Expr Expr LitInt 0))))
+Crate
+  Item Fn@0..87 vis=pub ident=lp
+    Param name=s Ty Path S
+    Ret Ty Path u32
+    Block(Expr Expr Match(Expr Path s, [Arm(Pat Lit(Expr Str "hi") => Expr LitInt 1), Arm(Pat Lit(Expr LitBool true) => Expr LitInt 2), Arm(Pat Lit(Expr LitBool false) => Expr LitInt 3), Arm(Pat Lit(Expr LitInt 7) => Expr LitInt 4), Arm(Pat Wild => Expr LitInt 5)]))
+Crate
+  Item Fn@0..61 vis=pub ident=mm
+    Param name=x Ty Path u32
+    Ret Ty Path u32
+    Block(Expr Expr Match(Expr Path x, [Arm(Pat Or([Pat Lit(Expr LitInt 1), Pat Lit(Expr LitInt 2)]) => Expr LitInt 1), Arm(Pat Wild => Expr LitInt 2)]))
+Crate
+  Item Fn@0..57 vis=pub ident=mk
+    Param name=y Ty Path u32
+    Ret Ty Path bool
+    Block(Expr Expr MacCall(matches ! Paren[y , A | B if y > 0]))
+Crate
+  Item Enum@0..47 vis=pub ident=Ed
+    Variant ident=A Unit disr=Expr LitInt 1
+    Variant ident=B Unit disr=Expr Bin Add(Expr LitInt 1, Expr LitInt 2)
+    Variant ident=C Unit
+    Variant ident=D Tuple(Ty Path u32) disr=Expr LitInt 4
+Crate
+  Item Const@0..38 vis=pub ident=QT
+    Ty QPath(<Ty Path X as Trait>::Assoc)
+    Expr LitInt 0
+Crate
+  Item Fn@0..45 vis=pub ident=qe
+    Ret Ty Path u32
+    Block(Expr Expr Call(Expr QPath(<Ty Path T as Trait>::method), []))
+Crate
+  Item Fn@0..44 vis=pub ident=cmp
+    Param name=a Ty Path u32
+    Param name=b Ty Path u32
+    Ret Ty Path bool
+    Block(Expr Expr Bin Lt(Expr Path a, Expr Path b))
+Crate
+  Item Fn@0..80 vis=pub ident=ib
+    Ret Ty Path u32
+    Block(Item   Item Fn@21..45 vis=priv ident=inner
+    Ret Ty Path u32
+    Block(Expr Expr LitInt 1); Item   Item Struct@45..59 vis=priv ident=Local
+    Unit; Let Pat Ident y = Expr LitInt 2; Empty; Expr Expr Call(Expr Path inner, []))
+Crate
+  Item Struct@0..41 vis=pub ident=Al
+    Attr repr(align(8))
+    Field vis=priv ident=a Ty Path u8
+Crate
+  Item Struct@0..37 vis=pub ident=Dv
+    Attr doc(= "d")
+    Field vis=priv ident=w Ty Path u32
+Crate
+  Item Struct@0..56 vis=pub ident=Ca
+    Attr cfg_attr(test, derive(Debug))
+    Field vis=priv ident=a Ty Path u8
+Crate
+  Item Fn@0..45 vis=pub ident=pa
+    Param name=x Ty Path u8
+    Ret Ty Path u8
+    Block(Expr Expr Path x)
+Crate
+  Item Trait@0..27 vis=pub ident=It
+    Item AssocTyDecl@15..26 vis=priv ident=Item
+      ty None
+Crate
+  Item Trait@0..40 vis=pub ident=Bd
+    Item AssocTyDecl@15..39 vis=priv ident=Out: Clone + Send
+      ty None
+Crate
+  Item Trait@0..21 vis=pub ident=A: B + C
+Crate
+  Item TypeAlias@0..27 vis=pub ident=Alias<T>
+    = Ty Path Vec<Ty Path T>
+Crate
+  Item Impl@0..32 Ty Path Tr for Ty Path S
+    Item TypeAlias@16..31 vis=priv ident=Out
+      = Ty Path u8
+Crate
+  Item Const@0..32 vis=pub ident=G
+    Ty Path bool
+    Expr Closure([Pat Ref(Pat Ident n)], Expr Bin Eq(Expr Path n, Expr LitInt 2))
+Crate
+  Item Const@0..29 vis=pub ident=H
+    Ty Path u8
+    Expr Closure([Pat Tuple(Pat Ident a, Pat Ident b)], Expr Path a)
+Crate
+  Item Const@0..24 vis=pub ident=I
+    Ty Path u8
+    Expr Closure([Pat Wild], Expr LitInt 0)
+Crate
+  Item Fn@0..120 vis=priv ident=mm
+    Param name=v Ty Path u8
+    Ret Default
+    Block(Semi Expr Match(Expr Path v, [Arm(Pat Ident ref mut y @ Pat TupleStruct(Some, [Pat Wild]) => Expr LitInt 1), Arm(Pat Ident mut z @ Pat Range(Expr LitInt 1 ..= Expr LitInt 5) => Expr LitInt 2), Arm(Pat Ident ref w @ Pat Ident None => Expr LitInt 3), Arm(Pat Ident x @ Pat TupleStruct(Other, [Pat Wild]) => Expr LitInt 4), Arm(Pat Wild => Expr LitInt 0)]))
+Crate
+  Item Fn@0..83 vis=priv ident=nn
+    Param name=v Ty Path i8
+    Ret Default
+    Block(Semi Expr Match(Expr Path v, [Arm(Pat Lit(Expr Unary Neg(Expr LitInt 1)) => Expr LitInt 1), Arm(Pat Lit(Expr Unary Neg(Expr LitFloat 2.5)) => Expr LitInt 2), Arm(Pat Range(Expr Unary Neg(Expr LitInt 5) ..= Expr Unary Neg(Expr LitInt 1)) => Expr LitInt 3), Arm(Pat Range(Expr LitInt 0 ..= Expr LitInt 10) => Expr LitInt 4), Arm(Pat Wild => Expr LitInt 0)]))
+Crate
+  Item Fn@0..73 vis=priv ident=aw
+    Ret Default
+    Block(Let Pat Ident a = Expr Await(Expr Path x); Let Pat Ident b = Expr Try(Expr Await(Expr Call(Expr Path foo, []))); Let Pat Ident c = Expr Method(Expr Await(Expr Field(Expr Path a, b)), c, []))
+Crate
+  Item Trait@0..56 vis=pub ident=Tg
+    Item AssocTyDecl@15..30 vis=priv ident=Item<'a>
+      ty None
+    Item AssocTyDecl@30..55 vis=priv ident=Iter<'a>: Iterator
+      ty None
+Crate
+  Item MacCall@0..35 vis=priv
+    Expr MacCall(thread_local ! Brace[static X : u8 = 0 ;])
+Crate
+  Item MacCall@0..14 vis=priv
+    Expr MacCall(my_mac ! Paren[a , b])
+Crate
+  Item Fn@0..80 vis=priv ident=hb<F: Fn(Ty Ref('a Ty Path i32))>
+    Param name=x Ty Path Box<Ty Dyn(Fn(Ty Ref('a Ty Path str)))>
+    Ret Default
+    Block(Expr Expr ForLoop(Pat Ident y in Expr Path x, Block()))
+Crate
+  Item Struct@0..43 vis=priv ident=Cg<const N: usize = 3, T: Clone>
+    Tuple(Ty Path T)
+Crate
+  Item Struct@0..42 vis=priv ident=Ob<'a, 'b: 'a, T: 'a = u8>
+    Field vis=priv ident=x Ty Path T
+Crate
+  Item Fn@0..43 vis=priv ident=ow<'a, 'b> where Ty Lifetime 'a: 'b, Ty Path T: 'static
+    Ret Default
+    Block()
+Crate
+  Item MacroDef@0..29 vis=priv ident=foo
+    MacroDef Brace[( ) => { }]
+Crate
+  Item MacroDef@0..54 vis=priv ident=bar
+    MacroDef Brace[( a ) => { 1 } ; ( x : expr ) => { x } ;]
+Crate
+  Item Fn@0..48 vis=priv ident=ri
+    Ret Default
+    Block(Let Pat Ident x = Expr Path type; Let Pat Ident y = Expr Bin Add(Expr Path match, Expr LitInt 1))
+Crate
+  Item Fn@0..73 vis=priv ident=tf
+    Ret Default
+    Block(Let Pat Ident v = Expr Method(Expr Method(Expr Path x, iter, []), collect::<Ty Path Vec<Ty Path u8>>, []); Let Pat Ident w = Expr Method(Expr Path a, m::<Ty Path A<Ty Path B>>, []))
+Crate
+  Item Fn@0..42 vis=priv ident=cs
+    Ret Default
+    Block(Let Pat Ident a = Expr CStr "abc"; Let Pat Ident b = Expr CStr "x")
+Crate
+  Item Fn@0..72 vis=priv ident=lp
+    Ret Default
+    Block(Let Pat Ident x = Expr Path std::u8::MAX; Let Pat Ident y = Expr Call(Expr Path core::mem::size_of<Ty Path T>, []))
+Crate
+  Item Impl@0..76 Ty Path S
+    Item Fn@9..29 vis=priv ident=pm
+      Param name=mut p Ty Path u8
+      Ret Default
+      Block()
+    Item Fn@29..75 vis=priv ident=sr<'a>
+      Param name=&self ImplicitSelf
+      Param name=k Ty Ref(Ty Path K)
+      Param name=m Ty Path u8
+      Ret Ty Path u8
+      Block(Expr Expr LitInt 0)
+Crate
+  Item Fn@0..52 vis=priv ident=st
+    Ret Default
+    Block(Let Pat Ident x = Expr LitInt 1; Semi Expr Call(Expr Path g, []))
+Crate
+  Item Fn@0..99 vis=priv ident=lc
+    Ret Default
+    Block(Expr Expr If(Expr Bin And(Expr Let(Pat TupleStruct(Some, [Pat Ident x]) = Expr Path a), Expr Let(Pat TupleStruct(Some, [Pat Ident y]) = Expr Path b)), Block()); Expr Expr If(Expr Bin And(Expr Let(Pat TupleStruct(Some, [Pat Ident x]) = Expr Path a), Expr Bin Gt(Expr Path x, Expr LitInt 0)), Block()); Let Pat Ident z = Expr Bin And(Expr Path a, Expr Path b))
+Crate
+  Item Fn@0..116 vis=priv ident=ex
+    Ret Default
+    Block(Let Pat Ident a = Expr Repeat(Expr LitInt 0; Expr LitInt 4); Let Pat Ident b = Expr Async(Value, Block(Expr Expr LitInt 1)); Let Pat Ident c = Expr ConstBlock(Block(Expr Expr LitInt 2)); Let Pat Ident d = Expr AddrOf(raw const Expr Path x); Let Pat Ident e = Expr AddrOf(raw mut Expr Path y))
+Crate
+  Item Impl@0..19 !Ty Path Send for Ty Path A
+Crate
+  Item Trait@0..17 is_auto=Yes vis=priv ident=Foo
+Crate
+  Item ForeignMod@0..29
+    Item Fn@20..28 vis=priv ident=f
+      Ret Default
+      Body None
+Crate
+  Item ExternCrate@0..17 vis=priv ident=foo
+Crate
+  Item Const@0..41 vis=pub ident=Ve
+    Ty FnPtr extern "C"(Ty Path u8, ...)
+    Expr Path x
+Crate
+  Item TypeAlias@0..19 vis=priv ident=Tg2
+    = Ty Path Foo<Const 3>
+  Item TypeAlias@19..45 vis=priv ident=Tg3
+    = Ty Path Bar<Const { N + 1 }>
+Crate
+  Item Fn@0..28 vis=priv ident=dl
+    Param name=x Ty Ref(Ty Dyn(A + B + 'a))
+    Ret Default
+    Block()
+Crate
+  Item Struct@0..37 vis=priv ident=Fa
+    Field vis=priv ident=b Ty Path u8
+    Field vis=priv ident=c Ty Path u16
+Crate
+  Item Enum@0..30 vis=priv ident=Ea
+    Variant ident=V Unit
+    Variant ident=W Tuple(Ty Path u8)
+Crate
+  Item Struct@0..31 vis=priv ident=Ta
+    Tuple(Ty Path u8, Ty Path u16)
+Crate
+  Item Fn@0..80 vis=priv ident=cb
+    Ret Default
+    Block(Let Pat Ident g = Expr Closure([Pat Ident x] -> Ty Path u8, Expr Block(Block(Expr Expr Bin Add(Expr Path x, Expr LitInt 1)))); Let Pat Ident k = Expr Closure([] -> Ty Path i32, Expr Block(Block(Expr Expr LitInt 5))); Let Pat Ident h = Expr Closure([Pat Ident y], Expr Path y))
+Crate
+  Item Fn@0..21 vis=priv ident=ef abi="C"
+    Ret Default
+    Block()
+Crate
+  Item Fn@0..46 vis=pub ident=eg abi="C"
+    Param name=x Ty Path u8
+    Ret Ty Path u8
+    Block(Expr Expr Path x)
+Crate
+  Item Fn@0..68 vis=priv ident=ge
+    Ret Default
+    Block(Let Pat Ident x Ty Path Vec<Ty Path u8> = Expr Path b; Let Pat Ident n Ty Path Vec<Ty Path Vec<Ty Path u8>> = Expr Path m; Let Pat Ident z = Expr Bin Ge(Expr Path a, Expr Path c))
+Crate
+  Item Static@0..19 vis=priv ident=Sa
+    Ty Path u8
+    Expr LitInt 1
+  Item Static@19..43 vis=priv ident=Sb
+    Ty Path u32
+    Expr LitInt 2
+  Item Static@43..70 vis=pub ident=Sc
+    Ty Path bool
+    Expr LitBool true
+Crate
+  Item Union@0..27 vis=priv ident=Un
+    Field vis=priv ident=a Ty Path u8
+    Field vis=priv ident=b Ty Path u16
+  Item Union@27..59 vis=pub ident=Vn<T>
+    Field vis=priv ident=x Ty Path T
+    Field vis=priv ident=y Ty Path u32
+Crate
+  Item Fn@0..49 vis=priv ident=mm
+    Param name=c Ty Path char
+    Ret Ty Path bool
+    Block(Expr Expr MacCall(matches ! Paren[c , '0' ..= '9']))
+Crate
+  Item Fn@0..75 vis=priv ident=uc
+    Ret Default
+    Block(Let Pat Ident a = Expr Char '\u{1F}'; Let Pat Ident b = Expr Char '\u{7FF}'; Let Pat Ident c = Expr Char 'x'; Let Pat Ident d = Expr Char '\n')
+Crate
+  Item Fn@0..94 vis=priv ident=rp
+    Param name=x Ty Path i64
+    Ret Default
+    Block(Expr Expr Match(Expr Path x, [Arm(Pat Range(Expr Path i64::MIN ..= Expr LitInt 1) => Expr Block(Block())), Arm(Pat Range(Expr LitInt 5 ..= Expr Path A::B) => Expr Block(Block())), Arm(Pat Range(Expr Path i64::MIN ..= Expr Unary Neg(Expr LitInt 1)) => Expr Block(Block())), Arm(Pat Wild => Expr Block(Block()))]))
+Crate
+  Item Fn@0..96 vis=priv ident=sr
+    Ret Default
+    Block(Let Pat Ident a = Expr Struct(S, [a: Expr Path a]); Let Pat Ident b = Expr Struct(S, [x: Expr LitInt 1]); Let Pat Ident c = Expr Struct(S, []); Let Pat Ident d = Expr Struct(S, [m: Expr Path m, ..Expr Path base]))
+Crate
+  Item Fn@0..30 vis=priv ident=bp
+    Param name=b Ty Path B
+    Ret Default
+    Block(Let Pat Ident box @ Pat Ident y = Expr Path b)
+Crate
+  Item Fn@0..49 vis=priv ident=bd<T: ?Sized> where Ty Path T: Copy + ?Sized
+    Param name=x Ty Path T
+    Ret Default
+    Block()
+  Item Trait@49..73 vis=pub ident=Tb: ?Sized
+  Item Struct@73..97 vis=priv ident=Sd<T: ?Sized>
+    Tuple(Ty Path T)
+Crate
+  Item Impl@0..69 Ty Path S
+    Item Fn@9..27 vis=priv ident=c
+      Param name=mut self ImplicitSelf
+      Ret Default
+      Block()
+    Item Fn@27..54 vis=priv ident=d
+      Param name=mut self ImplicitSelf
+      Ret Ty Path u8
+      Block(Expr Expr LitInt 1)
+    Item Fn@54..68 vis=priv ident=e
+      Param name=self ImplicitSelf
+      Ret Default
+      Block()
+Crate
+  Item Fn@0..70 vis=priv ident=hx
+    Ret Default
+    Block(Let Pat Ident a = Expr Char '\x41'; Let Pat Ident b = Expr Char '\x7F'; Let Pat Ident c = Expr Char 'y'; Let Pat Ident d = Expr Char '\n')
+Crate
+  Item Struct@0..35 vis=priv ident=Sc<const N: usize = 8>
+    Tuple(Ty Path u8)
+  Item Fn@35..72 vis=priv ident=fc<const M: u32 = 4, T = u16>
+    Ret Default
+    Block()
+Crate
+  Item TypeAlias@0..31 vis=priv ident=Aw<T> where Ty Path T: Copy
+    = Ty Path u8
+  Item TypeAlias@31..45 vis=priv ident=Bw
+    = Ty Path i32
+Crate
+  Item Fn@0..27 vis=priv ident=tp
+    Param name=Pat Tuple(Pat Ident a, Pat Ident b) Ty Tup(Ty Path u8, Ty Path u8)
+    Ret Default
+    Block()
+  Item Fn@27..68 vis=priv ident=tq
+    Param name=x Ty Path u8
+    Param name=Pat Slice([Pat Ident p, Pat Ident q]) Ty Array(Ty Path u8; Expr LitInt 2)
+    Param name=Pat TupleStruct(Q, [Pat Ident z]) Ty Path Q
+    Ret Default
+    Block()
+Crate
+  Item Fn@0..76 vis=priv ident=ab
+    Param name=x Ty Path Box<Ty Dyn(Iterator<Assoc Item : Ty Path Clone>)>
+    Param name=y Ty Path Box<Ty Dyn(Iterator<Assoc Item = Ty Path u8>)>
+    Ret Default
+    Block()
+Crate
+  Item Fn@0..36 vis=priv ident=ia
+    Ret Default
+    Block()
+Crate
+  Item Fn@20..44 vis=priv ident=sh
+    Param name=x Ty Path u8
+    Ret Ty Path u8
+    Block(Expr Expr Path x)
+Crate
+  Item Fn@0..38 vis=priv ident=hr
+    Param name=f Ty FnPtr(Ty Ref('a Ty Path u8)) -> Ty Path u8
+    Ret Default
+    Block()
+  Item Fn@38..70 vis=priv ident=hb<T: Trait<Ty Lifetime 'a>>
+    Ret Default
+    Block()
+Crate
+  Item Impl@0..97 Ty Path S
+    Item Fn@9..34 vis=priv ident=a
+      Param name=self Ty Path Box<Ty Path Self>
+      Ret Default
+      Block()
+    Item Fn@34..67 vis=priv ident=b
+      Param name=self Ty Path Rc<Ty Path Self>
+      Ret Ty Path u8
+      Block(Expr Expr LitInt 1)
+    Item Fn@67..82 vis=priv ident=c
+      Param name=&self ImplicitSelf
+      Ret Default
+      Block()
+    Item Fn@82..96 vis=priv ident=d
+      Param name=self ImplicitSelf
+      Ret Default
+      Block()
+Crate
+  Item Fn@0..24 vis=priv ident=cb
+    Ret Default
+    Block(Expr Expr ConstBlock(Block(Expr Expr LitInt 1)))
+  Item Fn@24..93 vis=priv ident=cc
+    Ret Default
+    Block(Let Pat Ident a = Expr Closure([], Expr LitInt 5); Let Pat Ident b = Expr Closure(move [], Expr LitInt 6); Semi Expr ConstBlock(Block(Expr Expr LitInt 2)))
+Crate
+  Item Fn@0..89 vis=priv ident=rg
+    Param name=x Ty Path i64
+    Ret Default
+    Block(Expr Expr Match(Expr Path x, [Arm(Pat Lit(Expr Range(Expr LitInt 1 .. _)) => Expr LitInt 9), Arm(Pat Lit(Expr Range(_ .. Expr LitInt 5)) => Expr LitInt 8), Arm(Pat Lit(Expr Range(_ ..= Expr LitInt 5)) => Expr LitInt 7), Arm(Pat Lit(Expr Range(Expr Path X .. _)) => Expr LitInt 6), Arm(Pat Range(Expr LitInt 1 ..= Expr LitInt 5) => Expr LitInt 5), Arm(Pat Wild => Expr LitInt 0)]))
+Crate
+  Item Fn@0..28 vis=priv ident=ga<T>
+    Ret Default
+    Block()
+  Item Struct@28..79 vis=priv ident=Gs<'a, const N: usize, T>
+    Tuple(Ty Path T)
+Crate
+  Item Fn@0..42 vis=priv ident=rr
+    Param name=x Ty Ref(Ty Ref(Ty Path i32))
+    Param name=y Ty Ref(Ty Ref(mut Ty Path u8))
+    Param name=z Ty Ref(Ty Ref(Ty Ref(Ty Path u8)))
+    Ret Default
+    Block()
+  Item Fn@42..66 vis=priv ident=rp
+    Ret Default
+    Block(Let Pat Ref(Pat Ref(Pat Ident a)) = Expr Path x)
+Crate
+  Item Fn@0..68 vis=priv ident=uf
+    Ret Default
+    Block(Let Pat Ident a = Expr LitFloat 1.; Let Pat Ident b = Expr Bin Add(Expr LitFloat 2., Expr LitFloat 3.); Let Pat Ident c = Expr Field(Expr Path x, 0); Let Pat Ident d = Expr Range(Expr LitInt 1 .. Expr LitInt 2))
+  Item Fn@68..98 vis=priv ident=café
+    Ret Default
+    Block(Let Pat Ident naïve = Expr LitInt 1)
+Crate
+  Item Impl@0..28 Ty Path Foo for Ty Path Bar
+  Item ForeignMod@28..61
+    Item Fn@41..59 vis=priv ident=v
+      Param name=x Ty Path u8
+      Param name=... ...
+      Ret Default
+      Body None
+  Item TraitAlias@61..83 vis=priv ident=Ta: Bar + Baz
+  Item TraitAlias@83..117 vis=priv ident=Tb<T>: C<Ty Path T> where Ty Path T: Clone
+Crate
+  Item Fn@0..53 vis=pub ident=cm
+    Param name=x Ty Path u8
+    Ret Ty Path u8
+    Block(Expr Expr Path x)
+  Item Fn@53..80 vis=priv ident=cn
+    Ret Default
+    Block()
+Crate
+  Item Struct@0..71 vis=priv ident=Pv
+    Field vis=pub ident=a Ty Path u8
+    Field vis=pub ident=b Ty Path u16
+    Field vis=pub ident=e Ty Path u8
+    Field vis=priv ident=f Ty Path bool
+Crate
+  Item Fn@0..67 vis=priv ident=mp
+    Ret Default
+    Block(Expr Expr Match(Expr Path x, [Arm(Pat Lit(Expr MacCall(foo ! Paren[a , b])) => Expr Block(Block())), Arm(Pat Wild => Expr Block(Block()))]); Let Pat Lit(Expr MacCall(m ! Bracket[1 , 2])) = Expr Path y)
+Crate
+  Item Fn@0..73 vis=priv ident=ma
+    Ret Default
+    Block(Semi Expr Match(Expr Path x, [Arm(Pat Ident Foo => Expr LitInt 1), Arm(Pat Ident Bar => Expr LitInt 2), Arm(Pat Wild => Expr LitInt 0)]))
+Crate
+  Item Fn@0..43 vis=priv ident=nb<T: Send> where Ty Path T: Clone + Sync
+    Ret Default
+    Block()
+Crate
+  Item Fn@0..50 vis=priv ident=wa<T, U> where Ty Path T: Clone, Ty Path U: Send
+    Ret Default
+    Block()
+Crate
+  Item Fn@0..51 vis=priv ident=mt
+    Ret Default
+    Block(Semi Expr Method(Expr Path x, method::<Ty Lifetime 'a, Ty Path T, Const 3>, []); Semi Expr Method(Expr Path y, n::<Const { N }>, []))
+Crate
+  Item Fn@0..36 vis=priv ident=ac
+    Param name=x Ty Path T<Assoc Item = Const 3, Assoc Other = Ty Path u8>
+    Ret Default
+    Block()

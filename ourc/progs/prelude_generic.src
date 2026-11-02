@@ -1,0 +1,7 @@
+let names: Vec<str> = vec_new();
+names.push("ab"); names.push("cde"); names.push("f");
+let lens = map(names, |s| len(s));
+print_int(sum(lens));
+let total = fold(lens, 0, |a, x| a + x);
+print_int(total);
+total + 36

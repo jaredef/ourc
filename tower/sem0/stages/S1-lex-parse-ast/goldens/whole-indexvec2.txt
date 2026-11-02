@@ -1,0 +1,40 @@
+Crate
+  Item Trait@0..86 vis=pub ident=Idx: Copy
+    Item Fn@26..58 vis=priv ident=new
+      Param name=idx Ty Path usize
+      Ret Ty Path Self
+      Body None
+    Item Fn@58..83 vis=priv ident=index
+      Param name=self ImplicitSelf
+      Ret Ty Path usize
+      Body None
+  Item Struct@86..149 vis=pub ident=NodeId
+    Attr derive(Clone, Copy, PartialEq, Eq)
+    Tuple(Ty Path u32)
+  Item Impl@149..300 Ty Path Idx for Ty Path NodeId
+    Item Fn@175..241 vis=priv ident=new
+      Param name=idx Ty Path usize
+      Ret Ty Path Self
+      Block(Expr Expr Call(Expr Path NodeId, [Expr Cast(Expr Path idx, Ty Path u32)]))
+    Item Fn@241..297 vis=priv ident=index
+      Param name=self ImplicitSelf
+      Ret Ty Path usize
+      Block(Expr Expr Cast(Expr Field(Expr Path self, 0), Ty Path usize))
+  Item Struct@300..394 vis=pub ident=IndexVec<I, T>
+    Field vis=priv ident=raw Ty Path Vec<Ty Path T>
+    Field vis=priv ident=_marker Ty Path std::marker::PhantomData<Ty FnPtr(Ty Path I)>
+  Item Impl@394..722<I: Idx, T> Ty Path IndexVec<Ty Path I, Ty Path T>
+    Item Fn@431..558 vis=pub ident=push
+      Param name=&mut self ImplicitSelf
+      Param name=t Ty Path T
+      Ret Ty Path I
+      Block(Let Pat Ident idx = Expr Call(Expr Path I::new, [Expr Method(Expr Field(Expr Path self, raw), len, [])]); Semi Expr Method(Expr Field(Expr Path self, raw), push, [Expr Path t]); Expr Expr Path idx)
+    Item Fn@558..641 vis=pub ident=get
+      Param name=&self ImplicitSelf
+      Param name=i Ty Path I
+      Ret Ty Path Option<Ty Ref(Ty Path T)>
+      Block(Expr Expr Method(Expr Field(Expr Path self, raw), get, [Expr Method(Expr Path i, index, [])]))
+    Item Fn@641..720 vis=pub ident=iter
+      Param name=&self ImplicitSelf
+      Ret Ty Impl(Iterator<Assoc Item = Ty Ref(Ty Path T)>)
+      Block(Expr Expr Method(Expr Field(Expr Path self, raw), iter, []))

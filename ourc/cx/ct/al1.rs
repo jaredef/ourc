@@ -1,0 +1,1 @@
+fn main() { let v = vec![1, 2, 3]; println!("{} {} {}", v.iter().filter(|x| **x > 5).all(|x| *x > 100), v.iter().all(|x| *x > 0), v.iter().filter(|x| **x > 1).all(|x| *x > 1)); let w: Vec<(u32, u32)> = vec![(1, 2)]; println!("{}", w.iter().filter(|(a, _)| *a > 5).all(|(_, b)| *b > 100)); }

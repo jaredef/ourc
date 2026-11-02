@@ -1,0 +1,3986 @@
+# rzir -> ELF backend with LOOPS, authored in M0.
+# Control flow needing COMPUTED jump offsets -- the in-compiler label mechanism
+# (the assembler ladder's label resolution arriving inside the compiler, hex1's
+# move one level up). Lines are processed IN ORDER. `loop` records the output
+# position; `jmp` computes a BACKWARD offset to it; `brz vN` emits a forward jz
+# with a PLACEHOLDER offset that `pool` BACKPATCHES once the target is known.
+# Mutation = slot re-store. Output is variable-length; ELF p_filesz is patched.
+# Built by M0. Verified by exit code (incl varying argc). No cc.
+#
+# emitter bss: INBUF 0x440000, OUTBUF 0x470000, LINE 0x46f000, LOOP_OFF 0x46f008,
+#              BRZ_SITE 0x46f010. output bss: vN slots at 0x410000.
+
+# === instruction-encoding library ===
+%xor_eax_eax    31c0
+%xor_edi_edi    31ff
+%xor_ecx_ecx    31c9
+%syscall        0f05
+%ret            c3
+%jmp            e9
+%call           e8
+%ja             0f87
+%je             0f84
+%jz             0f84
+%jne            0f85
+%jae            0f83
+%mov_eax_i      b8
+%cmp_eax_at     3b0425
+%mov_eax_r9d    4489c8
+%mov_ecx_at     8b0c25
+%cmp_ecx_at     3b0c25
+%test_ecx_ecx   85c9
+%mov_al_41      b041
+%mov_al_44      b044
+%mov_al_45      b045
+%mov_al_8b      b08b
+%mov_al_0f      b00f
+%mov_al_3b      b03b
+%lea_rax_r14_4  498d4604
+%mov_rdi_rax    4889c7
+%mov_eax_esi    89f0
+%mov_esi_at     8b3425
+%mov_al_89      b089
+%mov_al_f7      b0f7
+%dec_eax        ffc8
+%shl_edx_3      c1e203
+%add_eax_edx    01d0
+%add_eax_ecx    01c8
+%mov_edi_i      bf
+%mov_esi_i      be
+%mov_edx_i      ba
+%mov_ebx_i      bb
+%mov_r15d_i     41bf
+%mov_al_03      b003
+%mov_al_2b      b02b
+%lea_r13_rbxrax 4c8d2c03
+%lea_rsi_r14_6  498d7606
+%mov_rdx_r14    4c89f2
+%mov_rdx_r15    4c89fa
+%mov_r14_rax    4989c6
+%mov_rax_r15    4c89f8
+%mov_rsi_rax    4889c6
+%mov_r13_rsi    4989f5
+%mov_rax_rdi    4889f8
+%mov_rdi_r14    4c89f7
+%mov_ecx_eax    89c1
+%cmp_dl_76      80fa76
+%dec_esi        ffce
+%movzx_edx_rdi  0fb617
+%movzx_eax_rdi  0fb607
+%cmp_eax_edx    39d0
+%cmp_eax_i      3d
+%inc_rdi        48ffc7
+%lea_rax_r14_3  498d4603
+%lea_rax_r14_5  498d4605
+%lea_rax_r14_6  498d4606
+%lea_rax_r14_6  498d4606
+%mov_rdi_atrax  488b38
+%mov_eax_atrax_8 8b4008
+%mov_rcx_atrax_8 488b4808
+%mov_atrdi_rax  488907
+%mov_atrdi8_rax 48894708
+%mov_atrdi8_eax 894708
+%add_rax_16     4883c010
+%cmp_rax_rdx    4839d0
+%mov_rax_r14    4c89f0
+%add_rax_5      4883c005
+%movzx_ecx_rax_2 0fb64802
+%movzx_ecx_rax_3 0fb64803
+%movzx_ecx_rax_5 0fb64805
+%cmp_cl_20      80f920
+%inc_eax        ffc0
+%mov_esi_eax    89c6
+%add_rax_3      4883c003
+%mov_rdi_at     488b3c25
+%mov_rdx_at     488b1425
+%mov_rsi_at     488b3425
+%movzx_edx_rax1 0fb65001
+%sub_edx_30i    83ea30
+%neg_eax        f7d8
+%cmp_dl_2d      80fa2d
+%mov_rax_at     488b0425
+%mov_at_rax     48890425
+%mov_at_rbx     48891c25
+%mov_at_r15     4c893c25
+%mov_at_eax     890425
+%mov_edx_at     8b1425
+%mov_rcx_at     488b0c25
+%st_eax_rcx     8901
+%mov_at_rax     48890425
+%mov_at_rcx     48890c25
+%st_rax_rcx     488901
+%st_r15_rcx     4c8939
+%mov_edx_atrcx  8b11
+%mov_rcx_atrcx  488b09
+%add_rcx_8      4883c108
+%sub_rcx_8      4883e908
+%mov_eax_ecx    89c8
+%mov_r9d_ecx    4189c9
+%mov_eax_edx    89d0
+%mov_edx_ecx    89ca
+%mov_ecx_r9d    4489c9
+%shl_eax_2      c1e002
+%shl_eax_3      c1e003
+%add_eax_i      05
+%sub_eax_i      2d
+%and_eax_i      25
+%add_eax_at     030425
+%add_eax_eax    01c0
+%push_rax       50
+%pop_rax        58
+%add_edx_i      81c2
+%sub_edx_i      81ea
+%sub_eax_edx    29d0
+%sub_edx_eax    29c2
+%mov_r9d_eax    4189c1
+%movzx_at_rax   0fb610
+%movzx_r14_0    410fb606
+%movzx_r14_d    410fb616
+%movzx_r14_1e   410fb64601
+%movzx_r14_1    410fb65601
+%movzx_r14_2    410fb65602
+%cmp_dl_68      80fa68
+%cmp_al_73      3c73
+%cmp_al_67      3c67
+%cmp_dl_75      80fa75
+%cmp_dl_67      80fa67
+%cmp_dl_6d      80fa6d
+%cmp_dl_64      80fa64
+%cmp_dl_65      80fa65
+%cmp_dl_6c      80fa6c
+%cmp_dl_6f      80fa6f
+%cmp_dl_70      80fa70
+%cmp_dl_78      80fa78
+%cmp_dl_6e      80fa6e
+%mov_al_23      b023
+%mov_al_0b      b00b
+%mov_al_33      b033
+%cmp_al_66      3c66
+%mov_eax_at     8b0425
+%mov_at_eax     890425
+%sub_al_30      2c30
+%sub_cl_30      80e930
+%add_rax_2      4883c002
+%add_rax_7      4883c007
+%mov_ecx_at     8b0c25
+%mov_edx_eax    89c2
+%mov_edx_r9d    4489ca
+%add_edx_lb     81c200504600
+%movzx_ecx_rdx  0fb60a
+%movb_rdx_0     c60200
+%movb_rdx_1     c60201
+%movb_rdx_2     c60202
+%movb_rdx_3     c60203
+%movb_rdx_4     c60204
+%movb_rdx_5     c60205
+%movb_rdx_6     c60206
+%movb_rdx_7     c60207
+%movb_rdx_8     c60208
+%cmp_ecx_1      83f901
+%cmp_ecx_2      83f902
+%cmp_ecx_3      83f903
+%cmp_ecx_4      83f904
+%cmp_ecx_5      83f905
+%cmp_ecx_6      83f906
+%cmp_ecx_7      83f907
+%cmp_ecx_8      83f908
+%cmp_eax_1      83f801
+%cmp_eax_2      83f802
+%cmp_eax_3      83f803
+%cmp_eax_4      83f804
+%cmp_eax_5      83f805
+%cmp_eax_6      83f806
+%cmp_eax_7      83f807
+%cmp_eax_8      83f808
+%cmp_esi_30     83fe30
+%cmp_esi_31     83fe31
+%cmp_esi_33     83fe33
+%cmp_esi_38     83fe38
+%cmp_esi_64     83fe64
+%cmp_esi_73     83fe73
+%movzx_esi_rcx2 0fb67102
+%mov_rcx_r14    4c89f1
+%movzx_esi_rcx  0fb631
+%movzx_esi_rcx3 0fb67103
+%cmp_esi_40     83fe40
+%cmp_esi_32     83fe32
+%cmp_rcx_rax    4839c1
+%lea_rax_r14_1  498d4601
+%add_ecx_edx    01d1
+%imul_ecx_10    6bc90a
+%jb             0f82
+%cmp_dl_30      80fa30
+%cmp_dl_3a      80fa3a
+%mov_ecx_edx    89d1
+%sub_dl_30      80ea30
+%cmp_al_0a      3c0a
+%cmp_al_20      3c20
+%cmp_al_76      3c76
+%cmp_al_6c      3c6c
+%cmp_al_62      3c62
+%cmp_al_6a      3c6a
+%cmp_al_70      3c70
+%cmp_al_72      3c72
+%cmp_dl_63      80fa63
+%cmp_dl_72      80fa72
+%cmp_dl_73      80fa73
+%cmp_dl_20      80fa20
+%cmp_dl_0a      80fa0a
+# emit helpers
+%st_al_r15      418807
+%st_eax_r15     418907
+%test_ecx_ecx   85c9
+%mov_eax_r15d   4489f8
+%mov_ecx_r8d    4489c1
+%mov_r8d_atrcx  448b01
+%mov_eax_atrcx  8b01
+%mov_ecx_atrcx  8b09
+%inc_r15        49ffc7
+%inc_rax        48ffc0
+%inc_rsi        48ffc6
+%dec_rdx        48ffca
+%test_rdx_rdx   4885d2
+%add_r15_4      4983c704
+# const-value parse (pd)
+%movzx_rsi      0fb606
+%movzx_edx_rsi  0fb616
+%sub_eax_30b    83e830
+%movzx_rsi1     0fb65601
+%sub_edx_30b    83ea30
+%cmp_edx_9      83fa09
+%imul_eax_10    6bc00a
+%add_eax_edx    01d0
+# find helpers
+%mov_r8_rdx     4989d0
+%mov_rax_r8     4c89c0
+%add_rax_rsi    4801f0
+%cmp_rax_r13    4c39e8
+%cmp_rcx_rsi    4839f1
+%movzx_r8rcx    410fb60408
+%movzx_rdircx   0fb6140f
+%cmp_al_dl      38d0
+%inc_rcx        48ffc1
+%inc_r8         49ffc0
+%lea_rax_r8rsi  498d0430
+%test_eax_eax   85c0
+%movzx_at_rsi   0fb606
+
+# === emitter ELF header ===
+7f454c46 02010100 00000000 00000000
+0200 3e00 01000000
+=code 00000000
+40000000 00000000
+00000000 00000000
+00000000 4000 3800 0100 0000 00000000
+01000000 07000000
+00000000 00000000
+00004000 00000000
+00004000 00000000
+&end 00000000
+00004001 00000000
+00100000 00000000
+
+# === OUTPUT 120-byte header (R+W+X; filesz patched; slots at 0x410000) ===
+:ohdr
+7f454c46 02010100 00000000 00000000
+0200 3e00 01000000
+78004000 00000000
+40000000 00000000
+00000000 00000000
+00000000 4000 3800 0100 0000 00000000
+01000000 07000000
+00000000 00000000
+00004000 00000000
+00004000 00000000
+:fsz 00000000 00000000
+:msz 00000010 00000000
+00100000 00000000
+
+# === code ===
+:code
+mov_esi_i 00000001        # R5: rsi = INBUF 0x1000000 (relocated above the tables --
+                          # cf memsz is 20MB @0x400000, so 0x1000000-0x1800000 = 8MB INBUF)
+                          # input up to the tables @0x461000, was 64KB @0x440000). cf's own process;
+                          # the compiled program's slots @0x410000 are a separate address space.
+:rdloop                   # LOOP read() until EOF: a PIPE delivers the rzir in chunks; a single
+xor_eax_eax               # read() returned a truncated input -> non-deterministic cf crash. Loop.
+xor_edi_edi
+mov_edx_i 00000100        # count = 0x10000 per read
+syscall                   # read(0, rsi, 0x10000) -> rax = bytes read
+test_eax_eax
+je }rddone                # 0 = EOF -> done
+add_rax_rsi               # rsi += rax  (advance the write pointer)
+mov_rsi_rax
+cmp_eax_i 00008001        # R5: INBUF ceiling 0x1800000 (decoupled from FIX_LIST @0x461000)
+jae }in_overflow          # rzir exceeds cf's ~324KB INBUF. Exit deterministically, not silent-truncate.
+jmp }rdloop
+:in_overflow
+mov_eax_i 3c000000        # exit(8) -- cf INBUF overflow. The decoupling (relocate tables for a bigger
+mov_edi_i 08000000        # INBUF) is the follow-on if cc-in-C's rzir needs >324KB.
+syscall
+:rddone
+mov_ebx_i 00000001        # R5: ebx = INBUF 0x1000000 (base for line-relative math)
+mov_r13_rsi               # r13 = end of accumulated input
+mov_r15d_i 00004700       # OUTBUF write pointer
+:heaptop_scan            # HEAPTOP: per-program dynamic frame base (mirrors cf.hoist scan_heaptop).
+                         # If input's 1st line is "heaptop <N>", DELTA@0x46f0f0 = align16MB(N)-0x7000000
+                         # (so frame base = 0x8000000+DELTA = align16MB(N)+16MB); else DELTA=0 -> every
+                         # emitted constant (frame base, SPILL, memsz, argv/envp/strings) is +DELTA and
+                         # a no-heaptop program is BYTE-IDENTICAL to the pre-heaptop cf. arena_top@0x46f0f8.
+xor_eax_eax
+mov_at_eax f0f04600
+mov_at_eax f8f04600
+mov_eax_at 00000001
+cmp_eax_i 68656170
+jne }heaptop_done
+mov_eax_at 03000001
+cmp_eax_i 70746f70
+jne }heaptop_done
+mov_eax_i 07000001
+:heaptop_sp
+movzx_at_rax
+cmp_dl_20
+jne }heaptop_dig
+inc_rax
+jmp }heaptop_sp
+:heaptop_dig
+movzx_at_rax
+cmp_dl_30
+jb }heaptop_val
+cmp_dl_3a
+jae }heaptop_val
+push_rax
+sub_edx_i 30000000
+mov_eax_at f8f04600
+mov_ecx_eax
+add_eax_eax
+add_eax_eax
+add_eax_ecx
+add_eax_eax
+add_eax_edx
+mov_at_eax f8f04600
+pop_rax
+inc_rax
+jmp }heaptop_dig
+:heaptop_val
+mov_eax_at f8f04600
+add_eax_i ffffff00
+and_eax_i 000000ff
+cmp_eax_i 00000007
+jb }heaptop_done
+sub_eax_i 00000007
+mov_at_eax f0f04600
+:heaptop_done
+mov_at_rbx 00f04600       # LINE = INBUF
+# label-table stacks for NESTED loops: LP_SP 0x46f008 -> LP_STACK 0x46e000,
+#                                       BRZ_SP 0x46f010 -> BRZ_STACK 0x46e800
+# NOTE (T11): a naive relocation of LP/BRZ into the FIX_LIST hole was REVERTED. It turned
+# nested-loops from deterministic-64 to flaky-64 (LP_STACK was no longer the binding constraint)
+# but RESHUFFLED the rest of the cfprobe surface instead of raising rho*; the fuzzer CF_CRASH count
+# is noise-dominated (98-113 band, non-deterministic) so showed no attributable change. The cf
+# overflow is COOPERATIVE-COUPLED (SIPE-T Doc 541 §3.1): the tables share ONE corruption region in
+# the cramped [0x460000,0x470000), so moving one within it shifts the collision rather than removing
+# it. The real fix DECOUPLES them into genuinely separate mapped regions (extend cf memsz).
+mov_eax_i 00e04600
+mov_at_rax 08f04600
+mov_eax_i 00e84600
+mov_at_rax 10f04600
+mov_eax_i 00004100        # R5: FN_END = FN_TABLE base 0x410000 (relocated into freed INBUF space -- 20k fns)
+mov_at_eax 38f04600
+mov_eax_i 00004200        # R5: FIX_END = FIX_LIST base 0x420000 (relocated; 4096 fixups)
+mov_at_eax 40f04600
+mov_eax_i 00004300        # FADDR_FIX_END = FADDR_FIX_LIST base 0x464000 (forward faddr fixups)
+mov_at_eax 98f04600
+mov_eax_i 00204600        # LBL_END/GFX_END for `ir main` (helpers reset in d_fn): goto labels+fixups
+mov_at_eax 80f04600
+mov_eax_i 00304600
+mov_at_eax 88f04600
+mov_eax_i 00c04600        # BK_SP = BREAK_STACK base (per-loop break-chain heads)
+mov_at_rax 48f04600
+mov_eax_i 00b04600        # CT_SP = CONT_STACK base (per-loop continue-chain heads)
+mov_at_rax 50f04600
+mov_esi_i =rbx_init       # output's 1st instr: ebx = slot base (the frame ptr)
+mov_edx_i 05000000
+call }emit_bytes
+mov_esi_i =entry_marshal   # then materialize argc/argv/envp into low buffers (i32-clean)
+mov_edx_i 86000000        # 134 bytes
+call }emit_bytes
+:heaptop_patch           # +DELTA into the emitted frame-base imm (rbx_init@OUTBUF+1) and the marshaller's
+                         # argv(+11)/strings(+17)/envp(+79) dests, so the frame/argv region lifts together.
+mov_eax_at 01004700
+add_eax_at f0f04600
+mov_at_eax 01004700
+mov_eax_at 10004700
+add_eax_at f0f04600
+mov_at_eax 10004700
+mov_eax_at 16004700
+add_eax_at f0f04600
+mov_at_eax 16004700
+mov_eax_at 54004700
+add_eax_at f0f04600
+mov_at_eax 54004700
+
+:lineloop
+mov_eax_at b0f04600       # R17: EAXVP = EAXV; EAXV = -1 -- the vN whose value the emitted
+mov_at_eax b8f04600       # stream left in eax survives exactly one line; only bop_store
+mov_eax_i ffffffff        # re-arms it, so any non-assignment line (all jump targets are
+mov_at_eax b0f04600       # loop/pool/label/endloop/cont/fn lines) kills forwarding
+mov_rax_at 00f04600       # rax = LINE
+cmp_rax_r13
+jae }wrap
+:ll_sp                    # skip leading spaces  (edx = byte, rax stays the cursor)
+movzx_at_rax
+cmp_dl_20
+jne }ll_got
+inc_rax
+jmp }ll_sp
+:ll_got
+mov_r14_rax               # r14 = first non-space char of the line
+:ll_nl                    # advance LINE past this line's newline
+cmp_rax_r13               # BOUND the scan: a missing final newline must stop at end-of-input,
+jae }ll_nldone            # not run past INBUF into the tables region (deterministic segfault)
+movzx_at_rax
+cmp_dl_0a
+je }ll_nldone
+inc_rax
+jmp }ll_nl
+:ll_nldone
+inc_rax
+mov_at_rax 00f04600       # LINE = next line
+movzx_r14_0
+cmp_al_76
+je }d_assign              # 'v' assignment -- fast path (common line)
+# statements matched as whole TOKENS (L058's LINE half):
+mov_rdi_r14
+mov_esi_i =m_loop
+call }streq_tok
+test_eax_eax
+jne }d_loop
+mov_rdi_r14
+mov_esi_i =m_brz
+call }streq_tok
+test_eax_eax
+jne }d_brz
+mov_rdi_r14
+mov_esi_i =m_brc
+call }streq_tok
+test_eax_eax
+jne }d_brc
+mov_rdi_r14
+mov_esi_i =m_jmp
+call }streq_tok
+test_eax_eax
+jne }d_jmp
+mov_rdi_r14
+mov_esi_i =m_pool
+call }streq_tok
+test_eax_eax
+jne }d_pool
+mov_rdi_r14
+mov_esi_i =m_endloop
+call }streq_tok
+test_eax_eax
+jne }d_endloop
+mov_rdi_r14
+mov_esi_i =m_brk
+call }streq_tok
+test_eax_eax
+jne }d_brk
+mov_rdi_r14
+mov_esi_i =m_cont
+call }streq_tok
+test_eax_eax
+jne }d_cont
+mov_rdi_r14
+mov_esi_i =m_cnt
+call }streq_tok
+test_eax_eax
+jne }d_cnt
+mov_rdi_r14
+mov_esi_i =m_ret
+call }streq_tok
+test_eax_eax
+jne }d_ret
+mov_rdi_r14
+mov_esi_i =m_fn
+call }streq_tok
+test_eax_eax
+jne }d_fn
+mov_rdi_r14
+mov_esi_i =m_goto
+call }streq_tok
+test_eax_eax
+jne }d_goto
+mov_rdi_r14
+mov_esi_i =m_label
+call }streq_tok
+test_eax_eax
+jne }d_label
+mov_rdi_r14
+mov_esi_i =m_store
+call }streq_tok
+test_eax_eax
+jne }d_store
+mov_rdi_r14
+mov_esi_i =m_storeb
+call }streq_tok
+test_eax_eax
+jne }d_storeb
+mov_rdi_r14
+mov_esi_i =m_store2
+call }streq_tok
+test_eax_eax
+jne }d_store2
+mov_rdi_r14
+mov_esi_i =m_store8
+call }streq_tok
+test_eax_eax
+jne }d_store8
+mov_rdi_r14
+mov_esi_i =m_put
+call }streq_tok
+test_eax_eax
+jne }d_put
+mov_rdi_r14
+mov_esi_i =m_putb
+call }streq_tok
+test_eax_eax
+jne }d_putb
+jmp }lineloop             # no keyword match -> skip (ir main, end)
+
+:d_assign
+lea_rax_r14_1             # the leading vN (multi-digit)
+call }dec2
+mov_r9d_ecx               # target
+mov_rdx_r14
+mov_edi_i =eq_needle
+mov_esi_i 02000000
+call }find                # rax = RHS (after "= ")
+mov_edx_r9d               # LOC[dest] = 0 default; edx = 0x465000 + dest
+add_edx_lb
+movb_rdx_0
+mov_rcx_r14               # scan LHS r14..RHS for '@r12'/'@r13' (rzir-ra annotation)
+:da_locscan
+cmp_rcx_rax
+jae }da_locdone
+movzx_esi_rcx
+cmp_esi_40                # '@' ?
+je }da_locat
+inc_rcx
+jmp }da_locscan
+:da_locat
+movzx_esi_rcx2           # R15: [+2] disambiguates: '1'->r1X, 's'->rsi, 'd'->rdi, '8'->r8, '9'->r9
+cmp_esi_31
+je }da_r1x
+cmp_esi_73
+je }da_locrsi
+cmp_esi_64
+je }da_locrdi
+cmp_esi_38
+je }da_locr8
+movb_rdx_8               # '9' -> r9 (LOC 8)
+jmp }da_locdone
+:da_locrsi
+movb_rdx_5
+jmp }da_locdone
+:da_locrdi
+movb_rdx_6
+jmp }da_locdone
+:da_locr8
+movb_rdx_7
+jmp }da_locdone
+:da_r1x
+movzx_esi_rcx3           # the reg digit: '2'->r12 (1), '3'->r13 (2), '0'->r10 (3), '1'->r11 (4)
+cmp_esi_32
+je }da_locr12
+cmp_esi_33
+je }da_locr13
+cmp_esi_30
+je }da_locr10
+movb_rdx_4               # R9: '1' -> r11 (caller-saved pool)
+jmp }da_locdone
+:da_locr10
+movb_rdx_3               # R9: r10 (caller-saved pool)
+jmp }da_locdone
+:da_locr13
+movb_rdx_2
+jmp }da_locdone
+:da_locr12
+movb_rdx_1
+:da_locdone
+mov_r14_rax               # r14 = RHS
+# RHS dispatch: match the mnemonic as a whole token (collision-free, extensible).
+mov_rdi_r14
+mov_esi_i =m_param
+call }streq_tok
+test_eax_eax
+jne }a_param
+mov_rdi_r14
+mov_esi_i =m_syscall
+call }streq_tok
+test_eax_eax
+jne }a_syscall
+mov_rdi_r14
+mov_esi_i =m_setjmp
+call }streq_tok
+test_eax_eax
+jne }a_setjmp
+mov_rdi_r14
+mov_esi_i =m_longjmp
+call }streq_tok
+test_eax_eax
+jne }a_longjmp
+mov_rdi_r14
+mov_esi_i =m_const
+call }streq_tok
+test_eax_eax
+jne }a_const
+mov_rdi_r14
+mov_esi_i =m_calli
+call }streq_tok
+test_eax_eax
+jne }a_calli
+mov_rdi_r14
+mov_esi_i =m_faddr
+call }streq_tok
+test_eax_eax
+jne }a_faddr
+mov_rdi_r14
+mov_esi_i =m_call
+call }streq_tok
+test_eax_eax
+jne }a_call
+mov_rdi_r14
+mov_esi_i =m_argc
+call }streq_tok
+test_eax_eax
+jne }a_argc
+mov_rdi_r14
+mov_esi_i =m_sel
+call }streq_tok
+test_eax_eax
+jne }a_sel
+mov_rdi_r14
+mov_esi_i =m_lt
+call }streq_tok
+test_eax_eax
+jne }a_lt
+mov_rdi_r14
+mov_esi_i =m_eq
+call }streq_tok
+test_eax_eax
+jne }a_eq
+mov_rdi_r14
+mov_esi_i =m_gt
+call }streq_tok
+test_eax_eax
+jne }a_gt
+mov_rdi_r14
+mov_esi_i =m_le
+call }streq_tok
+test_eax_eax
+jne }a_le
+mov_rdi_r14
+mov_esi_i =m_ge
+call }streq_tok
+test_eax_eax
+jne }a_ge
+mov_rdi_r14
+mov_esi_i =m_ltu
+call }streq_tok
+test_eax_eax
+jne }a_ltu
+mov_rdi_r14
+mov_esi_i =m_gtu
+call }streq_tok
+test_eax_eax
+jne }a_gtu
+mov_rdi_r14
+mov_esi_i =m_leu
+call }streq_tok
+test_eax_eax
+jne }a_leu
+mov_rdi_r14
+mov_esi_i =m_geu
+call }streq_tok
+test_eax_eax
+jne }a_geu
+mov_rdi_r14
+mov_esi_i =m_ne
+call }streq_tok
+test_eax_eax
+jne }a_ne
+mov_rdi_r14
+mov_esi_i =m_ref
+call }streq_tok
+test_eax_eax
+jne }a_ref
+mov_rdi_r14
+mov_esi_i =m_load
+call }streq_tok
+test_eax_eax
+jne }a_load
+mov_rdi_r14
+mov_esi_i =m_load8
+call }streq_tok
+test_eax_eax
+jne }a_load8
+mov_rdi_r14                # R91: 8-byte op family (add8/sub8/shl8/shr8/shu8/and8/or8/xor8)
+mov_esi_i =m_add8
+call }streq_tok
+test_eax_eax
+jne }a_add8
+mov_rdi_r14
+mov_esi_i =m_sub8
+call }streq_tok
+test_eax_eax
+jne }a_sub8
+mov_rdi_r14
+mov_esi_i =m_and8
+call }streq_tok
+test_eax_eax
+jne }a_and8
+mov_rdi_r14
+mov_esi_i =m_or8
+call }streq_tok
+test_eax_eax
+jne }a_or8
+mov_rdi_r14
+mov_esi_i =m_xor8
+call }streq_tok
+test_eax_eax
+jne }a_xor8
+mov_rdi_r14
+mov_esi_i =m_shl8
+call }streq_tok
+test_eax_eax
+jne }a_shl8
+mov_rdi_r14
+mov_esi_i =m_shr8
+call }streq_tok
+test_eax_eax
+jne }a_shr8
+mov_rdi_r14
+mov_esi_i =m_shu8
+call }streq_tok
+test_eax_eax
+jne }a_shu8
+mov_rdi_r14
+mov_esi_i =m_mul8
+call }streq_tok
+test_eax_eax
+jne }a_mul8
+mov_rdi_r14
+mov_esi_i =m_lt8
+call }streq_tok
+test_eax_eax
+jne }a_lt8
+mov_rdi_r14
+mov_esi_i =m_le8
+call }streq_tok
+test_eax_eax
+jne }a_le8
+mov_rdi_r14
+mov_esi_i =m_gt8
+call }streq_tok
+test_eax_eax
+jne }a_gt8
+mov_rdi_r14
+mov_esi_i =m_ge8
+call }streq_tok
+test_eax_eax
+jne }a_ge8
+mov_rdi_r14
+mov_esi_i =m_eq8
+call }streq_tok
+test_eax_eax
+jne }a_eq8
+mov_rdi_r14
+mov_esi_i =m_ne8
+call }streq_tok
+test_eax_eax
+jne }a_ne8
+mov_rdi_r14
+mov_esi_i =m_ltu8
+call }streq_tok
+test_eax_eax
+jne }a_ltu8
+mov_rdi_r14
+mov_esi_i =m_leu8
+call }streq_tok
+test_eax_eax
+jne }a_leu8
+mov_rdi_r14
+mov_esi_i =m_gtu8
+call }streq_tok
+test_eax_eax
+jne }a_gtu8
+mov_rdi_r14
+mov_esi_i =m_geu8
+call }streq_tok
+test_eax_eax
+jne }a_geu8
+mov_rdi_r14
+mov_esi_i =m_div8
+call }streq_tok
+test_eax_eax
+jne }a_div8
+mov_rdi_r14
+mov_esi_i =m_duv8
+call }streq_tok
+test_eax_eax
+jne }a_duv8
+mov_rdi_r14
+mov_esi_i =m_mod8
+call }streq_tok
+test_eax_eax
+jne }a_mod8
+mov_rdi_r14
+mov_esi_i =m_udm8
+call }streq_tok
+test_eax_eax
+jne }a_udm8
+mov_rdi_r14
+mov_esi_i =m_convs
+call }streq_tok
+test_eax_eax
+jne }a_convs
+mov_rdi_r14
+mov_esi_i =m_conv
+call }streq_tok
+test_eax_eax
+jne }a_conv
+mov_rdi_r14
+mov_esi_i =m_get
+call }streq_tok
+test_eax_eax
+jne }a_get
+mov_rdi_r14
+mov_esi_i =m_loadb
+call }streq_tok
+test_eax_eax
+jne }a_loadb
+mov_rdi_r14
+mov_esi_i =m_load2
+call }streq_tok
+test_eax_eax
+jne }a_load2
+mov_rdi_r14
+mov_esi_i =m_getb
+call }streq_tok
+test_eax_eax
+jne }a_getb
+mov_rdi_r14
+mov_esi_i =m_div
+call }streq_tok
+test_eax_eax
+jne }a_div
+mov_rdi_r14
+mov_esi_i =m_duv
+call }streq_tok
+test_eax_eax
+jne }a_duv
+mov_rdi_r14
+mov_esi_i =m_udm
+call }streq_tok
+test_eax_eax
+jne }a_udm
+mov_rdi_r14
+mov_esi_i =m_mod
+call }streq_tok
+test_eax_eax
+jne }a_mod                 # 'mod' would COLLIDE with 'mul' at 'm' -- token dispatch is free
+# no table match -> a binary op (add/sub/mul), opcode picked by RHS[0]
+# op: load X, op Y, store N
+mov_esi_i 02000000        # R7: BLOC = LOC[operand B], stashed BEFORE A load (scan_op clobbers eax)
+mov_rdi_r14
+call }scan_op             # eax = B's value index
+mov_at_eax c0f04600       # R18: BIDX = B's vN (for the commutative swap)
+mov_edx_eax
+add_edx_lb                # edx = 0x465000 + B
+movzx_ecx_rdx             # ecx = LOC[B]
+mov_eax_ecx
+mov_at_eax a0f04600       # BLOC temp = LOC[B] (0=slot, 1=r12, 2=r13)
+mov_esi_i 01000000        # operand A: reg (r12/r13, rzir-ra) or slot?
+mov_rdi_r14
+call }scan_op             # eax = A's slot
+cmp_eax_at b8f04600       # R17: A is already in eax (prev line's result) -> skip the load
+je }bop_ad
+movzx_r14_d               # R18 commutative swap: ccc evaluates y LAST, so the previous
+cmp_dl_73                 # result is usually operand B. For add/mul/and/or/xor (RHS[0] is
+je }bop_noswap            # never 's' for those; 's' = sub/shl/shr/shu, non-commutative),
+mov_ecx_at c0f04600       # if B==EAXVP and A is REGISTER-resident (the slot arm of op_y
+cmp_ecx_at b8f04600       # rescans operand 2's disp, so a slotted A cannot swap), keep B
+jne }bop_noswap           # in eax and emit A as the source: eax = B op A == A op B.
+mov_edx_eax
+add_edx_lb
+movzx_ecx_rdx             # ecx = LOC[A]
+test_ecx_ecx
+jz }bop_noswap
+mov_eax_ecx
+mov_at_eax a0f04600       # BLOC = LOC[A]; A-load skipped
+jmp }bop_ad
+:bop_noswap
+mov_edx_eax
+add_edx_lb
+movzx_ecx_rdx             # ecx = LOC[A]
+cmp_ecx_1
+je }bop_a12
+cmp_ecx_2
+je }bop_a13
+cmp_ecx_3
+je }bop_a10
+cmp_ecx_4
+je }bop_a11
+cmp_ecx_5
+je }bop_a5
+cmp_ecx_6
+je }bop_a6
+cmp_ecx_7
+je }bop_a7
+cmp_ecx_8
+je }bop_a8
+mov_esi_i =pre_movrm      # slot: mov eax, [rbx+A]
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 01000000
+call }eop
+jmp }bop_ad
+:bop_a12
+mov_esi_i =mov_eax_r12d   # reg: mov eax, r12d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }bop_ad
+:bop_a13
+mov_esi_i =mov_eax_r13d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }bop_ad
+:bop_a10
+mov_esi_i =mov_eax_r10d   # R9: caller-saved pool
+mov_edx_i 03000000
+call }emit_bytes
+jmp }bop_ad
+:bop_a11
+mov_esi_i =mov_eax_r11d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }bop_ad
+:bop_a5
+mov_esi_i =ld_rsi         # R15 marshalling pool: mov eax, esi (no REX)
+mov_edx_i 02000000
+call }emit_bytes
+jmp }bop_ad
+:bop_a6
+mov_esi_i =ld_rdi
+mov_edx_i 02000000
+call }emit_bytes
+jmp }bop_ad
+:bop_a7
+mov_esi_i =ld_r8
+mov_edx_i 03000000
+call }emit_bytes
+jmp }bop_ad
+:bop_a8
+mov_esi_i =ld_r9
+mov_edx_i 03000000
+call }emit_bytes
+:bop_ad
+mov_eax_at a0f04600       # R7: if B is in a register, emit REX.B (41) before the opcode
+test_eax_eax
+jz }bop_norex
+cmp_eax_5                 # R15: esi/edi need NO REX (and a stray 41 would remap rm to r14/r15)
+je }bop_norex
+cmp_eax_6
+je }bop_norex
+movzx_r14_d               # R8: shifts take the cl-count path, not the reg-source ModRM --
+cmp_dl_73                 # a stray 41 here would corrupt their count load (rbx -> r11)
+jne }bop_dorex
+movzx_r14_1
+cmp_dl_68
+je }bop_norex             # 's'+'h' = shl/shr/shu -> no REX; op_shift honors BLOC itself
+:bop_dorex
+mov_esi_i =rex41
+mov_edx_i 01000000
+call }emit_bytes
+:bop_norex
+movzx_r14_d               # opcode by mnemonic: mul/or/xor/sub, or add/and (RHS[1])
+cmp_dl_6d
+je }op_mul                # 'm' mul (imul, 2-byte opcode)
+cmp_dl_6f
+je }op_or                 # 'o' or  (0b)
+cmp_dl_78
+je }op_xor                # 'x' xor (33)
+cmp_dl_73
+je }op_s                  # 's' sub (2b) OR shl/shr (by RHS[1])
+movzx_r14_1               # 'a': add (03) vs and (23) by RHS[1]
+cmp_dl_6e
+je }op_and
+mov_al_03
+jmp }op_emit
+:op_sub
+mov_al_2b
+jmp }op_emit
+:op_and
+mov_al_23
+jmp }op_emit
+:op_or
+mov_al_0b
+jmp }op_emit
+:op_xor
+mov_al_33
+:op_emit
+st_al_r15                 # add/sub: single-byte op (03/2b)
+inc_r15
+jmp }op_y
+:op_mul
+mov_esi_i =imul_op        # mul: imul eax, [Y]  (0f af ..)
+mov_edx_i 02000000
+call }emit_bytes
+:op_y
+mov_eax_at a0f04600       # R7: BLOC -> operand B is a register (c2-c5) or a slot ([rbx+B])
+cmp_eax_1
+je }op_y_r12
+cmp_eax_2
+je }op_y_r13
+cmp_eax_3
+je }op_y_r10
+cmp_eax_4
+je }op_y_r11
+cmp_eax_5
+je }op_y_5
+cmp_eax_6
+je }op_y_6
+cmp_eax_7
+je }op_y_7
+cmp_eax_8
+je }op_y_8
+mov_esi_i =pre_rm         # slot: ModRM+SIB for [rbx+B], then the disp
+mov_edx_i 02000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+jmp }bop_store
+:op_y_r12
+mov_esi_i =modrm_c4       # reg: op eax, r12d  (ModRM c4)
+mov_edx_i 01000000
+call }emit_bytes
+jmp }bop_store
+:op_y_r13
+mov_esi_i =modrm_c5       # reg: op eax, r13d  (ModRM c5)
+mov_edx_i 01000000
+call }emit_bytes
+jmp }bop_store
+:op_y_r10
+mov_esi_i =modrm_c2       # R9: op eax, r10d  (ModRM c2)
+mov_edx_i 01000000
+call }emit_bytes
+jmp }bop_store
+:op_y_r11
+mov_esi_i =modrm_c3       # R9: op eax, r11d  (ModRM c3)
+mov_edx_i 01000000
+call }emit_bytes
+jmp }bop_store
+:op_y_5
+mov_esi_i =modrm_c6       # R15: op eax, esi (no REX -- bop_ad skipped it)
+mov_edx_i 01000000
+call }emit_bytes
+jmp }bop_store
+:op_y_6
+mov_esi_i =modrm_c7
+mov_edx_i 01000000
+call }emit_bytes
+jmp }bop_store
+:op_y_7
+mov_esi_i =modrm_c0       # r8: REX.B came from bop_ad
+mov_edx_i 01000000
+call }emit_bytes
+jmp }bop_store
+:op_y_8
+mov_esi_i =modrm_c1
+mov_edx_i 01000000
+call }emit_bytes
+:bop_store
+mov_eax_r9d               # R17: after the store, eax holds N's value -- arm the forwarder
+mov_at_eax b0f04600
+mov_edx_r9d               # result N: reg (r12/r13) or slot?
+add_edx_lb
+movzx_ecx_rdx             # ecx = LOC[N]
+cmp_ecx_1
+je }bop_n12
+cmp_ecx_2
+je }bop_n13
+cmp_ecx_3
+je }bop_n10
+cmp_ecx_4
+je }bop_n11
+cmp_ecx_5
+je }bop_n5
+cmp_ecx_6
+je }bop_n6
+cmp_ecx_7
+je }bop_n7
+cmp_ecx_8
+je }bop_n8
+mov_esi_i =pre_movmr      # slot: mov [rbx+N], eax
+mov_edx_i 03000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+:bop_n12
+mov_esi_i =mov_r12d_eax   # reg: mov r12d, eax
+mov_edx_i 03000000
+call }emit_bytes
+jmp }lineloop
+:bop_n13
+mov_esi_i =mov_r13d_eax
+mov_edx_i 03000000
+call }emit_bytes
+jmp }lineloop
+:bop_n10
+mov_esi_i =mov_r10d_eax   # R9: caller-saved pool
+mov_edx_i 03000000
+call }emit_bytes
+jmp }lineloop
+:bop_n11
+mov_esi_i =mov_r11d_eax
+mov_edx_i 03000000
+call }emit_bytes
+jmp }lineloop
+:bop_n5
+mov_esi_i =st_rsi         # R15: mov esi, eax
+mov_edx_i 02000000
+call }emit_bytes
+jmp }lineloop
+:bop_n6
+mov_esi_i =st_rdi
+mov_edx_i 02000000
+call }emit_bytes
+jmp }lineloop
+:bop_n7
+mov_esi_i =st_r8
+mov_edx_i 03000000
+call }emit_bytes
+jmp }lineloop
+:bop_n8
+mov_esi_i =st_r9
+mov_edx_i 03000000
+call }emit_bytes
+jmp }lineloop
+:op_s                     # 's': sub (2b), or shl/shr (2nd char 'h')
+movzx_r14_1
+cmp_dl_68
+je }op_shift
+mov_al_2b
+jmp }op_emit
+:op_shift                 # shl/shr: mov ecx,<Y>; shl/sar eax,cl; store N  (eax=<X> preloaded)
+mov_eax_at a0f04600       # R8: BLOC -> count Y is a register (mov ecx,rXd) or a slot
+cmp_eax_1
+je }shf_b12
+cmp_eax_2
+je }shf_b13
+cmp_eax_3
+je }shf_b10
+cmp_eax_4
+je }shf_b11
+cmp_eax_5
+je }shf_b5
+cmp_eax_6
+je }shf_b6
+cmp_eax_7
+je }shf_b7
+cmp_eax_8
+je }shf_b8
+mov_esi_i =pre_movrc      # slot: mov ecx, [rbx+Y]
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+jmp }shf_bd
+:shf_b12
+mov_esi_i =mov_ecx_r12d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }shf_bd
+:shf_b13
+mov_esi_i =mov_ecx_r13d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }shf_bd
+:shf_b10
+mov_esi_i =mov_ecx_r10d   # R9: caller-saved pool
+mov_edx_i 03000000
+call }emit_bytes
+jmp }shf_bd
+:shf_b11
+mov_esi_i =mov_ecx_r11d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }shf_bd
+:shf_b5
+mov_esi_i =cnt_rsi        # R15: mov ecx, esi
+mov_edx_i 02000000
+call }emit_bytes
+jmp }shf_bd
+:shf_b6
+mov_esi_i =cnt_rdi
+mov_edx_i 02000000
+call }emit_bytes
+jmp }shf_bd
+:shf_b7
+mov_esi_i =cnt_r8
+mov_edx_i 03000000
+call }emit_bytes
+jmp }shf_bd
+:shf_b8
+mov_esi_i =cnt_r9
+mov_edx_i 03000000
+call }emit_bytes
+:shf_bd
+movzx_r14_2               # 3rd char: 'l' shl, 'r' shr
+cmp_dl_6c
+je }op_shl
+cmp_dl_75                 # 'u' (shu) -> logical shr (unsigned)
+je }op_shu
+mov_esi_i =sar_op         # shr -> sar eax,cl (arithmetic; signed int)
+mov_edx_i 02000000
+call }emit_bytes
+jmp }op_shift_st
+:op_shu
+mov_esi_i =lsr_op
+mov_edx_i 02000000
+call }emit_bytes
+jmp }op_shift_st
+:op_shl
+mov_esi_i =shl_op
+mov_edx_i 02000000
+call }emit_bytes
+:op_shift_st
+jmp }bop_store            # R8: result store honors LOC[N] (reg or slot), same as binops
+:a_const                  # R14: const honors LOC[N] -- mov rXd,imm32 (41 b8+rd) or the slot store
+mov_edx_r9d
+add_edx_lb
+movzx_ecx_rdx             # ecx = LOC[N]
+cmp_ecx_1
+je }cst_12
+cmp_ecx_2
+je }cst_13
+cmp_ecx_3
+je }cst_10
+cmp_ecx_4
+je }cst_11
+cmp_ecx_5
+je }cst_5
+cmp_ecx_6
+je }cst_6
+cmp_ecx_7
+je }cst_7
+cmp_ecx_8
+je }cst_8
+mov_esi_i =pre_movmi      # slot: mov dword [rbx+N], imm32
+mov_edx_i 03000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }cst_imm
+:cst_12
+mov_esi_i =mov_r12d_i
+mov_edx_i 02000000
+call }emit_bytes
+jmp }cst_imm
+:cst_13
+mov_esi_i =mov_r13d_i
+mov_edx_i 02000000
+call }emit_bytes
+jmp }cst_imm
+:cst_10
+mov_esi_i =mov_r10d_i
+mov_edx_i 02000000
+call }emit_bytes
+jmp }cst_imm
+:cst_11
+mov_esi_i =mov_r11d_i
+mov_edx_i 02000000
+call }emit_bytes
+jmp }cst_imm
+:cst_5
+mov_esi_i =ci_rsi         # R15: mov esi, imm32 (be id)
+mov_edx_i 01000000
+call }emit_bytes
+jmp }cst_imm
+:cst_6
+mov_esi_i =ci_rdi
+mov_edx_i 01000000
+call }emit_bytes
+jmp }cst_imm
+:cst_7
+mov_esi_i =ci_r8
+mov_edx_i 02000000
+call }emit_bytes
+jmp }cst_imm
+:cst_8
+mov_esi_i =ci_r9
+mov_edx_i 02000000
+call }emit_bytes
+:cst_imm
+lea_rsi_r14_6
+call }pd
+st_eax_r15
+add_r15_4
+mov_eax_at b8f04600       # R17: a const's emitted code (mov rXd,imm / mov [slot],imm) never
+mov_at_eax b0f04600       # touches runtime eax -- PROPAGATE the forwarder through const lines
+jmp }lineloop
+:a_argc
+mov_esi_i =pre_argc
+mov_edx_i 07000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+:a_call                   # `call dbl vX` -> mov edi,[SLOT_X]; call <fn>; mov [SLOT_N],eax
+mov_rax_r14               # skip "call NAME " (the NAME may contain 'v', e.g. "even")
+add_rax_5
+:ac_skipname
+movzx_at_rax
+cmp_dl_20
+je }ac_argd
+cmp_dl_0a
+je }ac_argd               # name followed by newline = a no-argument call
+inc_rax
+jmp }ac_skipname
+:ac_argd
+mov_at_rax 60f04600       # ARGCUR = space after NAME
+xor_eax_eax
+mov_at_eax 68f04600       # ARGIDX = 0
+:ac_argloop
+mov_rax_at 60f04600
+movzx_at_rax
+cmp_dl_0a
+je }ac_args_done
+mov_eax_at 68f04600
+cmp_eax_i 06000000        # 7th+ arg: spill to a fixed region (allocator never honors these)
+jae }ac_spill
+mov_rax_at 60f04600       # R20: parse the arg's vN FIRST, then dispatch on LOC
+add_rax_2
+call }dec2                # ecx = vN, rax = after
+mov_at_rax 60f04600       # ARGCUR advanced
+mov_eax_ecx
+mov_at_eax d0f04600       # ARGVN
+mov_edx_ecx
+add_edx_lb
+movzx_ecx_rdx             # ecx = LOC[vN]
+test_ecx_ecx
+jz }ac_slotarg
+mov_eax_at 68f04600       # register source (codes 1-4 by allocator contract):
+add_eax_i =arglow_tbl     # [44|45] 89 (c0 | srclow<<3 | arglow[idx])
+movzx_at_rax              # edx = arglow
+mov_eax_edx
+mov_at_eax d8f04600
+call }g_rlow              # edx = srclow (ecx preserved)
+shl_edx_3
+mov_eax_at d8f04600
+add_eax_edx
+add_eax_i c0000000
+mov_at_eax d8f04600       # modrm
+mov_eax_at 68f04600
+cmp_eax_i 04000000        # r8d/r9d targets need REX.B too
+jae }ac_rexb
+mov_al_44
+jmp }ac_rex
+:ac_rexb
+mov_al_45
+:ac_rex
+st_al_r15
+inc_r15
+mov_al_89
+st_al_r15
+inc_r15
+mov_eax_at d8f04600
+st_al_r15
+inc_r15
+jmp }ac_next
+:ac_slotarg
+mov_eax_at 68f04600       # slot source: the original argload_tbl form
+shl_eax_2
+add_eax_i =argload_tbl
+mov_esi_eax
+mov_edx_i 04000000
+call }emit_bytes
+mov_ecx_at d0f04600
+call }emit_slot
+:ac_next
+mov_eax_at 68f04600
+inc_eax
+mov_at_eax 68f04600
+jmp }ac_argloop
+:ac_args_done
+mov_esi_i =call_op        # e8 + placeholder rel32
+mov_edx_i 01000000
+call }emit_bytes
+mov_at_r15 20f04600       # CALL_SITE = placeholder address
+xor_eax_eax
+st_eax_r15
+add_r15_4
+lea_rax_r14_5             # NAME_PTR = the called name (r14 + 5, after "call ")
+mov_at_rax 70f04600
+mov_eax_i 00004100        # scan FN_TABLE (0x410000)
+mov_at_eax 78f04600
+:ac_scan
+mov_rax_at 78f04600
+mov_rdx_at 38f04600
+cmp_rax_rdx
+jae }ac_fwd
+mov_rdi_atrax             # entry name
+mov_rsi_at 70f04600
+call }streq_names
+test_eax_eax
+jne }ac_found
+mov_rax_at 78f04600
+add_rax_16
+mov_at_rax 78f04600
+jmp }ac_scan
+:ac_found                 # backward: rel32 = offset - (call_site + 4) -> patch CALL_SITE
+mov_rax_at 78f04600
+mov_eax_atrax_8
+mov_edx_at 20f04600
+sub_edx_i 00004700
+add_edx_i 04000000
+sub_eax_edx
+mov_rcx_at 20f04600
+st_eax_rcx
+jmp }ac_done
+:ac_fwd                   # forward: append (NAME_PTR, CALL_SITE) to FIX_LIST
+mov_rdi_at 40f04600
+mov_rax_at 70f04600
+mov_atrdi_rax
+mov_rax_at 20f04600
+mov_atrdi8_rax
+mov_rax_at 40f04600
+add_rax_16
+mov_at_rax 40f04600
+:ac_done
+mov_esi_i =pre_movmr8     # R138: mov [SLOT_N], rax (8-byte -- a `long` return value keeps its high half; an int return's stale high is ignored by i32 readers)
+mov_edx_i 04000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+:a_calli                  # `vN = calli vT v1 v2...` -> load args; mov eax,[SLOT_T]; call rax; mov [SLOT_N],eax
+mov_rax_r14
+add_rax_7                 # skip "calli v" -> at target digits
+call }dec2                # ecx = target slot; rax past digits
+mov_at_rax 60f04600       # ARGCUR = rax (past target) BEFORE mov_eax_ecx clobbers rax
+mov_eax_ecx               # save target slot -> TGT
+mov_at_eax 90f04600
+xor_eax_eax
+mov_at_eax 68f04600       # ARGIDX = 0
+:aci_argloop
+mov_rax_at 60f04600
+movzx_at_rax
+cmp_dl_0a
+je }aci_args_done         # newline -> no more args
+mov_eax_at 68f04600       # emit reg[ARGIDX] load (Mes fp calls have <=3 args; no spill)
+shl_eax_2
+add_eax_i =argload_tbl
+mov_esi_eax
+mov_edx_i 04000000
+call }emit_bytes
+mov_rax_at 60f04600       # arg slot at ARGCUR+2 (past " v")
+add_rax_2
+call }dec2
+mov_at_rax 60f04600       # ARGCUR = past " v<digits>"
+call }emit_slot
+mov_eax_at 68f04600
+inc_eax
+mov_at_eax 68f04600
+jmp }aci_argloop
+:aci_args_done
+mov_esi_i =pre_movrm      # mov eax, [SLOT_T]   (target address; addr<4GB so 32-bit load zero-extends rax)
+mov_edx_i 03000000
+call }emit_bytes
+mov_ecx_at 90f04600
+call }emit_slot
+mov_esi_i =callrax        # call rax  (ff d0)
+mov_edx_i 02000000
+call }emit_bytes
+mov_esi_i =pre_movmr8     # R138: mov [SLOT_N], rax (8-byte -- long return keeps high half)
+mov_edx_i 04000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+:a_faddr                  # `vN = faddr NAME` -> mov eax, <abs addr of NAME>; mov [SLOT_N], eax
+mov_esi_i =mov_eax_i2     # b8 (mov eax, imm32)
+mov_edx_i 01000000
+call }emit_bytes
+mov_at_r15 20f04600       # FADDR_SITE = imm32 placeholder address
+xor_eax_eax
+st_eax_r15
+add_r15_4
+lea_rax_r14_6             # NAME_PTR = r14 + 6 (after "faddr ")
+mov_at_rax 70f04600
+mov_eax_i 00004100        # scan FN_TABLE (0x410000)
+mov_at_eax 78f04600
+:af_scan
+mov_rax_at 78f04600
+mov_rdx_at 38f04600
+cmp_rax_rdx
+jae }af_fwd
+mov_rdi_atrax
+mov_rsi_at 70f04600
+call }streq_names
+test_eax_eax
+jne }af_found
+mov_rax_at 78f04600
+add_rax_16
+mov_at_rax 78f04600
+jmp }af_scan
+:af_found                 # backward: abs = 0x470000 + offset -> [FADDR_SITE]
+mov_rax_at 78f04600
+mov_eax_atrax_8           # eax = offset (entry+8)
+add_eax_i 78004000        # + 0x470000
+mov_rcx_at 20f04600
+st_eax_rcx
+jmp }af_done
+:af_fwd                   # forward: append (NAME_PTR, FADDR_SITE) to FADDR_FIX_LIST
+mov_rdi_at 98f04600
+mov_rax_at 70f04600
+mov_atrdi_rax
+mov_rax_at 20f04600
+mov_atrdi8_rax
+mov_rax_at 98f04600
+add_rax_16
+mov_at_rax 98f04600
+:af_done
+mov_esi_i =pre_movmr      # mov [SLOT_N], eax
+mov_edx_i 03000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+
+:a_syscall                # `vN = syscall vNum vA vB vC` -> rax=num, rdi/rsi/rdx=args, syscall
+xor_eax_eax
+mov_at_eax 68f04600       # i = 0 (ARGIDX scratch)
+:sc_loop
+mov_eax_at 68f04600
+cmp_eax_i 04000000        # 4 operands: num, a, b, c
+jae }sc_done
+mov_eax_at 68f04600       # R20: operand's vN -> LOC dispatch
+inc_eax
+mov_esi_eax
+mov_rdi_r14
+call }scan_op             # eax = vN
+mov_edx_eax
+add_edx_lb
+movzx_ecx_rdx             # ecx = LOC
+test_ecx_ecx
+jz }sc_slot
+mov_eax_at 68f04600       # register source: 44 89 (c0 | srclow<<3 | sclow[idx])
+add_eax_i =sclow_tbl      # (targets rax/rdi/rsi/rdx are all low -> REX.R only)
+movzx_at_rax              # edx = sclow
+mov_eax_edx
+mov_at_eax d8f04600
+call }g_rlow
+shl_edx_3
+mov_eax_at d8f04600
+add_eax_edx
+add_eax_i c0000000
+mov_at_eax d8f04600
+mov_al_44
+st_al_r15
+inc_r15
+mov_al_89
+st_al_r15
+inc_r15
+mov_eax_at d8f04600
+st_al_r15
+inc_r15
+jmp }sc_next
+:sc_slot
+mov_eax_at 68f04600       # slot source: sc_regs form + disp
+shl_eax_2
+add_eax_i =sc_regs
+mov_esi_eax
+mov_edx_i 04000000
+call }emit_bytes
+mov_eax_at 68f04600
+inc_eax
+mov_esi_eax
+call }eop
+:sc_next
+mov_eax_at 68f04600
+inc_eax
+mov_at_eax 68f04600
+jmp }sc_loop
+:sc_done
+mov_esi_i =sc_op          # 0f 05  syscall
+mov_edx_i 02000000
+call }emit_bytes
+mov_esi_i =pre_movmr      # mov [SLOT_N], eax  (result in rax)
+mov_edx_i 03000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+:a_setjmp                 # R112: `vN = setjmp vBUF` -> save rbx/r12/r13/rsp + resume-rip to _ejb
+mov_esi_i =sj_save        #   (0x1FF0000, fixed single-buf: tcc has one active jmp_buf), return 0.
+mov_edx_i 31000000        # 49 bytes: 4 saves + lea rip + save rip + xor eax,eax
+call }emit_bytes
+mov_esi_i =pre_movmr      # :resume lands here -- mov [rbx+SLOT_N], eax  (0 first time, 1 via longjmp)
+mov_edx_i 03000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+:a_longjmp                # R112: `vN = longjmp vBUF vVAL` -> restore rbx/r12/r13/rsp from _ejb,
+mov_esi_i =lj_restore     #   eax=1 (tcc always longjmp(buf,1)), jmp resume-rip. Never returns.
+mov_edx_i 2f000000        # 47 bytes
+call }emit_bytes
+jmp }lineloop
+:a_param                  # `vN = param` -> reg[PARAM_IDX] (fn) or stack (ir main entry)
+mov_eax_at 18f04600       # IN_FN? 0 = the entry `ir main`: params come from the kernel stack
+test_eax_eax
+jne }ap_reg
+mov_eax_at 58f04600       # entry: dispatch on PARAM_IDX -> argc/argv/envp
+cmp_eax_i 00000000
+je }ap_argc
+cmp_eax_i 01000000
+je }ap_argv
+cmp_eax_i 02000000
+je }ap_envp
+jmp }ap_argc              # >2 -> treat as argc (safe default)
+:ap_argc                  # argc = [rsp]
+mov_esi_i =mov_rax_rsp
+mov_edx_i 04000000
+call }emit_bytes
+jmp }ap_estore
+:ap_argv                  # argv = low copy array (entry marshaller filled 0x10000000)
+mov_esi_i =argv_lo
+mov_edx_i 05000000
+call }emit_bytes
+jmp }ap_estore
+:ap_envp                  # envp = low copy array (0x10100000)
+mov_esi_i =envp_lo
+mov_edx_i 05000000
+call }emit_bytes
+:ap_estore                # mov [SLOT_N], eax ; PARAM_IDX++
+mov_esi_i =pre_movmr
+mov_edx_i 03000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+mov_eax_at 58f04600
+inc_eax
+mov_at_eax 58f04600
+jmp }lineloop
+:ap_reg                   # regular fn: param from reg[PARAM_IDX]
+mov_eax_at 58f04600
+cmp_eax_i 06000000        # 7th+ param: read from the fixed spill region
+jae }ap_spill
+shl_eax_2
+add_eax_i =paramstore_tbl
+mov_esi_eax
+mov_edx_i 04000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+mov_eax_at 58f04600       # PARAM_IDX++
+inc_eax
+mov_at_eax 58f04600
+jmp }lineloop
+:ac_spill                 # arg i>=6: mov eax,[arg slot]; mov [SPILL+(i-6)*8], eax
+mov_esi_i =pre_movrm
+mov_edx_i 03000000
+call }emit_bytes
+mov_rax_at 60f04600
+add_rax_2
+call }dec2
+mov_at_rax 60f04600
+call }emit_slot
+mov_esi_i =spill_st       # mov [abs], eax
+mov_edx_i 03000000
+call }emit_bytes
+mov_eax_at 68f04600
+sub_eax_i 06000000
+shl_eax_3
+add_eax_i 0000f007        # R61: SPILL @0x3F00000 (top of global arena, below frame base 0x4000000) -- was 0x1F00000/24MB arena, raised for the grown frontend
+add_eax_at f0f04600        # HEAPTOP: lift SPILL by DELTA
+st_eax_r15
+add_r15_4
+mov_eax_at 68f04600
+inc_eax
+mov_at_eax 68f04600
+jmp }ac_argloop
+:ap_spill                 # param i>=6: mov eax,[SPILL+(i-6)*8]; mov [SLOT_N], eax
+mov_esi_i =spill_ld       # mov eax, [abs]
+mov_edx_i 03000000
+call }emit_bytes
+mov_eax_at 58f04600
+sub_eax_i 06000000
+shl_eax_3
+add_eax_i 0000f007        # R61: SPILL @0x3F00000 (match ac_spill)
+st_eax_r15
+add_r15_4
+mov_esi_i =pre_movmr      # mov [SLOT_N], eax
+mov_edx_i 03000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+mov_eax_at 58f04600
+inc_eax
+mov_at_eax 58f04600
+jmp }lineloop
+:a_lt                     # `vN = lt vA vB` -> eax = (A < B) ? 1 : 0
+mov_eax_i =setl_mz        # CC = the setcc+movzx bytes for this comparison
+mov_at_eax 28f04600
+jmp }cmp_body
+:a_eq                     # `vN = eq vA vB` -> eax = (A == B) ? 1 : 0
+mov_eax_i =sete_mz
+mov_at_eax 28f04600
+jmp }cmp_body
+:a_gt
+mov_eax_i =setg_mz
+mov_at_eax 28f04600
+jmp }cmp_body
+:a_le
+mov_eax_i =setle_mz
+mov_at_eax 28f04600
+jmp }cmp_body
+:a_ge
+mov_eax_i =setge_mz
+mov_at_eax 28f04600
+jmp }cmp_body
+:a_ne
+mov_eax_i =setne_mz
+mov_at_eax 28f04600
+jmp }cmp_body
+:a_ltu
+mov_eax_i =setb_mz
+mov_at_eax 28f04600
+jmp }cmp_body
+:a_gtu
+mov_eax_i =seta_mz
+mov_at_eax 28f04600
+jmp }cmp_body
+:a_leu
+mov_eax_i =setbe_mz
+mov_at_eax 28f04600
+jmp }cmp_body
+:a_geu
+mov_eax_i =setae_mz
+mov_at_eax 28f04600
+jmp }cmp_body
+:cmp_body                 # operands scanned via eop (mnemonic-width-independent)
+mov_esi_i 02000000        # R10: BLOC = LOC[B], stashed BEFORE the A load (scan_op clobbers eax)
+mov_rdi_r14
+call }scan_op
+mov_edx_eax
+add_edx_lb
+movzx_ecx_rdx             # ecx = LOC[B]
+mov_eax_ecx
+mov_at_eax a0f04600       # BLOC temp
+mov_esi_i 01000000        # operand A: reg (LOC 1-4) or slot?
+mov_rdi_r14
+call }scan_op
+cmp_eax_at b8f04600       # R17: A already in eax -> skip the load
+je }cmp_ad
+mov_edx_eax
+add_edx_lb
+movzx_ecx_rdx             # ecx = LOC[A]
+cmp_ecx_1
+je }cmp_a12
+cmp_ecx_2
+je }cmp_a13
+cmp_ecx_3
+je }cmp_a10
+cmp_ecx_4
+je }cmp_a11
+cmp_ecx_5
+je }cmp_a5
+cmp_ecx_6
+je }cmp_a6
+cmp_ecx_7
+je }cmp_a7
+cmp_ecx_8
+je }cmp_a8
+mov_esi_i =pre_movrm      # slot: mov eax, [SLOT_A]
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 01000000
+call }eop
+jmp }cmp_ad
+:cmp_a12
+mov_esi_i =mov_eax_r12d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }cmp_ad
+:cmp_a13
+mov_esi_i =mov_eax_r13d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }cmp_ad
+:cmp_a10
+mov_esi_i =mov_eax_r10d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }cmp_ad
+:cmp_a11
+mov_esi_i =mov_eax_r11d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }cmp_ad
+:cmp_a5
+mov_esi_i =ld_rsi
+mov_edx_i 02000000
+call }emit_bytes
+jmp }cmp_ad
+:cmp_a6
+mov_esi_i =ld_rdi
+mov_edx_i 02000000
+call }emit_bytes
+jmp }cmp_ad
+:cmp_a7
+mov_esi_i =ld_r8
+mov_edx_i 03000000
+call }emit_bytes
+jmp }cmp_ad
+:cmp_a8
+mov_esi_i =ld_r9
+mov_edx_i 03000000
+call }emit_bytes
+:cmp_ad
+mov_eax_at a0f04600       # R10: BLOC -> cmp eax,rXd (41 3b cX) or cmp eax,[rbx+B]
+cmp_eax_1
+je }cmp_b12
+cmp_eax_2
+je }cmp_b13
+cmp_eax_3
+je }cmp_b10
+cmp_eax_4
+je }cmp_b11
+cmp_eax_5
+je }cmp_b5
+cmp_eax_6
+je }cmp_b6
+cmp_eax_7
+je }cmp_b7
+cmp_eax_8
+je }cmp_b8
+mov_esi_i =cmp_pre        # slot: cmp eax, [SLOT_B]
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+jmp }cmp_cc
+:cmp_b12
+mov_esi_i =cmp_rr         # 41 3b + ModRM
+mov_edx_i 02000000
+call }emit_bytes
+mov_esi_i =modrm_c4
+mov_edx_i 01000000
+call }emit_bytes
+jmp }cmp_cc
+:cmp_b13
+mov_esi_i =cmp_rr
+mov_edx_i 02000000
+call }emit_bytes
+mov_esi_i =modrm_c5
+mov_edx_i 01000000
+call }emit_bytes
+jmp }cmp_cc
+:cmp_b10
+mov_esi_i =cmp_rr
+mov_edx_i 02000000
+call }emit_bytes
+mov_esi_i =modrm_c2
+mov_edx_i 01000000
+call }emit_bytes
+jmp }cmp_cc
+:cmp_b11
+mov_esi_i =cmp_rr
+mov_edx_i 02000000
+call }emit_bytes
+mov_esi_i =modrm_c3
+mov_edx_i 01000000
+call }emit_bytes
+jmp }cmp_cc
+:cmp_b5
+mov_esi_i =cmp_op         # R15: cmp eax, esi -- bare 3b, no REX
+mov_edx_i 01000000
+call }emit_bytes
+mov_esi_i =modrm_c6
+mov_edx_i 01000000
+call }emit_bytes
+jmp }cmp_cc
+:cmp_b6
+mov_esi_i =cmp_op
+mov_edx_i 01000000
+call }emit_bytes
+mov_esi_i =modrm_c7
+mov_edx_i 01000000
+call }emit_bytes
+jmp }cmp_cc
+:cmp_b7
+mov_esi_i =cmp_rr         # r8/r9: REX.B 3b
+mov_edx_i 02000000
+call }emit_bytes
+mov_esi_i =modrm_c0
+mov_edx_i 01000000
+call }emit_bytes
+jmp }cmp_cc
+:cmp_b8
+mov_esi_i =cmp_rr
+mov_edx_i 02000000
+call }emit_bytes
+mov_esi_i =modrm_c1
+mov_edx_i 01000000
+call }emit_bytes
+:cmp_cc
+mov_eax_at 28f04600       # setcc al; movzx eax, al
+mov_rsi_rax
+mov_edx_i 06000000
+call }emit_bytes
+jmp }bop_store            # R10: result store honors LOC[N] (reg or slot)
+:d_fn                     # `fn NAME` -> append to FN_TABLE, prologue, patch FIX_LIST
+mov_eax_i 00204600        # G7-goto: reset LABEL_TABLE (0x462000) + GOTO_FIX (0x463000) per function
+mov_at_eax 80f04600
+mov_eax_i 00304600
+mov_at_eax 88f04600
+mov_rax_r15
+sub_eax_i 00004700        # fn entry offset
+mov_at_eax 30f04600       # temp OFF
+mov_rdi_at 38f04600       # append (name_ptr, offset) at FN_END
+lea_rax_r14_3
+mov_atrdi_rax
+mov_eax_at 30f04600
+mov_atrdi8_eax
+mov_rax_at 38f04600
+add_rax_16
+mov_at_rax 38f04600
+mov_esi_i =frame_up       # PROLOGUE: add ebx, 0x20000 (16384 slots -- Mes mes_builtins needs 7766)
+mov_edx_i 06000000
+call }emit_bytes
+mov_esi_i =fn_saves       # M3: push r12; push r13 (preserve callee-saved for caller's across-call values)
+mov_edx_i 04000000
+call }emit_bytes
+lea_rax_r14_3             # NAME_PTR = this fn's name
+mov_at_rax 70f04600
+mov_eax_i 00004200        # scan FIX_LIST (0x420000)
+mov_at_eax 78f04600
+:df_scan
+mov_rax_at 78f04600
+mov_rdx_at 40f04600
+cmp_rax_rdx
+jae }dfa_start
+mov_rdi_atrax
+mov_rsi_at 70f04600
+call }streq_names
+test_eax_eax
+jne }df_patch
+:df_next
+mov_rax_at 78f04600
+add_rax_16
+mov_at_rax 78f04600
+jmp }df_scan
+:df_patch                 # rel32 = OFF - (call_site + 4) -> [call_site]
+mov_rax_at 78f04600
+mov_rcx_atrax_8
+mov_eax_at 30f04600
+mov_edx_ecx
+sub_edx_i 00004700
+add_edx_i 04000000
+sub_eax_edx
+st_eax_rcx
+jmp }df_next
+:dfa_start                # scan FADDR_FIX_LIST, patch forward faddr refs to this fn (abs addr)
+mov_eax_i 00004300        # scan ptr = FADDR_FIX_LIST base 0x464000
+mov_at_eax 78f04600
+:dfa_scan
+mov_rax_at 78f04600
+mov_rdx_at 98f04600
+cmp_rax_rdx
+jae }df_done
+mov_rdi_atrax
+mov_rsi_at 70f04600
+call }streq_names
+test_eax_eax
+jne }dfa_patch
+:dfa_next
+mov_rax_at 78f04600
+add_rax_16
+mov_at_rax 78f04600
+jmp }dfa_scan
+:dfa_patch                # abs = 0x470000 + OFF -> [faddr_site]
+mov_rax_at 78f04600
+mov_rcx_atrax_8
+mov_eax_at 30f04600
+add_eax_i 78004000
+st_eax_rcx
+jmp }dfa_next
+:df_done
+mov_eax_i 01000000        # IN_FN = 1
+mov_at_eax 18f04600
+xor_eax_eax               # PARAM_IDX = 0 (first param -> edi)
+mov_at_eax 58f04600
+jmp }lineloop
+:d_goto                   # `goto NAME` -> jmp to the label (backward: direct; forward: GOTO_FIX)
+mov_esi_i =jmp_op
+mov_edx_i 01000000
+call }emit_bytes
+mov_at_r15 20f04600       # GOTO_SITE = placeholder address
+xor_eax_eax
+st_eax_r15
+add_r15_4
+lea_rax_r14_5             # NAME_PTR = r14 + 5 (after "goto ")
+mov_at_rax 70f04600
+mov_eax_i 00204600        # scan LABEL_TABLE
+mov_at_eax 78f04600
+:dg_scan
+mov_rax_at 78f04600
+mov_rdx_at 80f04600       # LBL_END
+cmp_rax_rdx
+jae }dg_fwd
+mov_rdi_atrax
+mov_rsi_at 70f04600
+call }streq_names
+test_eax_eax
+jne }dg_found
+mov_rax_at 78f04600
+add_rax_16
+mov_at_rax 78f04600
+jmp }dg_scan
+:dg_found                 # backward: rel32 = label_off - (goto_site_off + 4)
+mov_rax_at 78f04600
+mov_eax_atrax_8
+mov_edx_at 20f04600
+sub_edx_i 00004700
+add_edx_i 04000000
+sub_eax_edx
+mov_rcx_at 20f04600
+st_eax_rcx
+jmp }lineloop
+:dg_fwd                   # forward: append (NAME_PTR, GOTO_SITE) to GOTO_FIX
+mov_rdi_at 88f04600       # GFX_END
+mov_rax_at 70f04600
+mov_atrdi_rax
+mov_rax_at 20f04600
+mov_atrdi8_rax
+mov_rax_at 88f04600
+add_rax_16
+mov_at_rax 88f04600
+jmp }lineloop
+:d_label                  # `label NAME` -> record (name, here) in LABEL_TABLE; patch forward gotos
+mov_rax_r15
+sub_eax_i 00004700
+mov_at_eax 30f04600       # OFF = label offset
+mov_rdi_at 80f04600       # append (name_ptr, OFF) at LBL_END
+lea_rax_r14_6             # NAME_PTR = r14 + 6 (after "label ")
+mov_atrdi_rax
+mov_eax_at 30f04600
+mov_atrdi8_eax
+mov_rax_at 80f04600
+add_rax_16
+mov_at_rax 80f04600
+lea_rax_r14_6
+mov_at_rax 70f04600
+mov_eax_i 00304600        # scan GOTO_FIX for forward gotos to this name
+mov_at_eax 78f04600
+:dlb_scan
+mov_rax_at 78f04600
+mov_rdx_at 88f04600       # GFX_END
+cmp_rax_rdx
+jae }dlb_done
+mov_rdi_atrax
+mov_rsi_at 70f04600
+call }streq_names
+test_eax_eax
+jne }dlb_patch
+:dlb_next
+mov_rax_at 78f04600
+add_rax_16
+mov_at_rax 78f04600
+jmp }dlb_scan
+:dlb_patch                # rel32 = OFF - (goto_site_off + 4) -> [goto_site]
+mov_rax_at 78f04600
+mov_rcx_atrax_8
+mov_eax_at 30f04600
+mov_edx_ecx
+sub_edx_i 00004700
+add_edx_i 04000000
+sub_eax_edx
+st_eax_rcx
+jmp }dlb_next
+:dlb_done
+jmp }lineloop
+:a_ref                    # `vN = ref vX` -> lea eax,[rbx+X*8]; store N  (R23 LOC-aware)
+mov_esi_i =lea_rbx_a
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 01000000        # X -> disp32 X*8
+call }eop
+mov_edx_r9d
+add_edx_lb
+movzx_ecx_rdx             # ecx = LOC[N]
+test_ecx_ecx
+jz }ref_slot
+call }g_staxr             # reg: mov rXd, eax (address < 4GB; zero-extend is the clean high)
+jmp }ref_arm
+:ref_slot
+mov_esi_i =pre_movmr_a    # slot: 8-byte store (64-bit slot readers need the clean high half)
+mov_edx_i 04000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+:ref_arm
+mov_eax_r9d               # eax holds N's value either way -- arm the R17 forwarder
+mov_at_eax b0f04600
+jmp }lineloop
+:a_load                   # `vN = load vA` -> ecx=addr; mov eax,[rcx]; store N (R22 LOC-aware)
+mov_esi_i 01000000
+call }g_opcx
+mov_esi_i =deref_load     # mov eax, [rcx]
+mov_edx_i 02000000
+call }emit_bytes
+jmp }bop_store
+:d_store                  # `store vA vV` -> ecx=addr; eax=V; mov [rcx],eax  (R22 LOC-aware)
+mov_esi_i 01000000
+call }g_opcx
+mov_esi_i 02000000
+call }g_opax
+mov_esi_i =deref_store    # mov [rcx], eax
+mov_edx_i 02000000
+call }emit_bytes
+jmp }lineloop
+:a_load8                  # `vN = load8 vA` -> mov ecx,[SLOT_A]; mov rax,[rcx]; mov [SLOT_N],rax  (8-byte)
+mov_esi_i =pre_movrc_a      # mov ecx, [SLOT_A]  (the address; zero-extended, addr<4GB)
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 01000000        # A (1st operand, scanned)
+call }eop
+mov_esi_i =deref_load8    # mov rax, [rcx]
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i =pre_movmr8     # mov [SLOT_N], rax
+mov_edx_i 04000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+:d_store8                 # `store8 vA vV` -> mov ecx,[SLOT_A]; mov rax,[SLOT_V]; mov [rcx],rax  (8-byte)
+mov_esi_i =pre_movrc_a      # mov ecx, [SLOT_A]  (the address)
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 01000000        # A (1st operand, scanned)
+call }eop
+mov_esi_i =pre_movrm8     # mov rax, [SLOT_V]
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 02000000        # V (2nd operand, scanned)
+call }eop
+mov_esi_i =deref_store8   # mov [rcx], rax
+mov_edx_i 03000000
+call }emit_bytes
+jmp }lineloop
+:a_conv                   # `vN = conv vA` -> zext i32->i64: mov eax,[SLOT_A] (auto-zeroes rax hi); mov [SLOT_N],rax
+mov_esi_i =pre_movrm      # mov eax, [SLOT_A]   (32-bit load zero-extends into rax)
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 01000000        # A (1st operand, scanned)
+call }eop
+mov_esi_i =pre_movmr8     # mov [SLOT_N], rax   (write all 8 bytes, high half clean 0)
+mov_edx_i 04000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+:a_convs                  # R94: `vN = convs vA` -> SEXT i32->i64: movsxd rax,[SLOT_A]; mov [SLOT_N],rax (signed widen, e.g. r_addend = -4)
+mov_esi_i =movsxd_rax_slot  # movsxd rax, [rbx+disp32]  (48 63 84 23)
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 01000000
+call }eop
+mov_esi_i =pre_movmr8     # mov [SLOT_N], rax
+mov_edx_i 04000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+:a_get                    # `vN = get vB vI` -> eax = *(base + I*4)  (R22 LOC-aware)
+mov_esi_i 01000000
+call }g_opcx
+mov_esi_i 02000000
+call }g_opdx
+mov_esi_i =sext_dx        # R49: movsxd rdx, edx before indexed access
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i =lea_idx_8        # lea rcx, [rcx + rdx*4]
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i =deref_load     # mov eax, [rcx]
+mov_edx_i 02000000
+call }emit_bytes
+jmp }bop_store
+:d_put                    # `put vB vI vV` -> *(base + I*4) = V  (R22 LOC-aware)
+mov_esi_i 01000000
+call }g_opcx
+mov_esi_i 02000000
+call }g_opdx
+mov_esi_i =sext_dx        # R49: movsxd rdx, edx before indexed access
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i =lea_idx_8        # lea rcx, [rcx + rdx*4]
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 03000000
+call }g_opax
+mov_esi_i =deref_store    # mov [rcx], eax
+mov_edx_i 02000000
+call }emit_bytes
+jmp }lineloop
+# --- R19: table-driven register-form emitters for the div family --------------------
+# rlow_tbl maps LOC code 1-8 -> the register's ModRM low bits; the three generators
+# compute [REX] op modrm arithmetically instead of 8-way branch chains.
+:g_rlow                   # ecx = LOC 1-8 -> edx = reg low bits
+mov_eax_i =rlow_tbl
+add_eax_ecx
+dec_eax
+movzx_at_rax
+ret
+:g_rexbr                  # emit REX.B (41) unless esi/edi (codes 5/6)
+cmp_ecx_5
+je }grb_no
+cmp_ecx_6
+je }grb_no
+mov_al_41
+st_al_r15
+inc_r15
+:grb_no
+ret
+:g_ldreg                  # emit mov eax, <reg ecx>:  [44] 89 (c0 + rlow<<3)
+cmp_ecx_5
+je }glr_no
+cmp_ecx_6
+je }glr_no
+mov_al_44
+st_al_r15
+inc_r15
+:glr_no
+call }g_rlow
+mov_al_89
+st_al_r15
+inc_r15
+shl_edx_3
+mov_eax_edx
+add_eax_i c0000000
+st_al_r15
+inc_r15
+ret
+:g_staxr                  # R23: emit mov <reg ecx>, eax:  [41] 89 (c0 + rlow)
+call }g_rexbr
+call }g_rlow
+mov_al_89
+st_al_r15
+inc_r15
+mov_eax_edx
+add_eax_i c0000000
+st_al_r15
+inc_r15
+ret
+:g_stedx                  # emit mov <reg ecx>, edx:  [41] 89 (d0 + rlow)
+call }g_rexbr
+call }g_rlow
+mov_al_89
+st_al_r15
+inc_r15
+mov_eax_edx
+add_eax_i d0000000
+st_al_r15
+inc_r15
+ret
+:g_divb                   # emit idiv/div <reg ecx>:  [41] f7 (DBASE + rlow)
+call }g_rexbr
+call }g_rlow
+mov_al_f7
+st_al_r15
+inc_r15
+mov_eax_at c8f04600
+add_eax_edx
+st_al_r15
+inc_r15
+ret
+:g_opcx                   # R22: operand k (esi) -> ecx. slot: mov ecx,[SLOT]; reg: [41] 8b (c8+rlow)
+mov_eax_esi
+mov_at_eax e0f04600       # K
+mov_rdi_r14
+call }scan_op
+mov_edx_eax
+add_edx_lb
+movzx_ecx_rdx
+test_ecx_ecx
+jz }gocx_slot
+call }g_rexbr
+call }g_rlow
+mov_al_8b
+st_al_r15
+inc_r15
+mov_eax_edx
+add_eax_i c8000000
+st_al_r15
+inc_r15
+ret
+:gocx_slot
+mov_esi_i =pre_movrc_a
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_at e0f04600
+call }eop
+ret
+:g_opdx                   # R22: operand k (esi) -> edx. slot: mov edx,[SLOT]; reg: [41] 8b (d0+rlow)
+mov_eax_esi
+mov_at_eax e0f04600
+mov_rdi_r14
+call }scan_op
+mov_edx_eax
+add_edx_lb
+movzx_ecx_rdx
+test_ecx_ecx
+jz }godx_slot
+call }g_rexbr
+call }g_rlow
+mov_al_8b
+st_al_r15
+inc_r15
+mov_eax_edx
+add_eax_i d0000000
+st_al_r15
+inc_r15
+ret
+:godx_slot
+mov_esi_i =pre_movdx
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_at e0f04600
+call }eop
+ret
+:g_opax                   # R22: operand k (esi) -> eax, with R17 forwarding elision
+mov_eax_esi
+mov_at_eax e0f04600
+mov_rdi_r14
+call }scan_op
+cmp_eax_at b8f04600
+je }goax_done
+mov_edx_eax
+add_edx_lb
+movzx_ecx_rdx
+test_ecx_ecx
+jz }goax_slot
+call }g_ldreg
+ret
+:goax_slot
+mov_esi_i =pre_movrm
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_at e0f04600
+call }eop
+:goax_done
+ret
+:g_lda                    # div-family operand A -> eax (R17 forwarding + LOC aware)
+mov_esi_i 01000000
+mov_rdi_r14
+call }scan_op
+cmp_eax_at b8f04600       # forwarded from the previous line?
+je }glda_done
+mov_edx_eax
+add_edx_lb
+movzx_ecx_rdx
+test_ecx_ecx
+jz }glda_slot
+call }g_ldreg
+ret
+:glda_slot
+mov_esi_i =pre_movrm
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 01000000
+call }eop
+:glda_done
+ret
+:g_divisor                # operand B: register -> [41] f7 modrm; slot -> f7-mem + disp
+mov_esi_i 02000000
+mov_rdi_r14
+call }scan_op
+mov_edx_eax
+add_edx_lb
+movzx_ecx_rdx             # ecx = LOC[B]
+test_ecx_ecx
+jz }gdv_slot
+call }g_divb
+ret
+:gdv_slot
+mov_eax_at c8f04600       # DBASE picks the memory form too: f8 idiv, f0 div
+cmp_eax_i f8000000
+je }gdv_i
+mov_esi_i =div_pre
+jmp }gdv_e
+:gdv_i
+mov_esi_i =idiv_pre
+:gdv_e
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+ret
+
+:a_mod                    # `vN = mod vA vB` -> edx = A % B  (idiv remainder)
+call }g_lda
+mov_esi_i =cdq_op
+mov_edx_i 01000000
+call }emit_bytes
+mov_eax_i f8000000
+mov_at_eax c8f04600       # DBASE = idiv
+call }g_divisor
+:gmod_st                  # remainder store: LOC[N] register or slot (shared with udm)
+mov_edx_r9d
+add_edx_lb
+movzx_ecx_rdx
+test_ecx_ecx
+jz }gmod_slot
+call }g_stedx
+jmp }lineloop
+:gmod_slot
+mov_esi_i =st_edx_pre     # mov [SLOT_N], edx  (remainder)
+mov_edx_i 03000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+:a_div                    # `vN = div vA vB` -> eax = A / B  (R19: LOC-aware A/B/store)
+call }g_lda
+mov_esi_i =cdq_op         # cdq  (sign-extend eax into edx:eax)
+mov_edx_i 01000000
+call }emit_bytes
+mov_eax_i f8000000
+mov_at_eax c8f04600       # DBASE = idiv
+call }g_divisor
+jmp }bop_store            # quotient in eax: honors LOC[N] and arms the R17 forwarder
+:a_duv                    # `vN = duv vA vB` -> eax = A / B  UNSIGNED (R19)
+call }g_lda
+mov_esi_i =xoredx_op
+mov_edx_i 02000000
+call }emit_bytes
+mov_eax_i f0000000
+mov_at_eax c8f04600       # DBASE = div
+call }g_divisor
+jmp }bop_store
+:a_udm                    # `vN = udm vA vB` -> edx = A % B  UNSIGNED (R19)
+call }g_lda
+mov_esi_i =xoredx_op
+mov_edx_i 02000000
+call }emit_bytes
+mov_eax_i f0000000
+mov_at_eax c8f04600       # DBASE = div
+call }g_divisor
+jmp }gmod_st
+:a_loadb                  # `vN = loadb vA` -> movzx eax, byte [SLOT_A_addr]; mov [N],eax
+mov_esi_i =pre_movrc_a
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 01000000
+call }eop
+mov_esi_i =deref_loadb
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i =pre_movmr
+mov_edx_i 03000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+:a_load2                  # R60: `vN = load2 vA` -> movzx eax, word [addr]; mov [N],eax
+mov_esi_i =pre_movrc_a
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 01000000
+call }eop
+mov_esi_i =deref_load2
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i =pre_movmr8
+mov_edx_i 04000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+
+# === R91: 8-byte (i64) op family -- slot-based, REX.W. Operands + result are slots (rzir-ra leaves
+# gdefop=0 ops in slots). Load A 64-bit (mov rax,[A]); fold/shift B; store N 64-bit (mov [N],rax).
+:bin8_ldA                  # emit: mov rax, [SLOT_A]   (48 8b 84 23 <disp>)
+mov_esi_i =pre_movrm8
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 01000000
+call }eop
+ret
+:bin8_stN                  # emit: mov [SLOT_N], rax   (48 89 84 23 <disp>) ; next line
+mov_esi_i =pre_movmr8
+mov_edx_i 04000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+:a_add8
+call }bin8_ldA
+mov_esi_i =alu8_add        # add rax, [SLOT_B]  (48 03 84 23 <disp>)
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+jmp }bin8_stN
+:a_sub8
+call }bin8_ldA
+mov_esi_i =alu8_sub        # sub rax, [SLOT_B]  (48 2b 84 23)
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+jmp }bin8_stN
+:a_and8
+call }bin8_ldA
+mov_esi_i =alu8_and        # and rax, [SLOT_B]  (48 23 84 23)
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+jmp }bin8_stN
+:a_or8
+call }bin8_ldA
+mov_esi_i =alu8_or         # or rax, [SLOT_B]   (48 0b 84 23)
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+jmp }bin8_stN
+:a_xor8
+call }bin8_ldA
+mov_esi_i =alu8_xor        # xor rax, [SLOT_B]  (48 33 84 23)
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+jmp }bin8_stN
+:a_shl8
+call }bin8_ldA
+mov_esi_i =mov_ecx_slotB   # mov ecx, [SLOT_B]  (8b 8c 23 <disp>) -- shift count (32-bit ok)
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+mov_esi_i =shl8_op         # shl rax, cl  (48 d3 e0)
+mov_edx_i 03000000
+call }emit_bytes
+jmp }bin8_stN
+:a_shr8
+call }bin8_ldA
+mov_esi_i =mov_ecx_slotB
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+mov_esi_i =shr8_op         # sar rax, cl  (48 d3 f8) -- signed >>
+mov_edx_i 03000000
+call }emit_bytes
+jmp }bin8_stN
+:a_shu8
+call }bin8_ldA
+mov_esi_i =mov_ecx_slotB
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+mov_esi_i =shu8_op         # shr rax, cl  (48 d3 e8) -- logical >>
+mov_edx_i 03000000
+call }emit_bytes
+jmp }bin8_stN
+:a_mul8                   # R133: `vN = mul8 vA vB` -> imul rax, [SLOT_B]
+call }bin8_ldA
+mov_esi_i =alu8_mul        # imul rax, [SLOT_B]  (48 0f af 84 23 <disp>)
+mov_edx_i 05000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+jmp }bin8_stN
+:cmp8_common              # R135: mov rax,[SLOT_A]; cmp rax,[SLOT_B]  (caller emits setcc into eax)
+call }bin8_ldA
+mov_esi_i =alu8_cmp        # cmp rax, [SLOT_B]  (48 3b 84 23 <disp>)
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+ret
+:cmp8_stN                 # R135: mov [SLOT_N], eax  (32-bit boolean result)
+mov_esi_i =pre_movmr
+mov_edx_i 03000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+:a_lt8
+call }cmp8_common
+mov_esi_i =setl_mz
+mov_edx_i 06000000
+call }emit_bytes
+jmp }cmp8_stN
+:a_le8
+call }cmp8_common
+mov_esi_i =setle_mz
+mov_edx_i 06000000
+call }emit_bytes
+jmp }cmp8_stN
+:a_gt8
+call }cmp8_common
+mov_esi_i =setg_mz
+mov_edx_i 06000000
+call }emit_bytes
+jmp }cmp8_stN
+:a_ge8
+call }cmp8_common
+mov_esi_i =setge_mz
+mov_edx_i 06000000
+call }emit_bytes
+jmp }cmp8_stN
+:a_eq8
+call }cmp8_common
+mov_esi_i =sete_mz
+mov_edx_i 06000000
+call }emit_bytes
+jmp }cmp8_stN
+:a_ne8
+call }cmp8_common
+mov_esi_i =setne_mz
+mov_edx_i 06000000
+call }emit_bytes
+jmp }cmp8_stN
+:a_ltu8
+call }cmp8_common
+mov_esi_i =setb_mz
+mov_edx_i 06000000
+call }emit_bytes
+jmp }cmp8_stN
+:a_leu8
+call }cmp8_common
+mov_esi_i =setbe_mz
+mov_edx_i 06000000
+call }emit_bytes
+jmp }cmp8_stN
+:a_gtu8
+call }cmp8_common
+mov_esi_i =seta_mz
+mov_edx_i 06000000
+call }emit_bytes
+jmp }cmp8_stN
+:a_geu8
+call }cmp8_common
+mov_esi_i =setae_mz
+mov_edx_i 06000000
+call }emit_bytes
+jmp }cmp8_stN
+:a_div8                   # R138: `vN = div8 vA vB` -> rax = A / B (signed 64-bit)
+call }bin8_ldA
+mov_esi_i =cqo_op
+mov_edx_i 02000000
+call }emit_bytes
+mov_esi_i =idiv8_op       # idiv qword [SLOT_B]
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+jmp }bin8_stN
+:a_duv8                   # R138: `vN = duv8 vA vB` -> rax = A / B (unsigned 64-bit)
+call }bin8_ldA
+mov_esi_i =xorrdx8_op
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i =divq8_op       # div qword [SLOT_B]
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+jmp }bin8_stN
+:a_mod8                   # R138: `vN = mod8 vA vB` -> rax = A % B (signed 64-bit)
+call }bin8_ldA
+mov_esi_i =cqo_op
+mov_edx_i 02000000
+call }emit_bytes
+mov_esi_i =idiv8_op
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+mov_esi_i =mov_rax_rdx8   # remainder in rdx -> rax
+mov_edx_i 03000000
+call }emit_bytes
+jmp }bin8_stN
+:a_udm8                   # R138: `vN = udm8 vA vB` -> rax = A % B (unsigned 64-bit)
+call }bin8_ldA
+mov_esi_i =xorrdx8_op
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i =divq8_op
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+mov_esi_i =mov_rax_rdx8
+mov_edx_i 03000000
+call }emit_bytes
+jmp }bin8_stN
+:a_getb                   # `vN = getb vB vI` -> movzx eax, byte [base + I]  (R22 LOC-aware)
+mov_esi_i 01000000
+call }g_opcx
+mov_esi_i 02000000
+call }g_opdx
+mov_esi_i =sext_dx        # R49: movsxd rdx, edx before indexed access
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i =movzx_idxb
+mov_edx_i 04000000
+call }emit_bytes
+jmp }bop_store
+:d_storeb                 # `storeb vA vV` -> mov [addr], al  (R22 LOC-aware)
+mov_esi_i 01000000
+call }g_opcx
+mov_esi_i 02000000
+call }g_opax
+mov_esi_i =deref_storeb
+mov_edx_i 02000000
+call }emit_bytes
+jmp }lineloop
+:d_store2                 # R60: `store2 vA vV` -> mov [addr], ax  (LOC-aware)
+mov_esi_i 01000000
+call }g_opcx
+mov_esi_i 02000000
+call }g_opax
+mov_esi_i =deref_store2
+mov_edx_i 03000000
+call }emit_bytes
+jmp }lineloop
+:d_putb                   # `putb vB vI vV` -> mov [base + I], al  (R22 LOC-aware)
+mov_esi_i 01000000
+call }g_opcx
+mov_esi_i 02000000
+call }g_opdx
+mov_esi_i =sext_dx        # R49: movsxd rdx, edx before indexed access
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 03000000
+call }g_opax
+mov_esi_i =store_idxb
+mov_edx_i 03000000
+call }emit_bytes
+jmp }lineloop
+:a_sel                    # sel vC vA vB -> a runtime branch (fixed offsets)
+mov_esi_i =pre_movrm
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 01000000
+call }eop
+mov_esi_i =sel_mid1
+mov_edx_i 08000000
+call }emit_bytes
+mov_esi_i =pre_movrc
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+mov_esi_i =sel_mid2
+mov_edx_i 05000000
+call }emit_bytes
+mov_esi_i =pre_movrc
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 03000000
+call }eop
+mov_esi_i =pre_movmc
+mov_edx_i 03000000
+call }emit_bytes
+mov_ecx_r9d
+call }emit_slot
+jmp }lineloop
+
+:d_loop                   # push output offset onto LP; push 0 onto the BREAK chain
+mov_rax_r15
+sub_eax_i 00004700
+mov_rcx_at 08f04600
+st_rax_rcx
+add_rcx_8
+mov_at_rcx 08f04600
+xor_eax_eax
+mov_rcx_at 48f04600
+st_rax_rcx
+add_rcx_8
+mov_at_rcx 48f04600
+xor_eax_eax
+mov_rcx_at 50f04600
+st_rax_rcx
+add_rcx_8
+mov_at_rcx 50f04600
+jmp }lineloop
+
+:d_brc                    # `brc OP vA vB` -> cmp; NEGATED jcc <placeholder>  (R3, rzir-opt M3)
+lea_rax_r14_4
+mov_rdi_rax
+mov_esi_i =m_lt
+call }streq_tok
+test_eax_eax
+jne }bc_lt
+lea_rax_r14_4
+mov_rdi_rax
+mov_esi_i =m_le
+call }streq_tok
+test_eax_eax
+jne }bc_le
+lea_rax_r14_4
+mov_rdi_rax
+mov_esi_i =m_gt
+call }streq_tok
+test_eax_eax
+jne }bc_gt
+lea_rax_r14_4
+mov_rdi_rax
+mov_esi_i =m_ge
+call }streq_tok
+test_eax_eax
+jne }bc_ge
+lea_rax_r14_4
+mov_rdi_rax
+mov_esi_i =m_eq
+call }streq_tok
+test_eax_eax
+jne }bc_eq
+lea_rax_r14_4
+mov_rdi_rax
+mov_esi_i =m_ne
+call }streq_tok
+test_eax_eax
+jne }bc_ne
+lea_rax_r14_4
+mov_rdi_rax
+mov_esi_i =m_ltu
+call }streq_tok
+test_eax_eax
+jne }bc_ltu
+lea_rax_r14_4
+mov_rdi_rax
+mov_esi_i =m_gtu
+call }streq_tok
+test_eax_eax
+jne }bc_gtu
+lea_rax_r14_4
+mov_rdi_rax
+mov_esi_i =m_leu
+call }streq_tok
+test_eax_eax
+jne }bc_leu
+lea_rax_r14_4
+mov_rdi_rax
+mov_esi_i =m_geu
+call }streq_tok
+test_eax_eax
+jne }bc_geu
+jmp }lineloop
+:bc_lt
+mov_eax_i 8d000000
+mov_at_eax e8f04600
+jmp }bc_go
+:bc_le
+mov_eax_i 8f000000
+mov_at_eax e8f04600
+jmp }bc_go
+:bc_gt
+mov_eax_i 8e000000
+mov_at_eax e8f04600
+jmp }bc_go
+:bc_ge
+mov_eax_i 8c000000
+mov_at_eax e8f04600
+jmp }bc_go
+:bc_eq
+mov_eax_i 85000000
+mov_at_eax e8f04600
+jmp }bc_go
+:bc_ne
+mov_eax_i 84000000
+mov_at_eax e8f04600
+jmp }bc_go
+:bc_ltu
+mov_eax_i 83000000
+mov_at_eax e8f04600
+jmp }bc_go
+:bc_gtu
+mov_eax_i 86000000
+mov_at_eax e8f04600
+jmp }bc_go
+:bc_leu
+mov_eax_i 87000000
+mov_at_eax e8f04600
+jmp }bc_go
+:bc_geu
+mov_eax_i 82000000
+mov_at_eax e8f04600
+jmp }bc_go
+:bc_go
+mov_esi_i 01000000
+call }g_opax              # A -> eax (LOC + R17-forwarding aware)
+mov_esi_i 02000000        # operand B: cmp eax, <B>  (slot or register)
+mov_rdi_r14
+call }scan_op
+mov_edx_eax
+add_edx_lb
+movzx_ecx_rdx
+test_ecx_ecx
+jz }bc_bslot
+call }g_rexbr
+call }g_rlow
+mov_al_3b
+st_al_r15
+inc_r15
+mov_eax_edx
+add_eax_i c0000000
+st_al_r15
+inc_r15
+jmp }bc_jcc
+:bc_bslot
+mov_esi_i =cmp_pre
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 02000000
+call }eop
+:bc_jcc
+mov_al_0f                 # 0f <negated-jcc>: jumps exactly when brz would (cond false)
+st_al_r15
+inc_r15
+mov_eax_at e8f04600
+st_al_r15
+inc_r15
+mov_rcx_at 10f04600       # placeholder rel32 onto the SAME BRZ stack -- pool/endloop
+st_r15_rcx                # backpatching is inherited unchanged
+add_rcx_8
+mov_at_rcx 10f04600
+xor_eax_eax
+st_eax_r15
+add_r15_4
+jmp }lineloop
+:d_brz                    # load cond (reg or slot); test; jz <placeholder> ; save BRZ_SITE
+mov_esi_i 01000000        # R11: LOC[cond] -> mov eax,rXd or the slot load
+mov_rdi_r14
+call }scan_op
+mov_edx_eax
+add_edx_lb
+movzx_ecx_rdx             # ecx = LOC[cond]
+cmp_ecx_1
+je }brz_c12
+cmp_ecx_2
+je }brz_c13
+cmp_ecx_3
+je }brz_c10
+cmp_ecx_4
+je }brz_c11
+cmp_ecx_5
+je }brz_c5
+cmp_ecx_6
+je }brz_c6
+cmp_ecx_7
+je }brz_c7
+cmp_ecx_8
+je }brz_c8
+mov_esi_i =pre_movrm      # slot: mov eax, [rbx+cond]
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 01000000
+call }eop
+jmp }brz_t
+:brz_c12
+mov_esi_i =mov_eax_r12d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }brz_t
+:brz_c13
+mov_esi_i =mov_eax_r13d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }brz_t
+:brz_c10
+mov_esi_i =mov_eax_r10d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }brz_t
+:brz_c11
+mov_esi_i =mov_eax_r11d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }brz_t
+:brz_c5
+mov_esi_i =ld_rsi
+mov_edx_i 02000000
+call }emit_bytes
+jmp }brz_t
+:brz_c6
+mov_esi_i =ld_rdi
+mov_edx_i 02000000
+call }emit_bytes
+jmp }brz_t
+:brz_c7
+mov_esi_i =ld_r8
+mov_edx_i 03000000
+call }emit_bytes
+jmp }brz_t
+:brz_c8
+mov_esi_i =ld_r9
+mov_edx_i 03000000
+call }emit_bytes
+:brz_t
+mov_esi_i =brz_mid        # 85 c0 0f 84
+mov_edx_i 04000000
+call }emit_bytes
+mov_rcx_at 10f04600       # push r15 (rel32 placeholder addr) onto the BRZ stack
+st_r15_rcx
+add_rcx_8
+mov_at_rcx 10f04600       # BRZ_SP += 8
+xor_eax_eax
+st_eax_r15
+add_r15_4
+jmp }lineloop
+
+:d_jmp                    # e9 <rel32 = LOOP_OFF - (site+4)>  (backward)
+mov_esi_i =jmp_op
+mov_edx_i 01000000
+call }emit_bytes
+mov_rcx_at 08f04600       # pop the LP stack -> loop_off
+sub_rcx_8
+mov_at_rcx 08f04600       # LP_SP -= 8
+mov_edx_atrcx             # edx = *sp = loop_off
+mov_rax_r15
+sub_eax_i 00004700
+add_eax_i 04000000        # jmp end offset
+sub_edx_eax               # rel32 = loop_off - end (negative)
+mov_eax_edx
+st_eax_r15
+add_r15_4
+jmp }lineloop
+
+:d_pool                   # pop the BRZ stack and backpatch it: rel32 = here-(site+4)
+mov_rcx_at 10f04600       # rcx = BRZ_SP
+sub_rcx_8
+mov_at_rcx 10f04600       # BRZ_SP -= 8
+mov_rcx_atrcx             # rcx = *sp = brz_site (abs addr)
+mov_rax_r15
+sub_eax_i 00004700        # target = current offset
+mov_edx_ecx               # edx = brz_site (abs, low 32)
+sub_edx_i 00004700        # brz_site offset
+add_edx_i 04000000        # + 4 = jz end offset
+sub_eax_edx               # rel32
+st_eax_rcx                # [rcx=brz_site] = rel32
+jmp }lineloop
+
+:d_cnt                    # emit forward `jmp <ph>`; chain ph onto the continue list
+mov_esi_i =jmp_op
+mov_edx_i 01000000
+call }emit_bytes
+mov_rcx_at 50f04600
+sub_rcx_8
+mov_eax_atrcx
+st_eax_r15
+mov_eax_r15d
+st_eax_rcx
+add_r15_4
+jmp }lineloop
+:d_cont                   # backpatch every continue in the chain to here (the step/continue point)
+mov_rcx_at 50f04600
+sub_rcx_8
+mov_ecx_atrcx
+:ct_walk
+test_ecx_ecx
+jz }ct_done
+mov_r8d_atrcx
+mov_rax_r15
+sub_eax_i 00004700
+mov_edx_ecx
+sub_edx_i 00004700
+add_edx_i 04000000
+sub_eax_edx
+st_eax_rcx
+mov_ecx_r8d
+jmp }ct_walk
+:ct_done
+jmp }lineloop
+
+:d_brk                    # emit `jmp <ph>`; chain ph onto the loop's break list
+mov_esi_i =jmp_op
+mov_edx_i 01000000
+call }emit_bytes
+mov_rcx_at 48f04600
+sub_rcx_8
+mov_eax_atrcx
+st_eax_r15
+mov_eax_r15d
+st_eax_rcx
+add_r15_4
+jmp }lineloop
+:d_endloop                # backpatch cond brz (like pool); pop CT; backpatch breaks
+mov_rcx_at 10f04600
+sub_rcx_8
+mov_at_rcx 10f04600
+mov_rcx_atrcx
+mov_rax_r15
+sub_eax_i 00004700
+mov_edx_ecx
+sub_edx_i 00004700
+add_edx_i 04000000
+sub_eax_edx
+st_eax_rcx
+mov_rcx_at 50f04600
+sub_rcx_8
+mov_at_rcx 50f04600
+mov_rcx_at 48f04600
+sub_rcx_8
+mov_at_rcx 48f04600
+mov_rcx_atrcx
+:bk_walk
+test_ecx_ecx
+jz }bk_done
+mov_r8d_atrcx
+mov_rax_r15
+sub_eax_i 00004700
+mov_edx_ecx
+sub_edx_i 00004700
+add_edx_i 04000000
+sub_eax_edx
+st_eax_rcx
+mov_ecx_r8d
+jmp }bk_walk
+:bk_done
+jmp }lineloop
+
+:d_ret                    # in a fn: load result, `ret`; in main: load result, exit
+mov_eax_at 18f04600       # IN_FN?
+test_eax_eax
+jne }d_ret_fn
+mov_esi_i 01000000        # R12: LOC[result] -> mov edi,rXd or the slot load
+mov_rdi_r14
+call }scan_op
+mov_edx_eax
+add_edx_lb
+movzx_ecx_rdx
+cmp_ecx_1
+je }ret_m12
+cmp_ecx_2
+je }ret_m13
+cmp_ecx_3
+je }ret_m10
+cmp_ecx_4
+je }ret_m11
+cmp_ecx_5
+je }ret_m5
+cmp_ecx_6
+je }ret_m6
+cmp_ecx_7
+je }ret_m7
+cmp_ecx_8
+je }ret_m8
+mov_esi_i =pre_movdi      # main: mov edi,[SLOT]; mov eax,60; syscall
+mov_edx_i 03000000
+call }emit_bytes
+mov_esi_i 01000000
+call }eop
+jmp }ret_mx
+:ret_m12
+mov_esi_i =mov_edi_r12d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }ret_mx
+:ret_m13
+mov_esi_i =mov_edi_r13d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }ret_mx
+:ret_m10
+mov_esi_i =mov_edi_r10d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }ret_mx
+:ret_m11
+mov_esi_i =mov_edi_r11d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }ret_mx
+:ret_m5
+mov_esi_i =rm_rsi         # R15: mov edi, esi
+mov_edx_i 02000000
+call }emit_bytes
+jmp }ret_mx
+:ret_m6
+mov_esi_i =rm_rdi         # mov edi, edi -- self-move, zero-extends
+mov_edx_i 02000000
+call }emit_bytes
+jmp }ret_mx
+:ret_m7
+mov_esi_i =rm_r8
+mov_edx_i 03000000
+call }emit_bytes
+jmp }ret_mx
+:ret_m8
+mov_esi_i =rm_r9
+mov_edx_i 03000000
+call }emit_bytes
+:ret_mx
+mov_esi_i =post_exit
+mov_edx_i 07000000
+call }emit_bytes
+jmp }lineloop
+:d_ret_fn                 # fn: load result to eax (reg or slot); EPILOGUE; ret
+mov_esi_i 01000000        # R12: LOC[result] -> mov eax,rXd or the slot load
+mov_rdi_r14
+call }scan_op
+mov_edx_eax
+add_edx_lb
+movzx_ecx_rdx
+cmp_ecx_1
+je }ret_f12
+cmp_ecx_2
+je }ret_f13
+cmp_ecx_3
+je }ret_f10
+cmp_ecx_4
+je }ret_f11
+cmp_ecx_5
+je }ret_f5
+cmp_ecx_6
+je }ret_f6
+cmp_ecx_7
+je }ret_f7
+cmp_ecx_8
+je }ret_f8
+mov_esi_i =pre_movrm8     # R138: mov rax, [SLOT] (8-byte -- a slot-based long return keeps its high half; an int return in a reg fits 32-bit anyway)
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i 01000000
+call }eop
+jmp }ret_fx
+:ret_f12
+mov_esi_i =mov_eax_r12d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }ret_fx
+:ret_f13
+mov_esi_i =mov_eax_r13d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }ret_fx
+:ret_f10
+mov_esi_i =mov_eax_r10d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }ret_fx
+:ret_f11
+mov_esi_i =mov_eax_r11d
+mov_edx_i 03000000
+call }emit_bytes
+jmp }ret_fx
+:ret_f5
+mov_esi_i =ld_rsi
+mov_edx_i 02000000
+call }emit_bytes
+jmp }ret_fx
+:ret_f6
+mov_esi_i =ld_rdi
+mov_edx_i 02000000
+call }emit_bytes
+jmp }ret_fx
+:ret_f7
+mov_esi_i =ld_r8
+mov_edx_i 03000000
+call }emit_bytes
+jmp }ret_fx
+:ret_f8
+mov_esi_i =ld_r9
+mov_edx_i 03000000
+call }emit_bytes
+:ret_fx
+mov_esi_i =frame_dn       # sub ebx, 0x20000 (restore caller frame)
+mov_edx_i 06000000
+call }emit_bytes
+mov_esi_i =fn_restores    # M3: pop r13; pop r12 (restore callee-saved before ret)
+mov_edx_i 04000000
+call }emit_bytes
+mov_esi_i =ret_op
+mov_edx_i 01000000
+call }emit_bytes
+jmp }lineloop
+
+:wrap
+mov_rax_r15
+sub_eax_i 00004700
+add_eax_i 78000000
+mov_at_eax =fsz
+mov_eax_i 00000010
+add_eax_at f0f04600
+mov_at_eax =msz
+mov_eax_i 01000000
+mov_edi_i 01000000
+mov_esi_i =ohdr
+mov_edx_i 78000000
+syscall
+mov_eax_i 01000000
+mov_edi_i 01000000
+mov_esi_i 00004700
+mov_rdx_r15
+sub_edx_i 00004700
+syscall
+mov_eax_i 3c000000
+xor_edi_edi
+syscall
+
+:emit_bytes
+:eb_l
+test_rdx_rdx
+jz }eb_done
+movzx_at_rsi
+st_al_r15
+inc_r15
+inc_rsi
+dec_rdx
+jmp }eb_l
+:eb_done
+ret
+
+:emit_slot
+mov_eax_ecx
+shl_eax_3
+st_eax_r15
+add_r15_4
+ret
+
+# dec2: rax = ptr to first digit -> eax = value (1 or 2 digits), rax = after digits.
+# Lifts the single-digit vN to multi-digit (>10 locals) -- a digit-accumulate loop.
+:dec2
+movzx_at_rax
+sub_dl_30
+mov_ecx_edx
+inc_rax
+:dec2_loop
+movzx_at_rax
+cmp_dl_30
+jb }dec2_done
+cmp_dl_3a
+jae }dec2_done
+sub_dl_30
+imul_ecx_10
+add_ecx_edx
+inc_rax
+jmp }dec2_loop
+:dec2_done
+ret
+
+# scan_op: rdi = RHS start, esi = k (1-based) -> eax = the kth `vN` operand's digit.
+# Scans for the kth 'v' and returns the value of the following digit -- WIDTH-
+# INDEPENDENT operand reading (replaces the fixed [r14+N] offsets; the lexer lift).
+:scan_op
+mov_rax_rdi
+:so_mn                    # skip the mnemonic token first (a 'v' in e.g. "div"
+movzx_at_rax              # must not be mistaken for an operand marker)
+cmp_dl_20                 # space ends the mnemonic
+je }so_l
+cmp_dl_0a
+je }so_hit
+inc_rax
+jmp }so_mn
+:so_l                     # now scan for the kth `v` operand
+movzx_at_rax              # edx = [rax]
+cmp_dl_0a
+je }so_hit                # newline guard (malformed -> stop)
+cmp_dl_76                 # 'v'
+jne }so_skip
+dec_esi
+jz }so_hit
+:so_skip
+inc_rax
+jmp }so_l
+:so_hit
+inc_rax                  # rax at 'v' -> step to the digit
+call }dec2               # multi-digit operand index (ecx = value, rax = after)
+mov_eax_ecx
+ret
+
+# eop: esi = operand index -> emit that operand's slot address (scan_op + emit_slot)
+:eop
+mov_rdi_r14
+call }scan_op
+mov_ecx_eax
+call }emit_slot
+ret
+
+# streq_tok: rdi = token, rsi = literal (0-terminated mnemonic) -> eax = 1 if the
+# token equals the literal AND is followed by a boundary (space/newline), else 0.
+# The dispatch lift: a mnemonic is matched as a WHOLE TOKEN, not by colliding
+# first/second chars -- so a new op is one table entry with no collision analysis.
+:streq_tok
+:st_l
+movzx_rsi                 # eax = literal byte
+test_eax_eax
+jz }st_bound              # literal exhausted -> the token must end here
+movzx_edx_rdi             # edx = token byte
+cmp_eax_edx
+jne }st_no
+inc_rsi
+inc_rdi
+jmp }st_l
+:st_bound
+movzx_eax_rdi             # token char just past the match must be a boundary
+cmp_al_20
+je }st_yes
+cmp_al_0a
+je }st_yes
+:st_no
+xor_eax_eax
+ret
+:st_yes
+mov_eax_i 01000000
+ret
+
+# streq_names: rdi, rsi = two boundary-terminated names -> eax = 1 if equal.
+# The function symbol table's key comparison (both names live in INBUF).
+:streq_names
+:sn_l
+movzx_eax_rdi             # char1
+movzx_edx_rsi             # char2
+cmp_al_20                 # char1 a boundary? (space or nl) -> both names must end here
+je }sn_b1
+cmp_al_0a
+je }sn_b1
+cmp_eax_edx               # not a boundary: chars must be equal
+jne }sn_no
+inc_rdi
+inc_rsi
+jmp }sn_l
+:sn_b1                    # char1 ended; match iff char2 also a boundary (ANY boundary)
+cmp_dl_20
+je }sn_yes2
+cmp_dl_0a
+je }sn_yes2
+:sn_no
+xor_eax_eax
+ret
+:sn_yes2
+mov_eax_i 01000000
+ret
+
+:find
+mov_r8_rdx
+:f_outer
+mov_rax_r8
+add_rax_rsi
+cmp_rax_r13
+ja }f_none
+xor_ecx_ecx
+:f_inner
+cmp_rcx_rsi
+je }f_hit
+movzx_r8rcx
+movzx_rdircx
+cmp_al_dl
+jne }f_next
+inc_rcx
+jmp }f_inner
+:f_next
+inc_r8
+jmp }f_outer
+:f_hit
+lea_rax_r8rsi
+ret
+:f_none
+xor_eax_eax
+ret
+
+:pd                       # rsi -> eax = decimal value of ANY number of digits (R91: leading '-' -> negate)
+xor_eax_eax
+movzx_edx_rsi             # edx = [rsi]
+cmp_dl_2d                 # '-' ?  (ccc emits `const -1` for a >31-bit unsigned literal like 4294967295UL)
+jne }pd_mag               # non-negative: parse magnitude
+inc_rsi                   # skip '-'
+call }pd_mag              # eax = magnitude
+neg_eax                   # eax = -magnitude (0xFFFFFFFF for -1 -> the correct 32-bit bit pattern)
+ret
+:pd_mag
+xor_eax_eax
+:pd_l
+movzx_edx_rsi             # edx = [rsi]
+sub_edx_30i               # - '0'  (non-digit wraps high, caught below)
+cmp_edx_9
+ja }pd_done
+imul_eax_10               # val = val*10 + digit
+add_eax_edx
+inc_rsi
+jmp }pd_l
+:pd_done
+ret
+
+# === data ===
+:pre_movrm
+8b8423
+:pre_rm
+8423
+:pre_movmr
+898423
+:pre_movrm8
+488b8423
+:pre_movmr8
+48898423
+:alu8_add                 # R91: add rax, [rbx+disp32]
+48038423
+:alu8_sub                 # sub rax, [rbx+disp32]
+482b8423
+:alu8_and                 # and rax, [rbx+disp32]
+48238423
+:alu8_or                  # or rax, [rbx+disp32]
+480b8423
+:alu8_xor                 # xor rax, [rbx+disp32]
+48338423
+:alu8_mul                 # R133: imul rax, [rbx+disp32]  (48 0f af 84 23)
+480faf8423
+:alu8_cmp                 # R135: cmp rax, [rbx+disp32]  (48 3b 84 23)  -- 64-bit compare
+483b8423
+:cqo_op                   # R138: cqo (sign-extend rax into rdx:rax)
+4899
+:xorrdx8_op               # R138: xor rdx, rdx (zero rdx for unsigned div)
+4831d2
+:idiv8_op                 # R138: idiv qword [rbx+disp32]  (48 f7 bc 23)
+48f7bc23
+:divq8_op                 # R138: div qword [rbx+disp32]  (48 f7 b4 23)
+48f7b423
+:mov_rax_rdx8             # R138: mov rax, rdx (remainder)
+4889d0
+:mov_ecx_slotB            # mov ecx, [rbx+disp32]  (shift count)
+8b8c23
+:shl8_op                  # shl rax, cl
+48d3e0
+:shr8_op                  # sar rax, cl
+48d3f8
+:shu8_op                  # shr rax, cl
+48d3e8
+:pre_movmi
+c78423
+:pre_argc
+488b0424898423
+:mov_rax_rsp               # mov rax, [rsp]  (argc)
+488b0424
+:argv_lo                   # mov eax, 0x10000000  (low argv[] base, marshalled)
+b800000010
+:envp_lo                   # mov eax, 0x10100000  (low envp[] base, marshalled)
+b800001010
+:entry_marshal            # runs once at _start: copy argc/argv/envp from the 64-bit kernel
+                          # stack into low (<4GB) buffers so every pointer fits cf's i32 model.
+                          # argv[]@0x10000000 envp[]@0x10100000 strings@0x10200000 (in the 256MB seg)
+4c8b14244c8d5c240841bc0000001041bd0000201031c94c39d10f8320000000498b34cb4d892ccc8a064188450048ffc649ffc584c075f048ffc1e9d7ffffff49c704cc000000004f8d74d30841b80000101031c9498b34ce4885f60f841c0000004d892cc88a064188450048ffc649ffc584c075f048ffc1e9d7ffffff49c704c800000000
+:pre_movdi
+8bbc23
+:pre_movrc
+8b8c23
+:pre_movmc
+898c23
+:sel_mid1
+85c00f840c000000
+:sel_mid2
+e907000000
+:post_exit
+b83c0000000f05
+:ret_op
+c3
+:pre_movms
+89b423
+:pre_movsi
+8bb423
+:spill_st
+890425
+:spill_ld
+8b0425
+:argload_tbl
+488bbc23488bb423488b9423488b8c234c8b84234c8b8c23
+:paramstore_tbl
+4889bc234889b4234889942348898c234c898423 4c898c23
+:call_op
+e8
+:callrax
+ffd0
+:mov_eax_i2
+b8
+:mov_r12d_eax
+4189c4
+:mov_r13d_eax
+4189c5
+:mov_eax_r12d
+4489e0
+:mov_eax_r13d
+4489e8
+:fn_saves                 # M3: push r12; push r13 (callee-saved preserve for across-call values)
+41544155
+:fn_restores              # M3: pop r13; pop r12 (reverse order)
+415d415c
+:rex41                     # R7: REX.B prefix for `op eax, r12d/r13d` (reg-source operand B)
+41
+:modrm_c4                  # R7: ModRM for r12d as the r/m (op eax, r12d)
+c4
+:modrm_c5                  # R7: ModRM for r13d as the r/m (op eax, r13d)
+c5
+:mov_ecx_r12d              # R8: shift count from register (REX.B 8b /r, rm=r12)
+418bcc
+:mov_ecx_r13d              # R8: shift count from register (rm=r13)
+418bcd
+:mov_eax_r10d              # R9 caller-saved pool (REX.R 89 /r, reg=r10)
+4489d0
+:mov_eax_r11d
+4489d8
+:mov_r10d_eax              # R9 (REX.B 89 /r, rm=r10)
+4189c2
+:mov_r11d_eax
+4189c3
+:mov_ecx_r10d              # R9 shift count (REX.B 8b /r, rm=r10)
+418bca
+:mov_ecx_r11d
+418bcb
+:modrm_c2                  # R9: ModRM for r10d as the r/m (op eax, r10d)
+c2
+:modrm_c3                  # R9: ModRM for r11d as the r/m (op eax, r11d)
+c3
+:cmp_rr                    # R10: cmp eax, rXd -- REX.B + 3b, ModRM follows
+413b
+:mov_edi_r10d              # R12: ret-in-main from register (REX.R 89 /r, rm=edi)
+4489d7
+:mov_edi_r11d
+4489df
+:mov_edi_r12d
+4489e7
+:mov_edi_r13d
+4489ef
+:mov_r10d_i                # R14: mov r10d, imm32 (REX.B b8+rd; imm32 follows)
+41ba
+:mov_r11d_i
+41bb
+:mov_r12d_i
+41bc
+:mov_r13d_i
+41bd
+:ld_rsi                    # R15 marshalling pool: mov eax, esi
+89f0
+:ld_rdi
+89f8
+:ld_r8
+4489c0
+:ld_r9
+4489c8
+:st_rsi                    # mov esi, eax
+89c6
+:st_rdi
+89c7
+:st_r8
+4189c0
+:st_r9
+4189c1
+:cnt_rsi                   # mov ecx, esi (shift count)
+8bce
+:cnt_rdi
+8bcf
+:cnt_r8
+418bc8
+:cnt_r9
+418bc9
+:modrm_c6                  # op eax, esi (no REX)
+c6
+:modrm_c7                  # op eax, edi
+c7
+:modrm_c0                  # op eax, r8d (REX.B from bop_ad / cmp_rr)
+c0
+:modrm_c1                  # op eax, r9d
+c1
+:cmp_op                    # bare cmp opcode (esi/edi operand B)
+3b
+:rm_rsi                    # ret-in-main: mov edi, esi
+89f7
+:rm_rdi                    # mov edi, edi (self, zero-extend)
+89ff
+:rm_r8
+4489c7
+:rm_r9
+4489cf
+:ci_rsi                    # mov esi, imm32
+be
+:ci_rdi
+bf
+:ci_r8                     # mov r8d, imm32
+41b8
+:ci_r9
+41b9
+:rlow_tbl                  # R19: LOC code 1-8 -> register ModRM low bits
+0405020306070001
+:arglow_tbl                # R20: arg index 0-5 -> target reg low bits (edi esi edx ecx r8 r9)
+070602010001
+:sclow_tbl                 # R20: syscall operand 0-3 -> target low bits (eax edi esi edx)
+00070602
+:pre_movmd
+89bc23
+:cmp_pre
+3b8423
+:setl_mz
+0f9cc00fb6c0
+:sete_mz
+0f94c00fb6c0
+:setg_mz
+0f9fc00fb6c0
+:setle_mz
+0f9ec00fb6c0
+:setge_mz
+0f9dc00fb6c0
+:setne_mz
+0f95c00fb6c0
+:setb_mz
+0f92c00fb6c0
+:seta_mz
+0f97c00fb6c0
+:setbe_mz
+0f96c00fb6c0
+:setae_mz
+0f93c00fb6c0
+:deref_load
+8b01
+:deref_store
+8901
+:deref_load8
+488b01
+:deref_store8
+488901
+:pre_movdx
+8b9423
+:lea_idx
+488d0c91
+:lea_idx_8
+488d0cd1
+:pre_movrc_a
+908b8c23
+:pre_movmr_a
+48898423
+:lea_rbx_a
+488d8423
+:imul_op
+0faf
+:shl_op
+d3e0
+:sar_op
+d3f8
+:lsr_op
+d3e8
+:cdq_op
+99
+:rbx_init
+bb00000008        # emitted program frame base = 0x8000000 (was 0x4000000; raised 2026-09-04 so globals stay below the frame at 12M+ opt buffers -- D-01 fix). Globals grow up from
+                  # 0x700000; raised with SPILL (0x3F00000) to enlarge the global arena as the frontend
+                  # grew past the old 24MB (self-host rzir now >3.8MB per stage). 0x4000000 gives a ~56MB
+                  # global arena; frames grow up 0x20000/level with ~192MB headroom below argv@0x10000000.
+:lea_rbx
+8d8423
+:frame_up
+81c300000200
+:frame_dn
+81eb00000200
+:idiv_pre
+f7bc23
+:div_pre
+f7b423
+:xoredx_op
+31d2
+:st_edx_pre
+899423
+# mnemonic literals (0-terminated) for the dispatch table
+:m_param
+706172616d00
+:m_const
+636f6e737400
+:m_call
+63616c6c00
+:m_calli
+63616c6c6900
+:m_faddr
+666164647200
+:m_argc
+6172676300
+:m_sel
+73656c00
+:m_lt
+6c7400
+:m_eq
+657100
+:m_gt
+677400
+:m_le
+6c6500
+:m_ge
+676500
+:m_ltu
+6c747500
+:m_gtu
+67747500
+:m_leu
+6c657500
+:m_geu
+67657500
+:m_ne
+6e6500
+:m_ref
+72656600
+:m_load
+6c6f616400
+:m_get
+67657400
+:m_div
+64697600
+:m_duv
+64757600
+:m_udm
+75646d00
+:m_mod
+6d6f6400
+:m_put
+70757400
+:m_loadb
+6c6f61646200
+:m_load2                  # R60: 'load2' -- 16-bit deref load (ELF-exact short fields)
+6c6f61643200
+:m_getb
+6765746200
+:m_storeb
+73746f72656200
+:m_store2
+73746f72653200
+:m_putb
+7075746200
+:m_loop
+6c6f6f7000
+:m_brz
+62727a00
+:m_brc                     # R3(opt): fused compare-branch `brc <op> vA vB`
+62726300
+:m_jmp
+6a6d7000
+:m_pool
+706f6f6c00
+:m_endloop
+656e646c6f6f7000
+:m_brk
+62726b00
+:m_cont
+636f6e7400
+:m_cnt
+636e7400
+:m_ret
+72657400
+:m_fn
+666e00
+:m_goto
+676f746f00
+:m_label
+6c6162656c00
+:m_store
+73746f726500
+:m_load8
+6c6f61643800
+:m_add8
+61646438 00
+:m_sub8
+73756238 00
+:m_and8
+616e6438 00
+:m_or8
+6f723800
+:m_xor8
+786f7238 00
+:m_shl8
+73686c38 00
+:m_shr8
+73687238 00
+:m_shu8
+73687538 00
+:m_mul8
+6d756c3800
+:m_lt8
+6c743800
+:m_le8
+6c653800
+:m_gt8
+67743800
+:m_ge8
+67653800
+:m_eq8
+65713800
+:m_ne8
+6e653800
+:m_ltu8
+6c74753800
+:m_leu8
+6c65753800
+:m_gtu8
+6774753800
+:m_geu8
+6765753800
+:m_div8
+6469763800
+:m_duv8
+6475763800
+:m_mod8
+6d6f643800
+:m_udm8
+75646d3800
+:m_conv
+636f6e7600
+:m_convs
+636f6e767300
+:movsxd_rax_slot          # R94: movsxd rax, [rbx+disp32]  (sign-extend a 32-bit slot to 64-bit)
+48638423
+:m_store8
+73746f72653800
+
+:m_syscall
+73797363616c6c00
+:m_setjmp
+7365746a6d7000
+:m_longjmp
+6c6f6e676a6d7000
+:sj_save          # setjmp: save rbx,r12,r13,rsp to _ejb(0x1FF0000); lea rax,[rip+0x0A]=:resume;
+                  # save resume-rip; xor eax,eax (return 0). Then the handler appends the :resume store.
+48891c250000ff014c8924250800ff014c892c251000ff01488924251800ff01488d050a000000488904252000ff0131c0
+:lj_restore       # longjmp: restore rbx,r12,r13,rsp,rip(->rdx) from _ejb; eax=1; jmp rdx.
+488b1c250000ff014c8b24250800ff014c8b2c251000ff01488b24251800ff01488b14252000ff01b801000000ffe2
+:sc_regs
+408b8423408bbc23408bb423408b9423
+:sc_op
+0f05
+:deref_loadb
+0fb601
+:deref_load2
+0fb701
+:deref_storeb
+8801
+:deref_store2
+668901
+:movzx_idxb
+0fb60411
+:sext_dx                  # movsxd rdx, edx -- R49: sign-extend the 32-bit index (negative subscripts: p[-1])
+4863d2
+:store_idxb
+880411
+:brz_mid
+85c00f84
+:jmp_op
+e9
+:eq_needle
+3d20
+:end

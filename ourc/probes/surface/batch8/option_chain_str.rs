@@ -1,0 +1,1 @@
+fn find(v: &[&str], k: &str) -> Option<usize> { v.iter().position(|s| *s == k) } fn main() { let v = vec!["x", "yy", "zzz"]; let r = find(&v, "yy").map(|i| v[i].len() * 2).unwrap_or(0); let s = find(&v, "q").map(|i| v[i]).unwrap_or("none"); println!("{} {}", r, s); }

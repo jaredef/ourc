@@ -1,0 +1,17 @@
+# arm64 code fixture: branch over a failing exit, then exit 42.
+# This is code bytes only, not a Mach-O container.
+#
+# @A should emit:
+#   b A
+# If here=0 and A is at byte offset 16, imm26=(16-0)>>2=4,
+# so the branch word is 0x14000004 -> 04 00 00 14.
+#
+# Failing path: exit(1)
+@A
+20 00 80 d2   # mov x0, #1
+30 00 80 d2   # mov x16, #1
+01 10 00 d4   # svc #0x80
+:A
+40 05 80 d2   # mov x0, #42
+30 00 80 d2   # mov x16, #1
+01 10 00 d4   # svc #0x80

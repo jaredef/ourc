@@ -1,0 +1,7 @@
+gdef __heap 65536
+fn main
+  v0: i32 = const 5
+  v1: i32 = call totally_undefined_fn_xyz v0
+  v2: i32 = call __print_uint v1
+  ret v0
+endfn

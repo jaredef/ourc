@@ -1,0 +1,130 @@
+# rzir -> ELF emitter (flat 2-const-1-op) DERIVED from emitter-seed.md.
+# Authored against hex1 labels (:def }rel32) so no jump offset is hand-computed.
+# Layout: ehdr+phdr (120) | output-template (149) | needles (10) | code.
+#   TPL=0x400078  NCONST=0x400109  NSUB=0x40010f  entry=0x400113
+# Patch sites in the template: A@0x4000f3  B@0x4000fa  op@0x4000ff (add 0x01 default).
+# filesz / memsz / INBUF are set after a measuring build (see run notes).
+
+# === emitter ELF header (64) === entry 0x400113
+7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00
+02 00 3e 00 01 00 00 00
+17 01 40 00 00 00 00 00   # e_entry = code @ 0x400117
+40 00 00 00 00 00 00 00   # e_phoff 64
+00 00 00 00 00 00 00 00   # e_shoff 0
+00 00 00 00 40 00 38 00 01 00 00 00 00 00 00 00
+# === emitter program header (56) PT_LOAD R+W+X ===
+01 00 00 00 07 00 00 00
+00 00 00 00 00 00 00 00
+00 00 40 00 00 00 00 00
+00 00 40 00 00 00 00 00
+21 02 00 00 00 00 00 00   # p_filesz  (set to file size S)
+21 02 01 00 00 00 00 00   # p_memsz   (S + 0x10000)
+00 10 00 00 00 00 00 00
+
+# === OUTPUT template: a flat ELF computing A op B -> exit (149 bytes), vaddr 0x400078 ===
+7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00
+02 00 3e 00 01 00 00 00
+78 00 40 00 00 00 00 00   # (output) e_entry 0x400078
+40 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00
+00 00 00 00 40 00 38 00 01 00 00 00 00 00 00 00
+01 00 00 00 05 00 00 00   # output PT_LOAD R+X
+00 00 00 00 00 00 00 00
+00 00 40 00 00 00 00 00
+00 00 40 00 00 00 00 00
+95 00 00 00 00 00 00 00   # output filesz 149
+95 00 00 00 00 00 00 00   # output memsz 149
+00 10 00 00 00 00 00 00
+49 c7 c1 00 00 00 00      # mov $A, %r9    (A @ template+123 = 0x4000f3)
+49 c7 c2 00 00 00 00      # mov $B, %r10   (B @ +130 = 0x4000fa)
+4d 01 d1                  # add %r10, %r9  (op @ +135 = 0x4000ff; default add 0x01)
+4c 89 cf                  # mov %r9, %rdi
+48 c7 c0 3c 00 00 00      # mov $60, %rax
+0f 05                     # syscall
+
+# === needles (10) === vaddr 0x400109
+63 6f 6e 73 74 20         # "const "
+73 75 62 20               # "sub "
+
+# === emitter code === vaddr 0x400113
+31 c0                     # xor eax,eax        (read = 0)
+31 ff                     # xor edi,edi        (fd 0)
+be 21 02 40 00            # mov esi, INBUF     (set after measure)
+ba 00 00 01 00            # mov edx, 65536
+0f 05                     # syscall
+bb 21 02 40 00            # mov ebx, INBUF
+4c 8d 2c 03               # lea r13, [rbx+rax] (end)
+bf 0d 01 40 00            # mov edi, NCONST
+be 06 00 00 00            # mov esi, 6
+48 89 da                  # mov rdx, rbx       (start = inbuf)
+e8 }F                     # call find
+49 89 c4                  # mov r12, rax       (p1)
+48 89 c6                  # mov rsi, rax
+e8 }P                     # call pd
+41 89 c6                  # mov r14d, eax      (A)
+bf 0d 01 40 00            # mov edi, NCONST
+be 06 00 00 00            # mov esi, 6
+4c 89 e2                  # mov rdx, r12       (start = p1)
+e8 }F                     # call find
+48 89 c6                  # mov rsi, rax
+e8 }P                     # call pd
+41 89 c7                  # mov r15d, eax      (B)
+bf 13 01 40 00            # mov edi, NSUB
+be 04 00 00 00            # mov esi, 4
+48 89 da                  # mov rdx, rbx
+e8 }F                     # call find
+48 85 c0                  # test rax, rax
+0f 84 }N                  # jz noop           (no "sub " -> add, leave 0x01)
+c6 04 25 ff 00 40 00 29   # movb $0x29, [0x4000ff]   (op = sub)
+:N
+44 89 34 25 f3 00 40 00   # mov [0x4000f3], r14d     (patch A)
+44 89 3c 25 fa 00 40 00   # mov [0x4000fa], r15d     (patch B)
+b8 01 00 00 00            # mov eax, 1         (write)
+bf 01 00 00 00            # mov edi, 1
+be 78 00 40 00            # mov esi, TPL
+ba 95 00 00 00            # mov edx, 149
+0f 05                     # syscall
+b8 3c 00 00 00            # mov eax, 60        (exit)
+31 ff                     # xor edi,edi
+0f 05                     # syscall
+
+# find: rdi=needle rsi=len rdx=start -> rax = ptr after match, or 0
+:F
+49 89 d0                  # mov r8, rdx        (cur)
+:O
+4c 89 c0                  # mov rax, r8
+48 01 f0                  # add rax, rsi       (cur + len)
+4c 39 e8                  # cmp rax, r13
+0f 87 }Z                  # ja none           (cur+len > end)
+31 c9                     # xor ecx,ecx        (j = 0)
+:I
+48 39 f1                  # cmp rcx, rsi
+0f 84 }H                  # je hit             (j == len)
+41 0f b6 04 08            # movzbl (r8+rcx), eax
+0f b6 14 0f               # movzbl (rdi+rcx), edx
+38 d0                     # cmp al, dl
+0f 85 }X                  # jne next
+48 ff c1                  # inc rcx
+e9 }I                     # jmp inner
+:X
+49 ff c0                  # inc r8
+e9 }O                     # jmp outer
+:H
+49 8d 04 30               # lea rax, [r8+rsi]  (ptr after match)
+c3                        # ret
+:Z
+31 c0                     # xor eax,eax
+c3                        # ret
+
+# pd: rsi = ptr -> eax = 1-2 digit decimal
+:P
+0f b6 06                  # movzbl (rsi), eax
+83 e8 30                  # sub eax, '0'
+0f b6 56 01               # movzbl 1(rsi), edx
+83 ea 30                  # sub edx, '0'
+83 fa 09                  # cmp edx, 9
+0f 87 }Q                  # ja one_digit      (second not 0-9)
+6b c0 0a                  # imul eax, eax, 10
+01 d0                     # add eax, edx
+:Q
+c3                        # ret

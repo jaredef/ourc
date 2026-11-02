@@ -1,0 +1,44 @@
+  int_i64                MISCOMP  d=[14/0] r=[14999999999/0]
+  int_cast_trunc         OK
+  bitwise                OK
+  unsigned_div           OK
+  overflow_wrap          MISCOMP  d=[260/0] r=[4/0]
+  infer_let              OK
+  tuple                  MISCOMP  d=[24117256/0] r=[6/0]
+  shadowing              OK
+  mut_ref_fn             OK
+  array_slice            MISCOMP  d=[/139] r=[9/0]
+  struct_method          OK
+  enum_match             OK
+  generic_fn             OK
+  generic_struct         OK
+  trait_default          GAP
+  trait_object           GAP
+  operator_overload      GAP
+  assoc_type             GAP
+apparatus/arcs/2026-07-15-rust-frontend-completion/r0-boundary/map.sh: line 27: warning: command substitution: ignored null byte in input
+  match_guard_range      MISCOMP  d=[/139] r=[-1 0 1/0]
+  or_pattern             MISCOMP  d=[30 30 30/0] r=[10 20 30/0]
+  slice_pattern          MISCOMP  d=[1/0] r=[5/0]
+  binding_at             MISCOMP  d=[0/0] r=[30/0]
+  exhaustive_reject      UNSOUND
+  closure_capture        OK
+  iter_chain             OK
+  iter_collect           OK
+  option_q               OK
+  result_q               OK
+  string_ops             OK
+  str_methods            MISCOMP  d=[a,bb,ccc/0] r=[3/0]
+  vec_methods            MISCOMP  d=[3 1 2 0/0] r=[0 1 2 3/0]
+  hashmap                OK
+  format_specs           MISCOMP  d=[42 hi 255/0] r=[0042    hi ff/0]
+  debug_derive           OK
+  use_after_move         REJECT-OK
+  double_mut_borrow      UNSOUND
+  macro_rules            GAP
+  const_item             MISCOMP  d=[24117266/0] r=[13/0]
+  const_generic          GAP
+  impl_trait_ret         GAP
+  box_recursive          MISCOMP  d=[0/0] r=[3/0]
+----------------------------------------------------------------
+totals: OK=18  GAP=7  MISCOMP=13  UNSOUND=2  REJECT-OK=1  (of 41)

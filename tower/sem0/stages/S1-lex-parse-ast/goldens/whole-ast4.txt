@@ -1,0 +1,89 @@
+Crate
+  Item TypeAlias@64..87 vis=pub ident=NodeId
+    = Ty Path u32
+  Item TypeAlias@87..112 vis=pub ident=P<T>
+    = Ty Path Box<Ty Path T>
+  Item Enum@112..208 vis=pub ident=Mutability
+    Attr derive(Clone, Copy, PartialEq, Eq, Debug)
+    Variant ident=Not Unit disr=Expr LitInt 0
+    Variant ident=Mut Unit disr=Expr LitInt 1
+  Item Struct@208..297 vis=pub ident=Expr
+    Attr derive(Clone, Debug)
+    Field vis=pub ident=id Ty Path NodeId
+    Field vis=pub ident=kind Ty Path ExprKind
+  Item Enum@297..513 vis=pub ident=ExprKind
+    Attr derive(Clone, Debug)
+    Variant ident=Lit Tuple(Ty Path u64)
+    Variant ident=Path Tuple(Ty Path String)
+    Variant ident=Binary Tuple(Ty Path P<Ty Path Expr>, Ty Path P<Ty Path Expr>)
+    Variant ident=Call Tuple(Ty Path P<Ty Path Expr>, Ty Path Vec<Ty Path P<Ty Path Expr>>)
+    Variant ident=If Tuple(Ty Path P<Ty Path Expr>, Ty Path P<Ty Path Block>, Ty Path Option<Ty Path P<Ty Path Expr>>)
+    Variant ident=Match Tuple(Ty Path P<Ty Path Expr>, Ty Path Vec<Ty Path Arm>)
+  Item Struct@513..601 vis=pub ident=Arm
+    Attr derive(Clone, Debug)
+    Field vis=pub ident=pat Ty Path P<Ty Path Pat>
+    Field vis=pub ident=body Ty Path P<Ty Path Expr>
+  Item Struct@601..693 vis=pub ident=Block
+    Attr derive(Clone, Debug)
+    Field vis=pub ident=id Ty Path NodeId
+    Field vis=pub ident=stmts Ty Path Vec<Ty Path Stmt>
+  Item Enum@693..810 vis=pub ident=Stmt
+    Attr derive(Clone, Debug)
+    Variant ident=Local Tuple(Ty Path P<Ty Path Pat>, Ty Path Option<Ty Path P<Ty Path Expr>>)
+    Variant ident=Expr Tuple(Ty Path P<Ty Path Expr>)
+    Variant ident=Item Tuple(Ty Path P<Ty Path Item>)
+  Item Enum@810..995 vis=pub ident=Pat
+    Attr derive(Clone, Debug)
+    Variant ident=Wild Unit
+    Variant ident=Ident Tuple(Ty Path String)
+    Variant ident=Box Tuple(Ty Path P<Ty Path Pat>)
+    Variant ident=Tuple Tuple(Ty Path Vec<Ty Path P<Ty Path Pat>>)
+    Variant ident=TupleStruct Tuple(Ty Path String, Ty Path Vec<Ty Path P<Ty Path Pat>>)
+    Variant ident=Struct Tuple(Ty Path String, Ty Path Vec<Ty Path FieldPat>)
+  Item Struct@995..1087 vis=pub ident=FieldPat
+    Attr derive(Clone, Debug)
+    Field vis=pub ident=name Ty Path String
+    Field vis=pub ident=pat Ty Path P<Ty Path Pat>
+  Item Enum@1087..1204 vis=pub ident=TyKind
+    Attr derive(Clone, Debug)
+    Variant ident=Path Tuple(Ty Path String)
+    Variant ident=Ref Tuple(Ty Path P<Ty Path TyKind>, Ty Path Mutability)
+    Variant ident=Slice Tuple(Ty Path P<Ty Path TyKind>)
+  Item Struct@1204..1293 vis=pub ident=Item
+    Attr derive(Clone, Debug)
+    Field vis=pub ident=id Ty Path NodeId
+    Field vis=pub ident=kind Ty Path ItemKind
+  Item Enum@1293..1419 vis=pub ident=ItemKind
+    Attr derive(Clone, Debug)
+    Variant ident=Fn Tuple(Ty Path Vec<Ty Path Pat>, Ty Path P<Ty Path Block>)
+    Variant ident=Struct Tuple(Ty Path Vec<Ty Path FieldDef>)
+    Variant ident=Enum Tuple(Ty Path Vec<Ty Path Variant>)
+  Item Struct@1419..1513 vis=pub ident=FieldDef
+    Attr derive(Clone, Debug)
+    Field vis=pub ident=name Ty Path String
+    Field vis=pub ident=ty Ty Path P<Ty Path TyKind>
+  Item Struct@1513..1610 vis=pub ident=Variant
+    Attr derive(Clone, Debug)
+    Field vis=pub ident=name Ty Path String
+    Field vis=pub ident=disr Ty Path Option<Ty Path u64>
+  Item Trait@1610..1790 vis=pub ident=Visitor
+    Item Fn@1634..1709 vis=priv ident=visit_expr
+      Param name=&mut self ImplicitSelf
+      Param name=e Ty Ref(Ty Path Expr)
+      Ret Default
+      Block(Semi Expr Call(Expr Path walk_expr, [Expr Path self, Expr Path e]))
+    Item Fn@1709..1751 vis=priv ident=visit_stmt
+      Param name=&mut self ImplicitSelf
+      Param name=s Ty Ref(Ty Path Stmt)
+      Ret Default
+      Block()
+    Item Fn@1751..1787 vis=priv ident=visit_pat
+      Param name=&mut self ImplicitSelf
+      Param name=p Ty Ref(Ty Path Pat)
+      Ret Default
+      Block()
+  Item Fn@1790..2584 vis=pub ident=walk_expr<V: Visitor>
+    Param name=v Ty Ref(mut Ty Path V)
+    Param name=e Ty Ref(Ty Path Expr)
+    Ret Default
+    Block(Expr Expr Match(Expr AddrOf(Expr Field(Expr Path e, kind)), [Arm(Pat TupleStruct(ExprKind::Lit, [Pat Wild]) => Expr Block(Block())), Arm(Pat TupleStruct(ExprKind::Path, [Pat Wild]) => Expr Block(Block())), Arm(Pat TupleStruct(ExprKind::Binary, [Pat Ident lhs, Pat Ident rhs]) => Expr Block(Block(Semi Expr Method(Expr Path v, visit_expr, [Expr Path lhs]); Semi Expr Method(Expr Path v, visit_expr, [Expr Path rhs])))), Arm(Pat TupleStruct(ExprKind::Call, [Pat Ident callee, Pat Ident args]) => Expr Block(Block(Semi Expr Method(Expr Path v, visit_expr, [Expr Path callee]); Expr Expr ForLoop(Pat Ident a in Expr Path args, Block(Semi Expr Method(Expr Path v, visit_expr, [Expr Path a])))))), Arm(Pat TupleStruct(ExprKind::If, [Pat Ident cond, Pat Ident _then, Pat Ident els]) => Expr Block(Block(Semi Expr Method(Expr Path v, visit_expr, [Expr Path cond]); Expr Expr If(Expr Let(Pat TupleStruct(Some, [Pat Ident e]) = Expr Path els), Block(Semi Expr Method(Expr Path v, visit_expr, [Expr Path e])))))), Arm(Pat TupleStruct(ExprKind::Match, [Pat Ident scrut, Pat Ident arms]) => Expr Block(Block(Semi Expr Method(Expr Path v, visit_expr, [Expr Path scrut]); Expr Expr ForLoop(Pat Ident arm in Expr Path arms, Block(Semi Expr Method(Expr Path v, visit_pat, [Expr AddrOf(Expr Field(Expr Path arm, pat))]); Semi Expr Method(Expr Path v, visit_expr, [Expr AddrOf(Expr Field(Expr Path arm, body))]))))))]))

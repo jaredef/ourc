@@ -1,0 +1,43 @@
+  int_i64                OK
+  int_cast_trunc         OK
+  bitwise                OK
+  unsigned_div           OK
+  overflow_wrap          MISCOMP  d=[260/0] r=[4/0]
+  infer_let              OK
+  tuple                  MISCOMP  d=[24117256/0] r=[6/0]
+  shadowing              OK
+  mut_ref_fn             OK
+  array_slice            OK
+  struct_method          OK
+  enum_match             OK
+  generic_fn             OK
+  generic_struct         OK
+  trait_default          OK
+  trait_object           GAP
+  operator_overload      GAP
+  assoc_type             GAP
+  match_guard_range      OK
+  or_pattern             OK
+  slice_pattern          MISCOMP  d=[1/0] r=[5/0]
+  binding_at             OK
+  exhaustive_reject      UNSOUND
+  closure_capture        OK
+  iter_chain             OK
+  iter_collect           OK
+  option_q               OK
+  result_q               OK
+  string_ops             OK
+  str_methods            OK
+  vec_methods            OK
+  hashmap                OK
+  format_specs           OK
+  debug_derive           OK
+  use_after_move         REJECT-OK
+  double_mut_borrow      UNSOUND
+  macro_rules            GAP
+  const_item             OK
+  const_generic          GAP
+  impl_trait_ret         GAP
+  box_recursive          MISCOMP  d=[0/0] r=[3/0]
+----------------------------------------------------------------
+totals: OK=28  GAP=6  MISCOMP=4  UNSOUND=2  REJECT-OK=1  (of 41)

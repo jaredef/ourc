@@ -1,0 +1,37 @@
+Crate
+  Item Enum@0..153 vis=pub ident=Abi
+    Variant ident=Rust Unit
+    Variant ident=C Struct(unwind Ty Path bool)
+    Variant ident=System Struct(unwind Ty Path bool)
+    Variant ident=Cdecl Unit
+    Variant ident=Stdcall Unit
+    Variant ident=Fastcall Unit
+    Variant ident=Aapcs Unit
+    Variant ident=Win64 Unit
+    Variant ident=SysV64 Unit
+  Item Enum@153..195 vis=pub ident=Endian
+    Variant ident=Little Unit
+    Variant ident=Big Unit
+  Item Struct@195..394 vis=pub ident=TargetSpec
+    Field vis=pub ident=llvm_target Ty Ref('static Ty Path str)
+    Field vis=pub ident=pointer_width Ty Path u32
+    Field vis=pub ident=arch Ty Ref('static Ty Path str)
+    Field vis=pub ident=endian Ty Path Endian
+    Field vis=pub ident=is_like_windows Ty Path bool
+    Field vis=pub ident=has_atomic Ty Path bool
+  Item Union@394..445 vis=pub ident=Reg
+    Field vis=pub ident=i Ty Path u64
+    Field vis=pub ident=f Ty Path f64
+  Item Impl@445..961 Ty Path Abi
+    Item Fn@460..833 vis=pub ident=name
+      Param name=&self ImplicitSelf
+      Ret Ty Ref('static Ty Path str)
+      Block(Expr Expr Match(Expr Path self, [Arm(Pat Path Abi::Rust => Expr Str "Rust"), Arm(Pat Struct(Abi::C, [..]) => Expr Str "C"), Arm(Pat Struct(Abi::System, [unwind]) if Expr Deref(Expr Path unwind) => Expr Str "system-unwind"), Arm(Pat Struct(Abi::System, [..]) => Expr Str "system"), Arm(Pat Path Abi::Cdecl => Expr Str "cdecl"), Arm(Pat Or([Pat Path Abi::Stdcall, Pat Path Abi::Fastcall]) => Expr Str "x86-conv"), Arm(Pat Wild => Expr Str "other")]))
+    Item Fn@833..958 vis=pub ident=supports_unwind
+      Param name=&self ImplicitSelf
+      Ret Ty Path bool
+      Block(Expr Expr MacCall(matches ! Paren[self , Abi :: C { unwind : true } | Abi :: System { unwind : true }]))
+  Item Fn@961..1039 vis=pub ident=pointer_bytes
+    Param name=spec Ty Ref(Ty Path TargetSpec)
+    Ret Ty Path u32
+    Block(Expr Expr Bin Div(Expr Field(Expr Path spec, pointer_width), Expr LitInt 8))

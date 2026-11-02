@@ -1,0 +1,13 @@
+Crate
+  Item Struct@0..43 vis=pub ident=Foo
+    Field vis=priv ident=head Ty Path usize
+    Field vis=priv ident=len Ty Path usize
+  Item Impl@43..264 Ty Path Foo
+    Item Fn@58..166 vis=pub ident=f
+      Param name=&mut self ImplicitSelf
+      Ret Default
+      Block(Let Pat Ref(Pat Struct(Foo, [head, len])) = Expr Path self; Expr Expr Unsafe(Block(Semi Expr Call(Expr Path g, [Expr Path head, Expr Path len]))))
+    Item Fn@166..262 vis=pub ident=h
+      Param name=&self ImplicitSelf
+      Ret Default
+      Block(Let Pat Ref(Pat Struct(Foo, [head, len])) = Expr Path self; Expr Expr Unsafe(Block(Semi Expr Call(Expr Path g, [Expr Path head, Expr Path len]))))

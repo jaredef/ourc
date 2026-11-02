@@ -1,0 +1,1 @@
+struct Item { name: String, qty: i64 } fn main() { let items = vec![Item { name: String::from("a"), qty: 2 }, Item { name: String::from("b"), qty: 5 }]; let t: i64 = items.iter().map(|i| i.qty).sum(); let names: Vec<&str> = items.iter().map(|i| i.name.as_str()).collect(); println!("{} {}", t, names.join(",")); }

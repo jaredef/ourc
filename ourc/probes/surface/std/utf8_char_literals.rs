@@ -1,0 +1,1 @@
+fn main() { let c = 'é'; let e = '€'; let mut s = String::new(); s.push(c); s.push(e); println!("{} {:?} {} {} {} {}", c, e, c as u32, s, s.len(), c == 'e'); let n = "café".chars().filter(|&x| x == c).count(); println!("{} {}", n, c.is_alphabetic()); }

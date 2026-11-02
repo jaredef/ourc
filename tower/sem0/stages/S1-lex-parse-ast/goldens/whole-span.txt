@@ -1,0 +1,37 @@
+Crate
+  Item Static@0..24 vis=priv ident=DUMMY
+    Ty Path u32
+    Expr LitInt 0
+  Item Trait@24..203 vis=pub ident=Pos
+    Item Const@44..67 vis=priv ident=ZERO
+      Ty Path usize
+      None
+    Item Fn@67..104 vis=priv ident=from_usize
+      Param name=n Ty Path usize
+      Ret Ty Path Self
+      Body None
+    Item Fn@104..137 vis=priv ident=to_usize
+      Param name=&self ImplicitSelf
+      Ret Ty Path usize
+      Body None
+    Item Fn@137..200 vis=priv ident=is_zero
+      Param name=&self ImplicitSelf
+      Ret Ty Path bool
+      Block(Expr Expr Bin Eq(Expr Method(Expr Path self, to_usize, []), Expr LitInt 0))
+  Item Struct@203..250 vis=pub ident=Span
+    Field vis=priv ident=lo Ty Path u32
+    Field vis=priv ident=hi Ty Path u32
+  Item Impl@250..595 Ty Path Span
+    Item Fn@266..415 vis=pub ident=classify
+      Param name=&self ImplicitSelf
+      Param name=n Ty Path u32
+      Ret Ty Path u32
+      Block(Expr Expr Match(Expr Path n, [Arm(Pat Lit(Expr LitInt 0) => Expr LitInt 1), Arm(Pat Ident x if Expr Bin Gt(Expr Path x, Expr LitInt 10) => Expr LitInt 2), Arm(Pat Wild => Expr LitInt 3)]))
+    Item Fn@415..535 vis=pub ident=first
+      Param name=s Ty Ref(Ty Slice(Ty Path u32))
+      Ret Ty Path u32
+      Block(Expr Expr Match(Expr Path s, [Arm(Pat Slice([Pat Ident a, Pat Rest]) => Expr Deref(Expr Path a)), Arm(Pat Slice([]) => Expr LitInt 0)]))
+    Item Fn@535..593 vis=pub ident=widen
+      Param name=&self ImplicitSelf
+      Ret Ty Path u64
+      Block(Expr Expr Cast(Expr Field(Expr Path self, hi), Ty Path u64))

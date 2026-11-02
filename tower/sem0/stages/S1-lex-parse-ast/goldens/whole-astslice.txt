@@ -1,0 +1,56 @@
+Crate
+  Item Use@0..15 vis=priv
+    Use Simple std::fmt
+  Item Struct@15..148 vis=pub ident=Interner<'a, K: Copy>
+    Attr derive(Clone, Debug, PartialEq)
+    Field vis=priv ident=names Ty Path Vec<Ty Ref('a Ty Path str)>
+    Field vis=priv ident=keys Ty Path Vec<Ty Path K>
+    Field vis=priv ident=dirty Ty Path bool
+  Item Enum@148..298 vis=pub ident=Token<'a>
+    Attr derive(Copy, Clone, Debug)
+    Variant ident=Ident Tuple(Ty Ref('a Ty Path str))
+    Variant ident=Literal Struct(value Ty Path u64, suffix Ty Path Option<Ty Path char>)
+    Variant ident=Punct Tuple(Ty Path char)
+    Variant ident=Eof Unit
+  Item Trait@298..450 vis=pub ident=Resolve
+    Item AssocTyDecl@322..339 vis=priv ident=Output
+      ty None
+    Item Fn@339..398 vis=priv ident=resolve
+      Param name=&self ImplicitSelf
+      Param name=idx Ty Path usize
+      Ret Ty Path Option<Ty Path Self::Output>
+      Body None
+    Item Fn@398..447 vis=priv ident=is_empty
+      Param name=&self ImplicitSelf
+      Ret Ty Path bool
+      Block(Expr Expr LitBool false)
+  Item Impl@450..1832<'a, K: Copy + Ord> Ty Path Interner<Ty Lifetime 'a, Ty Path K>
+    Item Fn@496..601 vis=pub ident=new
+      Ret Ty Path Self
+      Block(Expr Expr Struct(Interner, [names: Expr Call(Expr Path Vec::new, []), keys: Expr Call(Expr Path Vec::new, []), dirty: Expr LitBool false]))
+    Item Fn@601..893 vis=pub ident=intern
+      Param name=&mut self ImplicitSelf
+      Param name=name Ty Ref('a Ty Path str)
+      Param name=key Ty Path K
+      Ret Ty Path usize
+      Block(Expr Expr If(Expr Let(Pat TupleStruct(Some, [Pat Ident pos]) = Expr Method(Expr Method(Expr Field(Expr Path self, names), iter, []), position, [Expr Closure([Pat Ref(Pat Ident n)], Expr Bin Eq(Expr Path n, Expr Path name))])), Block(Semi Expr Ret(Expr Path pos))); Semi Expr Method(Expr Field(Expr Path self, names), push, [Expr Path name]); Semi Expr Method(Expr Field(Expr Path self, keys), push, [Expr Path key]); Semi Expr Assign(Expr Field(Expr Path self, dirty) = Expr LitBool true); Expr Expr Bin Sub(Expr Method(Expr Field(Expr Path self, names), len, []), Expr LitInt 1))
+    Item Fn@893..1437 vis=pub ident=classify
+      Param name=&self ImplicitSelf
+      Param name=tok Ty Path Token<Ty Lifetime 'a>
+      Ret Ty Ref('static Ty Path str)
+      Block(Expr Expr Match(Expr Path tok, [Arm(Pat TupleStruct(Token::Ident, [Pat Ident s]) if Expr Method(Expr Path s, starts_with, [Expr Closure([Pat Ident c: Ty Path char], Expr Method(Expr Path c, is_uppercase, []))]) => Expr Str "Type"), Arm(Pat TupleStruct(Token::Ident, [Pat Wild]) => Expr Str "ident"), Arm(Pat Struct(Token::Literal, [suffix: Pat TupleStruct(Some, [Pat Lit(Expr Char 'f')]), ..]) => Expr Str "float"), Arm(Pat Struct(Token::Literal, [value, ..]) if Expr Bin Eq(Expr Path value, Expr LitInt 0) => Expr Str "zero"), Arm(Pat Struct(Token::Literal, [..]) => Expr Str "int"), Arm(Pat TupleStruct(Token::Punct, [Pat Ident c]) if Expr Method(Expr Paren(Expr Range(Expr Char 'a' ..= Expr Char 'z')), contains, [Expr AddrOf(Expr Path c)]) => Expr Str "alpha-punct"), Arm(Pat TupleStruct(Token::Punct, [Pat Wild]) => Expr Str "punct"), Arm(Pat Path Token::Eof => Expr Str "eof")]))
+    Item Fn@1437..1731 vis=pub ident=summary<F> where Ty Path F: Fn(Ty Ref(Ty Path str)) -> Ty Path bool
+      Param name=&self ImplicitSelf
+      Param name=f Ty Path F
+      Ret Ty Path String
+      Block(Let Pat Ident picked Ty Path Vec<Ty Path String> = Expr Method(Expr Method(Expr Method(Expr Method(Expr Field(Expr Path self, names), iter, []), filter, [Expr Closure([Pat Ident n], Expr Call(Expr Path f, [Expr Path n]))]), map, [Expr Closure([Pat Ident n], Expr Method(Expr Path n, to_uppercase, []))]), collect, []); Expr Expr Method(Expr Path picked, join, [Expr Str ", "]))
+    Item Fn@1731..1829 vis=pub ident=first_key
+      Param name=&self ImplicitSelf
+      Ret Ty Path Option<Ty Path K>
+      Block(Let Pat Ident k = Expr Try(Expr Method(Expr Field(Expr Path self, keys), first, [])); Expr Expr Call(Expr Path Some, [Expr Deref(Expr Path k)]))
+  Item Impl@1832..2020<'a, K: Copy + Ord> Ty Path fmt::Display for Ty Path Interner<Ty Lifetime 'a, Ty Path K>
+    Item Fn@1895..2018 vis=priv ident=fmt
+      Param name=&self ImplicitSelf
+      Param name=f Ty Ref(mut Ty Path fmt::Formatter<Ty Lifetime '_>)
+      Ret Ty Path fmt::Result
+      Block(Expr Expr MacCall(write ! Paren[f , "Interner({} names)" , self . names . len ( )]))

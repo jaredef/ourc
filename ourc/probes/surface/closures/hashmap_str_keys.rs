@@ -1,0 +1,1 @@
+use std::collections::HashMap; fn main() { let mut m = HashMap::new(); m.insert("a", 1); m.insert("b", 2); m.insert("a", 5); println!("{} {} {} {}", m["a"], m.get("b").unwrap(), m.contains_key("z"), m.len()); }

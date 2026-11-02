@@ -1,0 +1,20 @@
+Crate
+  Item Struct@0..64 vis=pub ident=Cursor<'a>
+    Field vis=priv ident=len Ty Path usize
+    Field vis=priv ident=chars Ty Path Chars<Ty Lifetime 'a>
+  Item Const@64..98 vis=pub(crate) ident=EOF
+    Ty Path char
+    Expr Char 'x'
+  Item Impl@98..302<'a> Ty Path Cursor<Ty Lifetime 'a>
+    Item Fn@124..164 vis=pub ident=first
+      Param name=&self ImplicitSelf
+      Ret Ty Path char
+      Block(Expr Expr Path EOF)
+    Item Fn@164..215 vis=pub ident=is_eof
+      Param name=&self ImplicitSelf
+      Ret Ty Path bool
+      Block(Expr Expr Bin Eq(Expr Field(Expr Path self, len), Expr LitInt 0))
+    Item Fn@215..300 vis=pub ident=bump
+      Param name=&mut self ImplicitSelf
+      Ret Ty Path Option<Ty Path char>
+      Block(Let Pat Ident c Ty Path char = Expr Try(Expr Method(Expr Field(Expr Path self, chars), next, [])); Expr Expr Call(Expr Path Some, [Expr Path c]))

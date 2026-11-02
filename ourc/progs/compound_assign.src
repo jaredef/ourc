@@ -1,0 +1,14 @@
+struct C { n: int }
+let mut s = 0;
+for i in 0..10 { s += i; }
+print_int(s);
+let mut x = 100;
+x -= 58;
+print_int(x);
+let c = C { 6 };
+c.n *= 7;
+print_int(c.n);
+let a = [1, 2, 3];
+a[1] += 40;
+print_int(a[1]);
+s - 3

@@ -1,0 +1,58 @@
+Crate
+  Item Use@72..103 vis=priv
+    Use Simple std::collections::HashMap
+  Item Use@103..124 vis=priv
+    Use Simple std::ops::Deref
+  Item Use@124..154 vis=priv
+    Use Nested std::sync { Simple Arc, Simple Mutex }
+  Item Struct@154..239 vis=pub ident=SortedMap<K, V = u32>
+    Attr derive(Clone, Debug)
+    Field vis=priv ident=data Ty Path Vec<Ty Tup(Ty Path K, Ty Path V)>
+  Item Impl@239..664<K: Ord + Clone, V: Clone> Ty Path SortedMap<Ty Path K, Ty Path V>
+    Item Fn@292..524 vis=pub ident=insert
+      Param name=&mut self ImplicitSelf
+      Param name=key Ty Path K
+      Param name=value Ty Path V
+      Ret Default
+      Block(Expr Expr Match(Expr Method(Expr Field(Expr Path self, data), binary_search_by, [Expr Closure([Pat Tuple(Pat Ident k, Pat Wild)], Expr Method(Expr Path k, cmp, [Expr AddrOf(Expr Path key)]))]), [Arm(Pat TupleStruct(Ok, [Pat Ident i]) => Expr Assign(Expr Field(Expr Index(Expr Field(Expr Path self, data), Expr Path i), 1) = Expr Path value)), Arm(Pat TupleStruct(Err, [Pat Ident i]) => Expr Method(Expr Field(Expr Path self, data), insert, [Expr Path i, Expr Tuple([Expr Path key, Expr Path value])]))]))
+    Item Fn@524..661 vis=pub ident=retain<F> where Ty Path F: FnMut(Ty Ref(Ty Path K)) -> Ty Path bool
+      Param name=&mut self ImplicitSelf
+      Param name=mut pred Ty Path F
+      Ret Default
+      Block(Semi Expr Method(Expr Field(Expr Path self, data), retain, [Expr Closure([Pat Tuple(Pat Ident k, Pat Wild)], Expr Call(Expr Path pred, [Expr Path k]))]))
+  Item Struct@664..696 vis=pub ident=Interned<T>
+    Tuple(Ty Path T)
+  Item Impl@696..802<T> Ty Path Deref for Ty Path Interned<Ty Path T>
+    Item TypeAlias@732..753 vis=priv ident=Target
+      = Ty Path T
+    Item Fn@753..799 vis=priv ident=deref
+      Param name=&self ImplicitSelf
+      Ret Ty Ref(Ty Path T)
+      Block(Expr Expr AddrOf(Expr Field(Expr Path self, 0)))
+  Item Struct@802..880 vis=pub ident=SyncBuckets
+    Field vis=priv ident=inner Ty Path Arc<Ty Path Mutex<Ty Path HashMap<Ty Path String, Ty Path Vec<Ty Path u32>>>>
+  Item Impl@880..1061 Ty Path SyncBuckets
+    Item Fn@903..1058 vis=pub ident=total
+      Param name=&self ImplicitSelf
+      Ret Ty Path u32
+      Block(Let Pat Ident guard = Expr Method(Expr Method(Expr Field(Expr Path self, inner), lock, []), unwrap, []); Expr Expr Method(Expr Method(Expr Method(Expr Path guard, values, []), flat_map, [Expr Closure([Pat Ident v], Expr Method(Expr Path v, iter, []))]), fold, [Expr LitInt 0, Expr Closure([Pat Ident acc, Pat Ident x], Expr Bin Add(Expr Path acc, Expr Path x))]))
+  Item Enum@1061..1157 vis=pub ident=Node
+    Attr derive(Clone, Debug)
+    Variant ident=Leaf Tuple(Ty Path u32)
+    Variant ident=Branch Struct(left Ty Path u32, right Ty Path u32)
+  Item Fn@1157..1359 vis=pub ident=classify
+    Param name=n Ty Ref(Ty Path Node)
+    Ret Ty Ref('static Ty Path str)
+    Block(Expr Expr Match(Expr Path n, [Arm(Pat TupleStruct(Node::Leaf, [Pat Ident x]) if Expr Bin Eq(Expr Deref(Expr Path x), Expr LitInt 0) => Expr Str "zero"), Arm(Pat Struct(Node::Branch, [left, right]) if Expr Bin Eq(Expr Path left, Expr Path right) => Expr Str "balanced"), Arm(Pat Wild => Expr Str "other")]))
+  Item Fn@1359..1428 vis=pub ident=is_leaf
+    Param name=n Ty Ref(Ty Path Node)
+    Ret Ty Path bool
+    Block(Expr Expr MacCall(matches ! Paren[n , Node :: Leaf ( _ )]))
+  Item Fn@1428..1612 vis=pub ident=ends
+    Param name=xs Ty Ref(Ty Slice(Ty Path u32))
+    Ret Ty Path Option<Ty Tup(Ty Path u32, Ty Path u32)>
+    Block(Expr Expr Match(Expr Path xs, [Arm(Pat Slice([]) => Expr Path None), Arm(Pat Slice([Pat Ident only]) => Expr Call(Expr Path Some, [Expr Tuple([Expr Deref(Expr Path only), Expr Deref(Expr Path only)])])), Arm(Pat Slice([Pat Ident first, Pat Rest, Pat Ident last]) => Expr Call(Expr Path Some, [Expr Tuple([Expr Deref(Expr Path first), Expr Deref(Expr Path last)])]))]))
+  Item Fn@1612..1720 vis=pub ident=transform
+    Param name=xs Ty Ref(Ty Slice(Ty Path u32))
+    Ret Ty Path Vec<Ty Path u32>
+    Block(Expr Expr Method(Expr Method(Expr Method(Expr Method(Expr Path xs, iter, []), map, [Expr Closure([Pat Ident x], Expr Bin Add(Expr Path x, Expr LitInt 1))]), filter, [Expr Closure([Pat Ident x], Expr Bin Eq(Expr Bin Rem(Expr Deref(Expr Path x), Expr LitInt 2), Expr LitInt 0))]), collect, []))

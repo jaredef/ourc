@@ -1,0 +1,1 @@
+struct D(i64); impl Drop for D { fn drop(&mut self) { println!("drop {}", self.0); } } enum E { N, One(D), Two(i64, D, D) } struct H { e: E } fn take(_e: E) { println!("in"); } fn main(){ take(E::N); take(E::One(D(1))); { let _t = E::Two(5, D(2), D(3)); } { let _h = H { e: E::One(D(4)) }; } let k = E::One(D(9)); take(k); println!("e"); }

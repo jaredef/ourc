@@ -1,0 +1,1013 @@
+# rz2 -> rzir front-end resolver, N LETS, multi-char names, authored in M0.
+# Loops over N const-lets emitting `  vK: i32 = const VAL` per let (K = a digit),
+# then the return op line, resolving each operand to its vN by re-scanning the
+# lets for the matching name (streq). Handles 2 or 3+ lets; the result/ret var is
+# vN where N = number of lets. Contingent: single-digit vN (<10 lets). Builds
+# output in OUT, one final write. Chain: hex2 -> M0 -> this. No cc.
+#
+# bss: INBUF 0x440000, OUT 0x450000; NCOUNT 0x460000, A_S 0x460008, A_L 0x460010,
+#      B_S 0x460018, B_L 0x460020.
+
+# === instruction-encoding library ===
+%xor_eax_eax    31c0
+%xor_ecx_ecx    31c9
+%xor_edi_edi    31ff
+%xor_r8_r8      4d31c0
+%xor_r11_r11    4d31db
+%syscall        0f05
+%ret            c3
+%jmp            e9
+%call           e8
+%ja             0f87
+%jae            0f83
+%jb             0f82
+%je             0f84
+%jz             0f84
+%jne            0f85
+%mov_eax_i      b8
+%mov_edi_i      bf
+%mov_esi_i      be
+%mov_edx_i      ba
+%mov_ebx_i      bb
+%mov_r15d_i     41bf
+%lea_r13_rbxrax 4c8d2c03
+%lea_rdi_r9_4   498d7904
+%lea_rdi_r10_1  498d7a01
+%mov_rdx_rbx    4889da
+%mov_rdx_r10    4c89d2
+%mov_rdx_r12    4c89e2
+%mov_rdx_r14    4c89f2
+%mov_rdi_r14    4c89f7
+%mov_rsi_r14    4c89f6
+%mov_r9_r14     4d89f1
+%sub_rdx_r14    4c29f2
+%movzx_at_r14   410fb616
+%movzx_r14_1    410fb65601
+%movzx_r9_1     410fb65101
+%cmp_dl_30      80fa30
+%cmp_dl_70      80fa70
+%cmp_dl_72      80fa72
+%cmp_dl_73      80fa73
+%mov_rax_r13    4c89e8
+%cmp_rax_rdx    4839d0
+%jbe            0f86
+%cmp_dl_6c      80fa6c
+%cmp_dl_6f      80fa6f
+%cmp_dl_65      80fa65
+%cmp_dl_63      80fa63
+%movzx_at_r9    410fb611
+%lea_rdi_r9_5   498d7905
+%inc_rdi        48ffc7
+%sub_rsi_at     482b3425
+%sub_rax_6      4883e806
+%sub_rax_4      4883e804
+%mov_eax_at     8b0425
+%mov_at_eax     890425
+%mov_at_r13     4c892c25
+%mov_r13_at     4c8b2c25
+%mov_r13_rax    4989c5
+%mov_rdx_r13    4c89ea
+%sub_rdx_at     482b1425
+%mov_at_rbx     48891c25
+%mov_rdx_r15    4c89fa
+%mov_rdx_rax    4889c2
+%sub_rdx_r9     4c29ca
+%mov_rcx_r12    4c89e1
+%sub_rcx_r14    4c29f1
+%sub_rdx_i      4881ea
+%sub_rax_rdi    4829f8
+%mov_r9_rax     4989c1
+%mov_r9_rdi     4989f9
+%mov_at_r9      4c890c25
+%mov_r9_at      4c8b0c25
+%mov_rdi_r9     4c89cf
+%lea_rdi_rax_1  488d7801
+%lea_rdi_r9_m4  498d79fc
+%cmp_rax_at     483b0425
+%mov_rax_at     488b0425
+%sub_rsi_rdi    4829fe
+%sub_rsi_rax    4829c6
+%sub_rsi_i      4881ee
+%lea_rax_rdi_m4 488d47fc
+%dec_rax        48ffc8
+%mov_r10_rax    4989c2
+%mov_r10_rsi    4989f2
+%mov_r12_rax    4989c4
+%mov_r12_rbx    4989dc
+%mov_r12_at     4c8b2425
+%mov_r14_rax    4989c6
+%mov_rax_r11    4c89d8
+%mov_rdi_rax    4889c7
+%mov_rdi_r9     4c89cf
+%lea_rdi_rax_1  488d7801
+%mov_rax_rdi    4889f8
+%mov_rsi_rax    4889c6
+%mov_rsi_r9     4c89ce
+%mov_rsi_r10    4c89d6
+%mov_at_rax     48890425
+%mov_at_rdi     48893c25
+%mov_rdi_at     488b3c25
+%mov_rsi_at     488b3425
+%mov_rdx_at     488b1425
+%add_rsi_at     48033425
+%add_rsi_rax    4801c6
+%inc_q_at       48ff0425
+%movzx_at_rsi   0fb606
+%movzx_rax_dl   0fb610
+%movzx_rdi_dl   0fb617
+%dec_rdi        48ffcf
+%cmp_dl_74      80fa74
+%inc_eax        ffc0
+%mov_eax_edx     89d0
+%div_ecx         f7f1
+%mov_ecx_i       b9
+%xor_edx_edx     31d2
+%movzx_rdi_r8   420fb60407
+%movzx_rdx_r8c  420fb60c02
+%movb_al_r15    418807
+%cmp_rsi_rcx    4839ce
+%cmp_r8_rsi     4939f0
+%cmp_dl_0a      80fa0a
+%cmp_dl_20      80fa20
+%cmp_dl_3a      80fa3a
+%cmp_al_cl      38c8
+%test_eax_eax   85c0
+%test_rdx_rdx   4885d2
+%inc_rax        48ffc0
+%inc_r8         49ffc0
+%inc_r11        49ffc3
+%inc_r15        49ffc7
+%inc_rsi        48ffc6
+%dec_rdx        48ffca
+# find helpers
+%mov_r8_rdx     4989d0
+%mov_rax_r8     4c89c0
+%add_rax_rsi    4801f0
+%cmp_rax_r13    4c39e8
+%cmp_rcx_rsi    4839f1
+%movzx_r8rcx    410fb60408
+%movzx_rdircx   0fb6140f
+%cmp_al_dl      38d0
+%inc_rcx        48ffc1
+%lea_rax_r8rsi  498d0430
+
+# === ELF header ===
+7f454c46 02010100 00000000 00000000
+0200 3e00 01000000
+=code 00000000
+40000000 00000000
+00000000 00000000
+00000000 4000 3800 0100 0000 00000000
+01000000 07000000
+00000000 00000000
+00004000 00000000
+00004000 00000000
+&end 00000000
+00000700 00000000
+00100000 00000000
+
+# === code ===
+:code
+xor_eax_eax
+xor_edi_edi
+mov_esi_i 00004400
+mov_edx_i 00000100
+syscall
+mov_ebx_i 00004400
+lea_r13_rbxrax
+mov_r15d_i 00004500       # OUT write pointer
+
+# prologue
+mov_esi_i =pro
+mov_edx_i 0f000000
+call }cpy
+
+# NCOUNT = 0 ; CURSOR = INBUF  (cursor in bss: emit_rhs/lookup clobber registers)
+xor_eax_eax
+mov_at_rax 00004600
+mov_at_rbx 28004600
+# multi-function setup: bound r13 to each fn's `end`; FN_START scopes the scans
+mov_at_r13 78004600       # INPUT_END = full input end
+mov_at_rbx 90004600       # FN_START = INBUF (main)
+xor_eax_eax
+mov_at_eax 70004600       # FN_PHASE = 0 (main)
+mov_rdx_at 90004600               # r13 = main's "end"
+mov_edi_i =end_needle
+mov_esi_i 03000000
+call }find
+mov_r13_rax
+
+:fn_body
+mov_edi_i =if_needle      # CONS_POS = position of the if/loop construct (or fn end)
+mov_esi_i 03000000
+mov_rdx_at 90004600
+call }find
+test_eax_eax
+jne }cons_set
+mov_edi_i =loop_needle
+mov_esi_i 05000000
+mov_rdx_at 90004600
+call }find
+test_eax_eax
+jne }cons_set
+mov_rax_r13
+:cons_set
+mov_at_rax b0004600       # CONS_POS
+:letloop
+mov_rdx_at 28004600       # cursor
+mov_edi_i =let_needle
+mov_esi_i 04000000
+call }find
+test_eax_eax
+jz }letdone
+mov_rdx_at b0004600       # body-local let? (name_start > CONS_POS) -> skip; the body emits it
+cmp_rax_rdx
+jbe }let_keep
+mov_rdi_rax
+call }scan_to_colon
+mov_at_rax 28004600
+jmp }letloop
+:let_keep
+mov_rdi_rax               # name_start
+call }scan_to_colon
+mov_at_rax 28004600       # CURSOR = colon
+mov_rdx_rax
+mov_edi_i =eq_needle
+mov_esi_i 02000000
+call }find
+mov_r14_rax               # rhs_ptr (the token after "= ")
+# prefix: `  v` digit(NCOUNT)
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+# const-let (rhs is a digit) or expr-let (rhs is an op name)?
+movzx_at_r14
+cmp_dl_30
+jb }lexpr
+cmp_dl_3a
+jae }lexpr
+# const-let: `: i32 = const ` VAL `\n`
+mov_esi_i =lm
+mov_edx_i 0e000000
+call }cpy
+mov_rdi_r14
+call }scan_nl
+mov_rdx_rax
+sub_rdx_r14               # VAL len = val_end - rhs_ptr
+mov_rsi_r14
+call }cpy
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+jmp }lnext
+:lexpr
+# param / ref / load (1-op) / argc / 2-op
+movzx_at_r14              # rhs[0]
+cmp_dl_70
+je }lparam                # 'p' -> param
+cmp_dl_72
+je }l1op                  # 'r' -> ref (1 operand)
+cmp_dl_6c
+je }lchk_l                # 'l' -> load (1-op) or lt/le (2-op)
+movzx_r14_1
+cmp_dl_72
+je }largc
+jmp }l2op
+:lchk_l
+movzx_r14_1
+cmp_dl_6f
+je }l1op
+jmp }l2op
+:l1op
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_r9_r14
+call }emit_rhs1
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+jmp }lnext
+# expr-let: `: i32 = ` <op-expr> `\n`   (SHARED op-expr lowering via emit_rhs)
+:l2op
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_r9_r14                # op_ptr = rhs
+call }emit_rhs
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+jmp }lnext
+:largc
+# argc-let: `: i32 = argc\n`  (a runtime value -- the backend must codegen it)
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =argc_str
+mov_edx_i 04000000
+call }cpy
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+jmp }lnext
+:lparam
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =param_str
+mov_edx_i 05000000
+call }cpy
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+jmp }lnext
+:lnext
+inc_q_at 00004600         # NCOUNT++
+jmp }letloop
+:letdone
+
+# --- loop region: if a `loop X` is present, emit loop/brz/body/jmp/pool ---
+# bss: OP_PTR 0x460050, DONE 0x460058, BODYCUR 0x460060, TARG 0x460068
+xor_eax_eax
+mov_at_eax a0004600       # IS_IF = 0
+mov_edi_i =if_needle      # a one-armed conditional: try `if ` first
+mov_esi_i 03000000
+mov_rdx_at 90004600
+call }find
+test_eax_eax
+jz }try_loop
+mov_at_rax 50f04600       # cond ptr (after "if ")
+mov_eax_i 01000000
+mov_at_eax a0004600       # IS_IF = 1
+jmp }region_hdr
+:try_loop
+mov_edi_i =loop_needle
+mov_esi_i 05000000
+mov_rdx_at 90004600
+call }find
+test_eax_eax
+jz }no_loop
+mov_at_rax 50f04600       # cond ptr (after "loop ")
+:region_hdr
+mov_eax_at a0004600
+test_eax_eax
+jne }hdr_if
+mov_esi_i =loopbrz        # "  loop\n  brz v"
+mov_edx_i 0e000000
+call }cpy
+jmp }hdr_done
+:hdr_if
+mov_esi_i =brzkw
+mov_edx_i 07000000
+call }cpy
+:hdr_done
+mov_rdi_at 50f04600       # brz cond = lookup(cond span)  (multi-char)
+call }scan_to_spnl
+mov_rsi_rax
+sub_rsi_rdi
+call }lookup
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_edi_i =done_needle    # DONE = position of "done"
+mov_esi_i 04000000
+mov_rdx_at 90004600
+call }find
+mov_at_rax 58f04600
+mov_r9_at 50f04600        # BODYCUR = line after the loop line
+mov_rdi_r9
+call }scan_nl
+inc_rax
+mov_at_rax 60f04600
+:body_loop
+mov_rdx_at 60f04600       # find next `= ` (a body assignment)
+mov_edi_i =eq_needle
+mov_esi_i 02000000
+call }find
+test_eax_eax              # no more `= ` -> body finished
+jz }body_done
+cmp_rax_at 58f04600       # past `done`? then body is finished
+jae }body_done
+mov_at_r9 50f04600        # save op_ptr  (wait: rax is op_ptr; save it)
+mov_at_rax 50f04600       # OP_PTR = op_ptr
+mov_at_rax 60f04600       # BODYCUR = op_ptr (advance)
+xor_eax_eax
+mov_at_eax b8004600       # LET_FLAG = 0
+mov_rdi_at 50f04600       # block-local let? backscan to line start, check "let"
+:bls_back
+dec_rdi
+movzx_rdi_dl
+cmp_dl_0a
+jne }bls_back
+inc_rdi
+:bls_sp
+movzx_rdi_dl
+cmp_dl_20
+jne }bls_chk
+inc_rdi
+jmp }bls_sp
+:bls_chk
+cmp_dl_6c
+jne }body_mut
+inc_rdi
+movzx_rdi_dl
+cmp_dl_65
+jne }body_mut
+inc_rdi
+movzx_rdi_dl
+cmp_dl_74
+jne }body_mut
+mov_eax_at 00004600       # `let` in a body -> TARG = NCOUNT (a fresh slot)
+mov_at_eax 68f04600
+mov_eax_i 01000000
+mov_at_eax b8004600       # LET_FLAG = 1
+jmp }body_prefix
+:body_mut
+mov_rdi_at 50f04600       # mutation: target = lookup(var before `= `)
+lea_rax_rdi_m4
+:bt_back
+movzx_rax_dl
+cmp_dl_20
+je }bt_done
+cmp_dl_0a
+je }bt_done
+dec_rax
+jmp }bt_back
+:bt_done
+inc_rax                   # var_start
+mov_rdi_rax
+mov_rsi_at 50f04600       # len = (op_ptr - 3) - var_start
+sub_rsi_i 03000000
+sub_rsi_rax
+call }lookup
+mov_at_rax 68f04600       # TARG
+:body_prefix
+mov_esi_i =lp             # `  v` digit(target)
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 68f04600
+call }emit_dec
+mov_esi_i =om             # `: i32 = `
+mov_edx_i 08000000
+call }cpy
+mov_r9_at 50f04600        # mutation RHS: a call or an op-expr
+movzx_at_r9
+cmp_dl_63
+je }body_call
+call }emit_rhs
+jmp }body_emit_done
+:body_call
+call }emit_call
+:body_emit_done
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at b8004600       # if this line was a body-let, advance NCOUNT
+test_eax_eax
+jz }body_loop
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+jmp }body_loop
+:body_done
+mov_eax_at a0004600
+test_eax_eax
+jne }ftr_if
+mov_esi_i =jmppool        # "  jmp\n  pool\n"
+mov_edx_i 0d000000
+call }cpy
+jmp }no_loop
+:ftr_if
+mov_esi_i =poolkw
+mov_edx_i 07000000
+call }cpy
+:no_loop
+
+# statement pass: memory WRITES (store / put), after the lets, before the return
+mov_edi_i =store_needle
+mov_esi_i 06000000
+mov_rdx_at 90004600
+call }find
+test_eax_eax
+jz }no_store
+sub_rax_6                 # op_ptr = "store p v"
+mov_r9_rax
+mov_esi_i =ind2
+mov_edx_i 02000000
+call }cpy
+call }emit_rhs            # store v<p> v<v>
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+:no_store
+mov_edi_i =put_needle
+mov_esi_i 04000000
+mov_rdx_at 90004600
+call }find
+test_eax_eax
+jz }no_put
+sub_rax_4                 # op_ptr = "put base i v"
+mov_r9_rax
+mov_esi_i =ind2
+mov_edx_i 02000000
+call }cpy
+call }emit_sel            # put v<base> v<i> v<v>
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+:no_put
+
+# return op
+mov_edi_i =ret_needle
+mov_esi_i 07000000
+mov_rdx_at 90004600
+call }find
+mov_r9_rax                # op_ptr
+# `return <var>` (single token) -> `  ret v<idx>\nend\n` ; else op-return below
+mov_at_r9 50f04600
+mov_rdi_r9
+call }scan_to_spnl
+movzx_rax_dl              # edx = terminator (space or newline)
+cmp_dl_0a
+jne }ret_op
+mov_esi_i =retv           # var-return: "  ret v" digit "\nend\n"
+mov_edx_i 07000000
+call }cpy
+mov_rdi_at 50f04600       # return var = lookup(var span)  (multi-char)
+call }scan_to_spnl
+mov_rsi_rax
+sub_rsi_rdi
+call }lookup
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+jmp }after_ret
+:ret_op
+mov_r9_at 50f04600        # op_ptr
+# `  v` digit(N) `: i32 = ` <op-expr> `\n  ret v` digit(N) `\nend\n`
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+# call (vN = call NAME arg), sel (3-operand), or a normal 2-operand op?
+movzx_at_r9               # op[0]: 'c' -> call
+cmp_dl_63
+je }ret_call
+cmp_dl_6c                 # 'l' -> load (1-op) or lt/le (2-op)
+je }ret_l
+cmp_dl_73                 # 's' -> sel ('se') or sub ('su')
+jne }ret_2op
+movzx_r9_1
+cmp_dl_65
+je }ret_sel               # 'se' -> sel (3-op)
+:ret_2op
+call }emit_rhs            # SHARED 2-op lowering (r9 = op_ptr)
+jmp }ret_post
+:ret_l
+movzx_r9_1
+cmp_dl_6f
+je }ret_1op               # 'lo' -> load (1-op)
+jmp }ret_2op              # lt/le -> 2-op
+:ret_1op
+call }emit_rhs1
+jmp }ret_post
+:ret_call
+call }emit_call
+jmp }ret_post
+:ret_sel
+call }emit_sel           # 3-operand: sel vC vA vB
+:ret_post
+mov_esi_i =rp
+mov_edx_i 08000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+jmp }after_ret
+
+# after a function's `ret`: process the next `fn` block, or finish with `end`
+:after_ret
+mov_rdx_r13               # find the NEXT "fn " from this fn's end .. INPUT_END
+mov_r13_at 78004600
+mov_edi_i =fn_needle
+mov_esi_i 03000000
+call }find
+test_eax_eax
+jz }fe_finish
+mov_at_rax 98004600       # FN_NAME
+mov_esi_i =fn_needle      # emit "fn " NAME "\n"
+mov_edx_i 03000000
+call }cpy
+mov_rdi_at 98004600
+call }scan_to_spnl
+mov_rsi_at 98004600
+mov_rdx_rax
+sub_rdx_at 98004600
+call }cpy
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_rdi_at 98004600       # helper body start = line after the fn header
+call }scan_nl
+inc_rax
+mov_at_rax 28004600       # CURSOR
+mov_at_rax 90004600       # FN_START
+mov_rdx_rax               # r13 = helper's "end"
+mov_r13_at 78004600
+mov_edi_i =end_needle
+mov_esi_i 03000000
+call }find
+mov_r13_rax
+xor_eax_eax               # NCOUNT = 0 (per-function vN)
+mov_at_rax 00004600
+jmp }fn_body
+:fe_finish
+mov_esi_i =endkw          # "end\n"
+mov_edx_i 04000000
+call }cpy
+
+# write(1, OUT, r15 - OUT)
+:fe_write
+mov_eax_i 01000000
+mov_edi_i 01000000
+mov_esi_i 00004500
+mov_rdx_r15
+sub_rdx_i 00004500
+syscall
+mov_eax_i 3c000000
+xor_edi_edi
+syscall
+
+# emit_rhs: r9 = op_ptr ("op x y"). Emits `<op> v<idx x> v<idx y>` -- the SHARED
+# op-expression lowering, called by BOTH a computed let and the return (the mid IR
+# induced by that duplication and lifted into one routine; L041).
+:emit_rhs
+mov_rdi_r9               # op token: scan its WIDTH (2-char lt/eq, 3-char add/.., any)
+call }scan_to_sp
+mov_at_rax 40004600       # OP_END = first space after the op
+lea_rdi_rax_1            # operand A span starts after "op "
+mov_at_rdi 08004600
+call }scan_to_sp
+mov_r10_rax
+sub_rax_rdi
+mov_at_rax 10004600
+lea_rdi_r10_1            # operand B span
+mov_at_rdi 18004600
+call }scan_to_spnl
+sub_rax_rdi
+mov_at_rax 20004600
+mov_rsi_r9                # copy the op verbatim: op_len = OP_END - op_ptr
+mov_rdx_at 40004600
+sub_rdx_r9
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_rdi_at 08004600       # ` v` digit(lookup A)
+mov_rsi_at 10004600
+call }lookup
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_rdi_at 18004600       # ` v` digit(lookup B)
+mov_rsi_at 20004600
+call }lookup
+call }emit_dec
+ret
+:emit_rhs1
+mov_rdi_r9
+call }scan_to_sp
+mov_at_rax 40004600
+lea_rdi_rax_1
+mov_at_rdi 08004600
+call }scan_to_spnl
+sub_rax_rdi
+mov_at_rax 10004600
+mov_rsi_r9
+mov_rdx_at 40004600
+sub_rdx_r9
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_rdi_at 08004600
+mov_rsi_at 10004600
+call }lookup
+call }emit_dec
+ret
+
+
+# emit_call: r9 = op_ptr ("call NAME arg"). Emits `call NAME v<idx arg>` -- the
+# function name is copied verbatim; only the argument is resolved by lookup.
+:emit_call
+lea_rdi_r9_5              # copy "call NAME" verbatim
+call }scan_to_sp
+mov_at_rax a8004600       # ARGCUR = space after NAME (save BEFORE cpy clobbers rax)
+mov_rsi_r9
+mov_rdx_rax
+sub_rdx_r9
+call }cpy
+:ec_loop
+mov_rax_at a8004600
+movzx_rax_dl
+cmp_dl_0a
+je }ec_done
+mov_esi_i =sv             # " v"
+mov_edx_i 02000000
+call }cpy
+mov_rax_at a8004600       # arg starts after the space
+inc_rax
+mov_at_rax 88004600
+mov_rdi_rax
+call }scan_to_spnl
+mov_at_rax a8004600       # ARGCUR = end of this arg (for the next iteration)
+mov_rsi_rax
+sub_rsi_at 88004600
+mov_rdi_at 88004600
+call }lookup
+call }emit_dec
+jmp }ec_loop
+:ec_done
+ret
+
+# emit_sel: r9 = op_ptr ("sel c a b"). Emits `sel v<idx c> v<idx a> v<idx b>`.
+# A 3-operand op; the backend lowers it to a runtime branch. Spans: C->A_S/A_L,
+# A->B_S/B_L, B->C_S/C_L (0x460030/0x460038).
+:emit_sel
+lea_rdi_r9_4              # operand C
+mov_at_rdi 08004600
+call }scan_to_sp
+mov_r10_rax
+sub_rax_rdi
+mov_at_rax 10004600
+lea_rdi_r10_1            # operand A
+mov_at_rdi 18004600
+call }scan_to_sp
+mov_r10_rax
+sub_rax_rdi
+mov_at_rax 20004600
+lea_rdi_r10_1            # operand B
+mov_at_rdi 30004600
+call }scan_to_spnl
+sub_rax_rdi
+mov_at_rax 38004600
+mov_rsi_r9                # "sel"
+mov_edx_i 03000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_rdi_at 08004600       # ` v` digit(C)
+mov_rsi_at 10004600
+call }lookup
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_rdi_at 18004600       # ` v` digit(A)
+mov_rsi_at 20004600
+call }lookup
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_rdi_at 30004600       # ` v` digit(B)
+mov_rsi_at 38004600
+call }lookup
+call }emit_dec
+ret
+
+# lookup: rdi=name ptr rsi=name len -> rax = index of the matching let (by re-scan)
+:lookup
+mov_r9_rdi                # query ptr
+mov_r10_rsi               # query len
+xor_r11_r11              # index
+mov_r12_at 90004600       # cursor = FN_START (per-function let numbering)
+:lk_loop
+mov_rdx_r12
+mov_edi_i =let_needle
+mov_esi_i 04000000
+call }find
+test_eax_eax
+jz }lk_nf
+mov_r14_rax               # name_start
+mov_rdi_rax
+call }scan_to_colon
+mov_r12_rax               # cursor = colon
+mov_rdi_r9                # streq(query, this name)
+mov_rsi_r10
+mov_rdx_r14
+mov_rcx_r12
+sub_rcx_r14               # name_len = colon - name_start
+call }streq
+test_eax_eax
+jne }lk_hit
+inc_r11
+jmp }lk_loop
+:lk_hit
+mov_rax_r11
+ret
+:lk_nf
+xor_eax_eax
+ret
+
+# streq: rdi=p1 rsi=l1 rdx=p2 rcx=l2 -> rax = 1 if equal else 0
+:streq
+cmp_rsi_rcx
+jne }streq_no
+xor_r8_r8
+:streq_l
+cmp_r8_rsi
+je }streq_yes
+movzx_rdi_r8
+movzx_rdx_r8c
+cmp_al_cl
+jne }streq_no
+inc_r8
+jmp }streq_l
+:streq_yes
+mov_eax_i 01000000
+ret
+:streq_no
+xor_eax_eax
+ret
+
+# cpy: rsi=src rdx=len -> append to [r15], advancing r15
+:cpy
+:cpy_l
+test_rdx_rdx
+jz }cpy_done
+movzx_at_rsi
+movb_al_r15
+inc_r15
+inc_rsi
+dec_rdx
+jmp }cpy_l
+:cpy_done
+ret
+
+# find: rdi=needle rsi=len rdx=start -> rax = ptr after match
+:find
+mov_r8_rdx
+:f_outer
+mov_rax_r8
+add_rax_rsi
+cmp_rax_r13
+ja }f_none
+xor_ecx_ecx
+:f_inner
+cmp_rcx_rsi
+je }f_hit
+movzx_r8rcx
+movzx_rdircx
+cmp_al_dl
+jne }f_next
+inc_rcx
+jmp }f_inner
+:f_next
+inc_r8
+jmp }f_outer
+:f_hit
+lea_rax_r8rsi
+ret
+:f_none
+xor_eax_eax
+ret
+
+# scanners
+:scan_nl
+mov_rax_rdi
+:snl_loop
+movzx_rax_dl
+cmp_dl_0a
+je }snl_done
+inc_rax
+jmp }snl_loop
+:snl_done
+ret
+:scan_to_colon
+mov_rax_rdi
+:stc_loop
+movzx_rax_dl
+cmp_dl_3a
+je }stc_done
+inc_rax
+jmp }stc_loop
+:stc_done
+ret
+:scan_to_sp
+mov_rax_rdi
+:sts_loop
+movzx_rax_dl
+cmp_dl_20
+je }sts_done
+inc_rax
+jmp }sts_loop
+:sts_done
+ret
+:scan_to_spnl
+mov_rax_rdi
+:ssn_loop
+movzx_rax_dl
+cmp_dl_20
+je }ssn_done
+cmp_dl_0a
+je }ssn_done
+inc_rax
+jmp }ssn_loop
+:ssn_done
+ret
+
+# === data ===
+:let_needle
+6c657420
+:loop_needle
+6c6f6f7020
+:if_needle
+696620
+:brzkw
+202062727a2076
+:poolkw
+2020706f6f6c0a
+:done_needle
+646f6e65
+:eq_needle
+3d20
+:ret_needle
+72657475726e20
+:fn_needle
+666e20
+:store_needle
+73746f726520
+:put_needle
+70757420
+:ind2
+2020
+:end_needle
+656e64
+:endkw
+656e640a
+:loopbrz
+20206c6f6f700a202062727a2076
+:jmppool
+20206a6d700a2020706f6f6c0a
+:retv
+20207265742076
+:endnl
+0a656e640a
+:pro
+6972206d61696e202d3e206933320a
+:lp
+202076
+:lm
+3a20693332203d20636f6e737420
+:nl
+0a
+:om
+3a20693332203d20
+:sv
+2076
+:rp
+0a20207265742076
+:en
+0a656e640a
+:emit_dec
+xor_edx_edx
+mov_ecx_i 0a000000
+div_ecx                   # eax = value/10, edx = value%10
+mov_at_eax c0004600       # DEC_T (tens)
+mov_eax_edx
+mov_at_eax c8004600       # DEC_U (units)
+mov_eax_at c0004600
+test_eax_eax
+jz }ed_units
+mov_esi_i =digits
+add_rsi_at c0004600
+mov_edx_i 01000000
+call }cpy
+:ed_units
+mov_esi_i =digits
+add_rsi_at c8004600
+mov_edx_i 01000000
+call }cpy
+ret
+
+:digits
+30313233343536373839
+:argc_str
+61726763
+:param_str
+706172616d
+:end

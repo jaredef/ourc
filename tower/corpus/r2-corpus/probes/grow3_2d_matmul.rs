@@ -1,0 +1,1 @@
+fn main(){ let a=[[1i64,2],[3,4]]; let b=[[5i64,6],[7,8]]; let mut c=[[0i64;2];2]; for i in 0..2 { for j in 0..2 { for k in 0..2 { c[i][j]+=a[i][k]*b[k][j]; } } } let mut s=0i64; for i in 0..2 { for j in 0..2 { s=s*100+c[i][j]; } } println!("{}", s); }

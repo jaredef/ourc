@@ -1,0 +1,1 @@
+fn half(x: i64) -> Result<i64, String> { if x % 2 == 0 { Ok(x / 2) } else { Err(format!("odd {}", x)) } } fn q(x: i64) -> Result<i64, String> { let h = half(x)?; Ok(h + 1) } fn main() { println!("{:?} {:?}", q(8), q(3)); }

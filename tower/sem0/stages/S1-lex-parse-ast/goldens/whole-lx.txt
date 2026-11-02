@@ -1,0 +1,20 @@
+Crate
+  Item Enum@0..70 vis=pub ident=Tok
+    Variant ident=Ident Unit
+    Variant ident=Number Unit
+    Variant ident=Plus Unit
+    Variant ident=Minus Unit
+    Variant ident=Eof Unit
+  Item Fn@70..269 vis=pub ident=classify
+    Param name=c Ty Path char
+    Ret Ty Path Tok
+    Block(Expr Expr Match(Expr Path c, [Arm(Pat Range(Expr Char 'a' ..= Expr Char 'z') => Expr Path Tok::Ident), Arm(Pat Range(Expr Char '0' ..= Expr Char '9') => Expr Path Tok::Number), Arm(Pat Lit(Expr Char '+') => Expr Path Tok::Plus), Arm(Pat Lit(Expr Char '-') => Expr Path Tok::Minus), Arm(Pat Wild => Expr Path Tok::Eof)]))
+  Item Fn@269..373 vis=pub ident=is_digit
+    Param name=c Ty Path char
+    Ret Ty Path bool
+    Block(Expr Expr Match(Expr Path c, [Arm(Pat Range(Expr Char '0' ..= Expr Char '9') => Expr LitBool true), Arm(Pat Wild => Expr LitBool false)]))
+  Item Fn@373..517 vis=pub ident=scan
+    Param name=s Ty Ref(Ty Path str)
+    Param name=i Ty Path usize
+    Ret Ty Path usize
+    Block(Let Pat Ident b = Expr Method(Expr Path s, as_bytes, []); Let Pat Ident mut j = Expr Path i; Expr Expr While(Expr Bin Lt(Expr Path j, Expr Method(Expr Path b, len, [])), Block(Semi Expr Assign(Expr Path j = Expr Bin Add(Expr Path j, Expr LitInt 1)))); Expr Expr Path j)

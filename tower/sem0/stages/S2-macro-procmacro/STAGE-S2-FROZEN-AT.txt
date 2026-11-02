@@ -1,0 +1,32 @@
+# S2 STAGE-BOUNDARY FREEZE (macro-expand) — keeper-authorized 2026-08-09
+
+WHAT: the S2 macro engine in s1_parser.rs is frozen at the macro-expand stage boundary
+(design doc telos-achievement-design-2026-08-05.md §4 point 6: "At a §4 stage boundary, freeze").
+This is a CHECKPOINT of the S-stage compiler, NOT a new self-hosting rung and NOT an L6->L5
+promotion: s1_parser is an AST-dumper with no codegen, so a self-hosting rung is minted only
+later (at the codegen stage). L6/L5 are UNCHANGED by this freeze.
+
+FROZEN ARTIFACT: sub-arcs/S2-macro-procmacro/s1_parser.rs.S2-frozen
+  (byte-identical snapshot of S1-lex-parse-ast/s1_parser.rs at this freeze)
+  live source: sub-arcs/S1-lex-parse-ast/s1_parser.rs  (2239 lines, 181300 bytes)
+FROZEN AT COMMIT: (this commit)  [prior tip d1e801b8]
+
+CAPABILITY FROZEN (13 dual-compiled witnesses, rustc == rzrs stage0, S1 gate held):
+  macro_rules: empty / literal multi-arm / single+multi metavar / $(...)sep* repetition / recursion
+  built-in fn-like: stringify! concat!
+  cfg: cfg!-expr (all()/any()) + #[cfg(any())] item-drop + stmt-drop
+  MAC-CLOSE composite: whole-file expansion == rustc -Zunpretty=expanded (mac_close_mixed)
+
+GATES AT FREEZE: s2-expand 13/13 EXPANSION GREEN (BOOTSTRAP rz==rc); s1-ast-diff GREEN.
+  NOT re-run (s1_parser is off that surface): selfhost/provenance/r2-corpus — L6/L5 untouched.
+
+RESUME (S3): the frozen s1_parser is the S2 baseline the S3 name-resolution stage builds ON.
+
+DEFERRED (recorded, not blocking the freeze): built-in derive (brittle -Zunpretty output),
+hygiene (unwitnessable at pretty-print), proc-macro host (ambient authority, Doc 736 security-gated),
+host cfg-value table (host-specific).
+
+# SNAPSHOT RE-MINTED 2026-08-10 (keeper-directed, commit b39005ec): refreshed to the live s1_parser.rs after the S1
+# UNFREEZE amendments (method receiver form + closure move/ret + async block/fn). All gates GREEN at re-mint (s1-ast,
+# s2-expand 13, s3-resolve 56 + crate-native 12, s4-hir 11, s5-typeck 12). The snapshot is again byte-identical to the
+# live source; the per-stage CAPABILITY described above is unchanged (S1 amendments only refined AST fidelity).

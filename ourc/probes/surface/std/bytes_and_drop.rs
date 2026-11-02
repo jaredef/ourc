@@ -1,0 +1,1 @@
+fn main() { let s = "AbC"; let mut t = 0; for b in s.bytes() { t = t * 256 + b as u64; } let n: u32 = "hi".bytes().map(|b| b as u32).sum(); let v = String::from("x"); drop(v); let k = 5; drop(k); println!("{} {} {}", t, n, k); }

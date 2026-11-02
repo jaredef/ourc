@@ -1,0 +1,1 @@
+fn main() { let mut v = vec![3, 1, 2]; v.sort_by(|a, b| b.cmp(a)); println!("{:?}", v); }

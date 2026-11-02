@@ -1,0 +1,1 @@
+enum O { N, S(v) } fn f(o: O) -> int { match o { S(v) if v > 100 => 1, S(v) => v, N => 0 } } let a = O::S(42); let b = O::S(200); let c = O::N; print_int(f(&a)); print_int(f(&b)); print_int(f(&c)); f(&a)

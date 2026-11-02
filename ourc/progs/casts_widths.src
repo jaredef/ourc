@@ -1,0 +1,11 @@
+fn clamp8(n: int) -> int { n as u8 }
+fn sign8(n: int) -> int { n as i8 }
+fn w32(n: int) -> int { n as u32 }
+print_int(clamp8(300));
+print_int(clamp8(255));
+print_int(sign8(200));
+print_int(w32(4294967296 + 7));
+let a: u8 = 250;
+let b: i32 = 0 - 5;
+print_int(a + b);
+clamp8(300) + 1

@@ -1,0 +1,54 @@
+Crate
+  Item Use@0..22 vis=priv
+    Use Simple std::str::Chars
+  Item Enum@22..131 vis=pub ident=TokenKind
+    Variant ident=Whitespace Unit
+    Variant ident=Ident Unit
+    Variant ident=Literal Struct(kind Ty Path LiteralKind, len Ty Path u32)
+    Variant ident=Unknown Unit
+  Item Enum@131..256 vis=pub ident=LiteralKind
+    Variant ident=Int Struct(base Ty Path Base, empty Ty Path bool)
+    Variant ident=Char Struct(terminated Ty Path bool)
+    Variant ident=Byte Struct(terminated Ty Path bool)
+  Item Enum@256..317 vis=pub ident=Base
+    Variant ident=Binary Unit
+    Variant ident=Decimal Unit
+    Variant ident=Hexadecimal Unit
+  Item Struct@317..366 vis=pub ident=Cursor<'a>
+    Field vis=priv ident=chars Ty Path Chars<Ty Lifetime 'a>
+  Item Const@366..395 vis=priv ident=EOF_CHAR
+    Ty Path char
+    Expr Char '\0'
+  Item Const@395..418 vis=priv ident=NL
+    Ty Path u8
+    Expr LitInt 10
+  Item Impl@418..1367<'a> Ty Path Cursor<Ty Lifetime 'a>
+    Item Fn@444..535 vis=priv ident=first
+      Param name=&self ImplicitSelf
+      Ret Ty Path char
+      Block(Expr Expr Method(Expr Method(Expr Method(Expr Field(Expr Path self, chars), clone, []), next, []), unwrap_or, [Expr Path EOF_CHAR]))
+    Item Fn@535..635 vis=priv ident=bump
+      Param name=&mut self ImplicitSelf
+      Ret Ty Path Option<Ty Path char>
+      Block(Let Pat Ident c = Expr Try(Expr Method(Expr Field(Expr Path self, chars), next, [])); Expr Expr Call(Expr Path Some, [Expr Path c]))
+    Item Fn@635..823 vis=priv ident=eat_while
+      Param name=&mut self ImplicitSelf
+      Param name=mut pred Ty Impl(FnMut(Ty Path char) -> Ty Path bool)
+      Ret Default
+      Block(Expr Expr While(Expr Let(Pat TupleStruct(Some, [Pat Ident c]) = Expr Method(Expr Path self, bump, [])), Block(Expr Expr If(Expr Unary Not(Expr Call(Expr Path pred, [Expr Path c])), Block(Semi Expr Break())))))
+    Item Fn@823..1200 vis=priv ident=char_literal
+      Param name=&mut self ImplicitSelf
+      Ret Ty Path LiteralKind
+      Block(Let Pat Ident terminated = Expr Loop(Block(Expr Expr Match(Expr Method(Expr Path self, bump, []), [Arm(Pat TupleStruct(Some, [Pat Lit(Expr Char '\'')]) => Expr Break(Expr LitBool true)), Arm(Pat TupleStruct(Some, [Pat Lit(Expr Char '\\')]) => Expr Block(Block(Semi Expr Method(Expr Path self, bump, [])))), Arm(Pat TupleStruct(Some, [Pat Wild]) => Expr Block(Block())), Arm(Pat Ident None => Expr Break(Expr LitBool false))]))); Expr Expr Struct(LiteralKind::Char, [terminated: Expr Path terminated]))
+    Item Fn@1200..1364 vis=priv ident=number
+      Param name=&mut self ImplicitSelf
+      Ret Ty Path LiteralKind
+      Block(Semi Expr Method(Expr Path self, eat_while, [Expr Closure([Pat Ident c], Expr MacCall(matches ! Paren[c , '0' | '1' | '_']))]); Expr Expr Struct(LiteralKind::Int, [base: Expr Path Base::Binary, empty: Expr LitBool false]))
+  Item Fn@1367..1458 vis=pub ident=is_whitespace
+    Param name=c Ty Path char
+    Ret Ty Path bool
+    Block(Expr Expr MacCall(matches ! Paren[c , ' ' | '\t' | '\n' | '\r']))
+  Item Fn@1458..1787 vis=pub ident=classify
+    Param name=c Ty Path char
+    Ret Ty Path TokenKind
+    Block(Expr Expr Match(Expr Path c, [Arm(Pat Range(Expr Char '0' ..= Expr Char '9') => Expr Struct(TokenKind::Literal, [kind: Expr Struct(LiteralKind::Int, [base: Expr Path Base::Decimal, empty: Expr LitBool false]), len: Expr LitInt 1])), Arm(Pat Ident c if Expr Call(Expr Path is_whitespace, [Expr Path c]) => Expr Path TokenKind::Whitespace), Arm(Pat Ident c if Expr Bin Or(Expr Bin Eq(Expr Path c, Expr Char '_'), Expr Method(Expr Path c, is_alphabetic, [])) => Expr Path TokenKind::Ident), Arm(Pat Wild => Expr Path TokenKind::Unknown)]))

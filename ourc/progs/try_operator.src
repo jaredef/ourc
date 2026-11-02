@@ -1,0 +1,7 @@
+enum Res { Ok(v), Err(e) }
+fn half(n) -> Res { if n == n / 2 * 2 { Res::Ok(n / 2) } else { Res::Err(n) } }
+fn quarter(n) -> Res { let h = half(n)?; let q = half(h)?; Res::Ok(q) }
+fn show(r: Res) -> int { match r { Ok(v) => v, Err(e) => 0 - e } }
+print_int(show(quarter(168)));
+print_int(show(quarter(10)));
+show(quarter(168))

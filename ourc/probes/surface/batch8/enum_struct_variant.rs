@@ -1,0 +1,1 @@
+#[derive(Debug)] enum Shape { Circle { r: i64 }, Rect { w: i64, h: i64 } } fn area(s: &Shape) -> i64 { match s { Shape::Circle { r } => 3 * r * r, Shape::Rect { w, h } => w * h } } fn main() { let v = vec![Shape::Circle { r: 2 }, Shape::Rect { w: 3, h: 4 }]; for s in &v { println!("{:?} {}", s, area(s)); } }

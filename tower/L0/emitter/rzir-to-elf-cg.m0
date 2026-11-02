@@ -1,0 +1,180 @@
+# rzir -> ELF CODEGEN backend (the first non-folding backend), authored in M0.
+# A non-constant value (argc) cannot be folded, so this GENERATES a program that
+# computes at runtime: it loads argc from [rsp] at entry, applies the return op
+# with the constant operand, and exits with the result. The SAME binary therefore
+# yields different exit codes for different argc -- which folding could never do.
+# Minimal shape: `vK = argc ; vM = const N ; ret-op = add|sub vK vM`. Built by M0.
+#
+# bss: INBUF 0x440000. (No VALS table needed -- one const, one runtime value.)
+
+# === instruction-encoding library ===
+%xor_eax_eax    31c0
+%xor_edi_edi    31ff
+%syscall        0f05
+%ret            c3
+%jmp            e9
+%call           e8
+%ja             0f87
+%je             0f84
+%jz             0f84
+%jne            0f85
+%mov_eax_i      b8
+%mov_edi_i      bf
+%mov_esi_i      be
+%mov_edx_i      ba
+%mov_ebx_i      bb
+%mov_al_c7      b0c7
+%mov_al_ef      b0ef
+%lea_r13_rbxrax 4c8d2c03
+%mov_rdx_rbx    4889da
+%mov_rsi_rax    4889c6
+%mov_r14d_eax   4189c6
+%test_eax_eax   85c0
+%movb_al_at     880425
+%mov_at_r14d    44893425
+# const-value parse (pd)
+%movzx_rsi      0fb606
+%sub_eax_30     83e830
+%movzx_rsi1     0fb65601
+%sub_edx_30     83ea30
+%cmp_edx_9      83fa09
+%imul_eax_10    6bc00a
+%add_eax_edx    01d0
+# find helpers
+%mov_r8_rdx     4989d0
+%mov_rax_r8     4c89c0
+%add_rax_rsi    4801f0
+%cmp_rax_r13    4c39e8
+%xor_ecx_ecx    31c9
+%cmp_rcx_rsi    4839f1
+%movzx_r8rcx    410fb60408
+%movzx_rdircx   0fb6140f
+%cmp_al_dl      38d0
+%inc_rcx        48ffc1
+%inc_r8         49ffc0
+%lea_rax_r8rsi  498d0430
+
+# === emitter ELF header ===
+7f454c46 02010100 00000000 00000000
+0200 3e00 01000000
+=code 00000000
+40000000 00000000
+00000000 00000000
+00000000 4000 3800 0100 0000 00000000
+01000000 07000000
+00000000 00000000
+00004000 00000000
+00004000 00000000
+&end 00000000
+00000700 00000000
+00100000 00000000
+
+# === OUTPUT template: load argc, op imm, exit  (137 bytes) ===
+:template
+7f454c46 02010100 00000000 00000000
+0200 3e00 01000000
+78004000 00000000
+40000000 00000000
+00000000 00000000
+00000000 4000 3800 0100 0000 00000000
+01000000 05000000
+00000000 00000000
+00004000 00000000
+00004000 00000000
+89000000 00000000
+89000000 00000000
+00100000 00000000
+48 8b 3c 24               # mov rdi, [rsp]   (argc)
+81 :op_slot 00            # 81 <modrm>       (add edi=c7 / sub edi=ef, patched)
+:imm_slot 00000000        # imm32            (the constant operand, patched)
+b8 3c000000               # mov eax, 60
+0f05                      # syscall
+
+# === code ===
+:code
+xor_eax_eax
+xor_edi_edi
+mov_esi_i 00004400
+mov_edx_i 00000100
+syscall
+mov_ebx_i 00004400
+lea_r13_rbxrax
+# constant operand value
+mov_edi_i =const_needle
+mov_esi_i 06000000
+mov_rdx_rbx
+call }find
+mov_rsi_rax
+call }pd
+mov_r14d_eax              # CONST
+# op: add -> modrm c7 ; sub -> modrm ef
+mov_edi_i =add_needle
+mov_esi_i 04000000
+mov_rdx_rbx
+call }find
+test_eax_eax
+jne }is_add
+mov_al_ef
+jmp }patch
+:is_add
+mov_al_c7
+:patch
+movb_al_at =op_slot       # patch op modrm
+mov_at_r14d =imm_slot     # patch imm = CONST
+# write template, exit
+mov_eax_i 01000000
+mov_edi_i 01000000
+mov_esi_i =template
+mov_edx_i 89000000        # 137
+syscall
+mov_eax_i 3c000000
+xor_edi_edi
+syscall
+
+# find: rdi=needle rsi=len rdx=start -> rax = ptr after match, or 0
+:find
+mov_r8_rdx
+:f_outer
+mov_rax_r8
+add_rax_rsi
+cmp_rax_r13
+ja }f_none
+xor_ecx_ecx
+:f_inner
+cmp_rcx_rsi
+je }f_hit
+movzx_r8rcx
+movzx_rdircx
+cmp_al_dl
+jne }f_next
+inc_rcx
+jmp }f_inner
+:f_next
+inc_r8
+jmp }f_outer
+:f_hit
+lea_rax_r8rsi
+ret
+:f_none
+xor_eax_eax
+ret
+
+# pd: rsi -> eax = 1-2 digit decimal
+:pd
+movzx_rsi
+sub_eax_30
+movzx_rsi1
+sub_edx_30
+cmp_edx_9
+ja }pd_one
+imul_eax_10
+add_eax_edx
+:pd_one
+ret
+
+# === data ===
+:const_needle
+636f6e737420
+:add_needle
+61646420
+:end

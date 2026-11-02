@@ -1,0 +1,1 @@
+trait S { fn n(&self) -> i64; } struct X; struct Y; impl S for X { fn n(&self) -> i64 { 40 } } impl S for Y { fn n(&self) -> i64 { 2 } } fn main() { let v: Vec<Box<dyn S>> = vec![Box::new(X), Box::new(Y)]; let mut t = 0; for s in v.iter() { t += s.n(); } println!("{}", t); }

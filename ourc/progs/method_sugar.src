@@ -1,0 +1,9 @@
+let v: Vec<int> = vec_new();
+v.push(10); v.push(14); v.push(18);
+print_int(v.len());
+let mut t = 0;
+for x in v { t = t + x; }
+print_int(t);
+let s = "hello";
+print_int(s.len());
+t + v.len() + s.len() - 8

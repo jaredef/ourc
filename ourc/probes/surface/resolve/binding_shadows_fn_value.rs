@@ -1,0 +1,1 @@
+fn v(x: i64) -> i64 { x + 100 } fn id(x: i64) -> i64 { x } fn main() { let o = Some(5); let r = match o { Some(v) => id(v), None => 0 }; let s = o.map(|v| id(v)).unwrap_or(0); println!("{} {} {}", r, s, v(1)); }

@@ -1,0 +1,6 @@
+ir main -> i32
+  v0: i32 = const 60
+  v1: i32 = argc
+  v2: i32 = div v0 v1
+  ret v2
+end

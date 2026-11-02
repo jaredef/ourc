@@ -1,0 +1,96 @@
+# hex0 — hand-encoded x86-64 machine code. NO compiler, NO assembler.
+# Every byte and every jump displacement below is derived by hand from the ISA.
+# This file IS the seed source: expand it with any byte-faithful hex packer
+# (including hex0 itself) to get the seed binary. The `#` comments are ignored by
+# hex0's own comment rule, so this file is both the source and its documentation.
+#
+# Layout: single RWX PT_LOAD at 0x400000. Code at 0x400078. Buffers live in the
+# zero-fill region beyond p_filesz: IN=0x40010d, OUT=0x41010d (each 64 KiB).
+# Registers: rsi=cursor, rdx=end, rdi=out, r8b=pending flag, r9b=high nibble.
+
+# --- ELF header (64 bytes) ---
+7f 45 4c 46 02 01 01 00   # \x7fELF, 64-bit, LSB, version 1, SysV
+00 00 00 00 00 00 00 00   # e_ident padding
+02 00                     # e_type   = ET_EXEC
+3e 00                     # e_machine= EM_X86_64
+01 00 00 00               # e_version= 1
+78 00 40 00 00 00 00 00   # e_entry  = 0x400078
+40 00 00 00 00 00 00 00   # e_phoff  = 64
+00 00 00 00 00 00 00 00   # e_shoff  = 0
+00 00 00 00               # e_flags  = 0
+40 00                     # e_ehsize = 64
+38 00                     # e_phentsize = 56
+01 00                     # e_phnum  = 1
+00 00                     # e_shentsize = 0
+00 00                     # e_shnum  = 0
+00 00                     # e_shstrndx = 0
+
+# --- program header (56 bytes): one PT_LOAD, R+W+X ---
+01 00 00 00               # p_type   = PT_LOAD
+07 00 00 00               # p_flags  = R+W+X
+00 00 00 00 00 00 00 00   # p_offset = 0
+00 00 40 00 00 00 00 00   # p_vaddr  = 0x400000
+00 00 40 00 00 00 00 00   # p_paddr  = 0x400000
+0d 01 00 00 00 00 00 00   # p_filesz = 269  (header + code)
+0d 01 02 00 00 00 00 00   # p_memsz  = 0x2010d  (+ two 64 KiB buffers)
+00 10 00 00 00 00 00 00   # p_align  = 0x1000
+
+# --- code @ 0x400078 ---
+31 c0                     # xor  eax, eax            ; read = 0
+31 ff                     # xor  edi, edi            ; fd 0
+be 0d 01 40 00            # mov  esi, 0x40010d       ; buf = IN
+ba 00 00 01 00            # mov  edx, 0x10000        ; count = 64 KiB
+0f 05                     # syscall                  ; rax = nbytes read
+48 8d 14 06               # lea  rdx, [rsi+rax]      ; end = IN + nbytes
+bf 0d 01 41 00            # mov  edi, 0x41010d       ; out = OUT
+45 31 c0                  # xor  r8d, r8d            ; pending = 0
+# loop:  (offset 28)
+48 39 d6                  # cmp  rsi, rdx            ; cursor vs end
+73 50                     # jae  done                ; +80
+0f b6 06                  # movzx eax, byte [rsi]    ; al = *cursor
+48 ff c6                  # inc  rsi
+3c 23                     # cmp  al, '#'
+74 35                     # je   comment             ; +53
+3c 30                     # cmp  al, '0'
+72 ed                     # jb   loop                ; -19
+3c 39                     # cmp  al, '9'
+76 0c                     # jbe  d09                 ; +12
+3c 61                     # cmp  al, 'a'
+72 e5                     # jb   loop                ; -27
+3c 66                     # cmp  al, 'f'
+77 e1                     # ja   loop                ; -31
+2c 57                     # sub  al, 0x57            ; a..f -> 10..15
+eb 02                     # jmp  have                ; +2
+# d09:  (offset 63)
+2c 30                     # sub  al, '0'             ; 0..9
+# have: (offset 65)
+45 84 c0                  # test r8b, r8b            ; pending?
+75 08                     # jnz  low                 ; +8
+41 88 c1                  # mov  r9b, al             ; hold high nibble
+41 b0 01                  # mov  r8b, 1              ; pending = 1
+eb ce                     # jmp  loop                ; -50
+# low:  (offset 78)
+41 c0 e1 04               # shl  r9b, 4
+41 08 c1                  # or   r9b, al             ; byte = (hi<<4)|lo
+44 88 0f                  # mov  [rdi], r9b          ; emit byte
+48 ff c7                  # inc  rdi
+45 31 c0                  # xor  r8d, r8d            ; pending = 0
+eb bc                     # jmp  loop                ; -68
+# comment: (offset 96)
+48 39 d6                  # cmp  rsi, rdx
+73 0c                     # jae  done                ; +12
+0f b6 06                  # movzx eax, byte [rsi]
+48 ff c6                  # inc  rsi
+3c 0a                     # cmp  al, 10              ; newline ends comment
+75 f1                     # jne  comment             ; -15
+eb ab                     # jmp  loop                ; -85
+# done: (offset 113)
+be 0d 01 41 00            # mov  esi, 0x41010d       ; buf = OUT
+48 89 fa                  # mov  rdx, rdi            ; rdx = out cursor
+48 81 ea 0d 01 41 00      # sub  rdx, 0x41010d       ; len = out - OUT
+b8 01 00 00 00            # mov  eax, 1              ; write
+bf 01 00 00 00            # mov  edi, 1              ; fd 1
+0f 05                     # syscall
+b8 3c 00 00 00            # mov  eax, 60             ; exit
+31 ff                     # xor  edi, edi            ; code 0
+0f 05                     # syscall

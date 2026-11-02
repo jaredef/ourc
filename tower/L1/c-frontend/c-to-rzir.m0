@@ -1,0 +1,5635 @@
+# c-to-rzir.m0 -- the C front-end (Tier 2). Reads C source, emits rzir; the
+# existing cf backend lowers it to native ELF. Same derivation-inversion method as
+# rz2: one construct at a time. RUNG 1: `int main() { return <additive int expr>; }`
+# -- establishes read/emit, the function shell, and the expression FLATTENER (the
+# linearisation of an infix expression to rzir's three-address form). Chain:
+# hex2 -> M0 -> this -> rzir -> cf -> ELF. No cc.
+
+# === instruction-encoding library ===
+%xor_eax_eax    31c0
+%xor_ecx_ecx    31c9
+%xor_edi_edi    31ff
+%xor_r8_r8      4d31c0
+%xor_r11_r11    4d31db
+%syscall        0f05
+%ret            c3
+%jmp            e9
+%call           e8
+%ja             0f87
+%jae            0f83
+%jb             0f82
+%je             0f84
+%jz             0f84
+%jne            0f85
+%mov_eax_i      b8
+%mov_edi_i      bf
+%mov_esi_i      be
+%mov_edx_i      ba
+%mov_ebx_i      bb
+%mov_r15d_i     41bf
+%lea_r13_rbxrax 4c8d2c03
+%rep_stosb      f3aa
+%xor_al_al      30c0
+%arr_ld         0fb68800804600
+%arr_st         888800804600
+%or_ecx_edx     09d1
+%mov_edx_ecx    89ca
+%mov_cl_1       b101
+%test_ecx_ecx   85c9
+%lea_rdi_r9_4   498d7904
+%lea_rdi_r10_1  498d7a01
+%mov_rdx_rbx    4889da
+%mov_rdx_r10    4c89d2
+%mov_rdx_r12    4c89e2
+%mov_rdx_r14    4c89f2
+%mov_rdi_r14    4c89f7
+%mov_rsi_r14    4c89f6
+%mov_r9_r14     4d89f1
+%sub_rdx_r14    4c29f2
+%cmp_dl_7b      80fa7b
+%cmp_dl_7d      80fa7d
+%cmp_dl_69      80fa69
+%cmp_dl_6e      80fa6e
+%movzx_r14_3_dl 410fb65603
+%movzx_r14_4_dl 410fb65604
+%movzx_r14_5_dl 410fb65605
+%movzx_r14_6_dl 410fb65606
+%cmp_dl_6d      80fa6d
+%cmp_dl_3b      80fa3b
+%movzx_r14_1_dl 410fb65601
+%or_eax_at      0b0425
+%shl_eax_16     c1e010
+%cmp_dl_2e      80fa2e
+%cmp_eax_i      3d
+%cmp_dl_22      80fa22
+%sub_rax_at     482b0425
+%shr_eax_3      c1e803
+%cmp_al_22      3c22
+%mov_ecx_eax    89c1
+%and_eax_i      25
+%shr_ecx_24     c1e918
+%shr_eax_16     c1e810
+%shr_eax_24     c1e818
+%shl_eax_24     c1e018
+%mov_eax_ecx    89c8
+%movzx_r14_2_dl 410fb65602
+%movzx_al_r14   410fb606
+%mov_r14d_i     41be
+%add_r14_3      4983c603
+%add_r14_6      4983c606
+%add_eax_i      05
+%push_rax       50
+%pop_rax        58
+%cmp_dl_2a      80fa2a
+%cmp_dl_2f      80fa2f
+%cmp_dl_28      80fa28
+%cmp_eax_1      83f801
+%cmp_eax_2      83f802
+%cmp_dl_3c      80fa3c
+%cmp_dl_3e      80fa3e
+%cmp_dl_3d      80fa3d
+%mov_edx_at     8b1425
+%mov_rax_atrsp  488b0424
+%cmp_dl_21      80fa21
+%mov_esi_eax    89c6
+%add_r14_2      4983c602
+%cmp_dl_66      80fa66
+%cmp_dl_77      80fa77
+%cmp_dl_68      80fa68
+%add_r14_5      4983c605
+%cmp_dl_29      80fa29
+%sub_eax_i      2d
+%shl_eax_2      c1e002
+%shl_eax_3      c1e003
+%mov_eax_atrax  8b00
+%mov_atrax_ecx  8908
+%mov_ecx_at     8b0c25
+%mov_at_edx     891425
+%movzx_at_r14   410fb616
+%movzx_r14_1    410fb65601
+%movzx_r9_1     410fb65101
+%cmp_dl_30      80fa30
+%cmp_dl_70      80fa70
+%cmp_dl_72      80fa72
+%cmp_dl_73      80fa73
+%mov_rax_r13    4c89e8
+%mov_rax_r15    4c89f8
+%cmp_rax_rdx    4839d0
+%jbe            0f86
+%cmp_dl_6c      80fa6c
+%cmp_dl_6f      80fa6f
+%cmp_dl_65      80fa65
+%cmp_dl_63      80fa63
+%movzx_at_r9    410fb611
+%lea_rdi_r9_5   498d7905
+%inc_rdi        48ffc7
+%sub_rsi_at     482b3425
+%sub_rax_6      4883e806
+%sub_rax_4      4883e804
+%mov_eax_at     8b0425
+%mov_at_eax     890425
+%mov_at_r13     4c892c25
+%mov_r13_at     4c8b2c25
+%mov_r13_rax    4989c5
+%mov_rdx_r13    4c89ea
+%sub_rdx_at     482b1425
+%mov_at_rbx     48891c25
+%mov_rdx_r15    4c89fa
+%mov_rdx_rax    4889c2
+%sub_rdx_r9     4c29ca
+%mov_rcx_r12    4c89e1
+%sub_rcx_r14    4c29f1
+%sub_rdx_i      4881ea
+%sub_rax_rdi    4829f8
+%mov_r9_rax     4989c1
+%mov_r9_rdi     4989f9
+%mov_at_r9      4c890c25
+%mov_r9_at      4c8b0c25
+%mov_rdi_r9     4c89cf
+%lea_rdi_rax_1  488d7801
+%lea_rdi_r9_m4  498d79fc
+%cmp_rax_at     483b0425
+%mov_rax_at     488b0425
+%sub_rsi_rdi    4829fe
+%sub_rsi_rax    4829c6
+%sub_rsi_i      4881ee
+%lea_rax_rdi_m4 488d47fc
+%dec_rax        48ffc8
+%mov_r10_rax    4989c2
+%mov_r10_rsi    4989f2
+%mov_r12_rax    4989c4
+%mov_r12_rbx    4989dc
+%mov_r12_at     4c8b2425
+%mov_r14_rax    4989c6
+%mov_rax_r11    4c89d8
+%mov_rdi_rax    4889c7
+%mov_rdi_r9     4c89cf
+%lea_rdi_rax_1  488d7801
+%mov_rax_rdi    4889f8
+%mov_rsi_rax    4889c6
+%mov_r13_rsi    4989f5
+%mov_rsi_r9     4c89ce
+%mov_rsi_r10    4c89d6
+%mov_at_rax     48890425
+%mov_at_rdi     48893c25
+%mov_rdi_at     488b3c25
+%mov_rsi_at     488b3425
+%mov_rdx_at     488b1425
+%add_rsi_at     48033425
+%add_rsi_rax    4801c6
+%inc_q_at       48ff0425
+%movzx_at_rsi   0fb606
+%movzx_rax_dl   0fb610
+%movzx_rdi_dl   0fb617
+%dec_rdi        48ffcf
+%cmp_dl_74      80fa74
+%inc_eax        ffc0
+%mov_eax_edx     89d0
+%div_ecx         f7f1
+%mov_ecx_i       b9
+%xor_edx_edx     31d2
+%movzx_rdi_r8   420fb60407
+%movzx_rdx_r8c  420fb60c02
+%movb_al_r15    418807
+%cmp_rsi_rcx    4839ce
+%cmp_r8_rsi     4939f0
+%cmp_dl_0a      80fa0a
+%cmp_dl_20      80fa20
+%cmp_dl_3a      80fa3a
+%cmp_al_cl      38c8
+%test_eax_eax   85c0
+%test_rdx_rdx   4885d2
+%inc_rax        48ffc0
+%inc_r8         49ffc0
+%inc_r11        49ffc3
+%inc_r15        49ffc7
+%inc_rsi        48ffc6
+%dec_rdx        48ffca
+# find helpers
+%mov_r8_rdx     4989d0
+%mov_rax_r8     4c89c0
+%add_rax_rsi    4801f0
+%cmp_rax_r13    4c39e8
+%mov_rax_r14    4c89f0
+%cmp_dl_2c      80fa2c
+%cmp_dl_26      80fa26
+%add_eax_at     030425
+%test_ecx_ecx   85c9
+%jnz            0f85
+%mov_rcx_at     488b0c25
+%add_rax_rcx    4801c8
+%mov_rcx_rax    4889c1
+%mov_at_ecx     890c25
+%mov_atrdi_eax  8907
+%mov_edi_eax    89c7
+%mov_atrdi12_eax 89470c
+%mov_atrdi8_eax 894708
+%mov_atrdi_rax  488907
+%dec_ecx        ffc9
+%inc_ecx        ffc1
+%inc_rdx        48ffc2
+%movzx_dl_rdx   0fb612
+%cmp_al_bl      38d8
+%movzx_bl_rdx   0fb61a
+%cmp_al_r8b     4438c0
+%movzx_r8d_rdx  440fb602
+%movzx_al_rdi   0fb607
+%mov_rdx_atrax  488b10
+%shl_eax_4      c1e004
+%cmp_eax_at     3b0425
+%mov_eax_sib    8b048d
+%mov_atsib_eax  89048d
+%cmp_dl_5d      80fa5d
+%cmp_dl_5b      80fa5b
+%cmp_dl_5f      80fa5f
+%cmp_dl_41      80fa41
+%cmp_dl_61      80fa61
+%add_r14_4      4983c604
+%pop_rdx        5a
+%push_rdx       52
+%push_rsi       56
+%pop_rsi        5e
+%cmp_dl_27      80fa27
+%cmp_rcx_rsi    4839f1
+%movzx_r8rcx    410fb60408
+%movzx_rdircx   0fb6140f
+%cmp_al_dl      38d0
+%inc_rcx        48ffc1
+%lea_rax_r8rsi  498d0430
+
+%cmp_dl_2b      80fa2b
+%cmp_dl_2d      80fa2d
+%cmp_al_72      3c72
+%cmp_al_5f      3c5f
+%cmp_al_41      3c41
+%cmp_al_61      3c61
+%cmp_al_7b      3c7b
+%cmp_al_5b      3c5b
+%cmp_al_30      3c30
+%cmp_al_3a      3c3a
+%add_eax_ecx    01c8
+%add_eax_eax    01c0
+%add_eax_edx    01d0
+%imul_eax_ecx   0fafc1
+%neg_eax        f7d8
+%mov_edx_eax    89c2
+%sub_ecx_i      81e9
+%cmp_al_74      3c74
+%cmp_al_6e      3c6e
+%cmp_al_5c      3c5c
+%cmp_dl_64      80fa64
+%cmp_dl_62      80fa62
+%cmp_dl_25      80fa25
+%cmp_dl_5e      80fa5e
+%cmp_dl_3f      80fa3f
+%cmp_dl_7c      80fa7c
+%cmp_dl_7a      80fa7a
+%add_r14_7      4983c607
+%cmp_dl_79      80fa79
+%add_r14_8      4983c608
+%cmp_dl_67      80fa67
+%cmp_dl_38      80fa38
+%cmp_dl_47      80fa47
+%cmp_dl_58      80fa58
+%cmp_dl_78      80fa78
+%cmp_dl_7e      80fa7e
+%movzx_edx_dl   0fb6d2
+%and_edx_i      81e2
+%add_edx_i      81c2
+%cmp_dl_75      80fa75
+%cmp_dl_76      80fa76
+%cmp_dl_09      80fa09
+%movzx_r14_dl   410fb616
+%inc_r14        49ffc6
+%dec_eax        ffc8
+
+# === ELF header ===
+7f454c46 02010100 00000000 00000000
+0200 3e00 01000000
+=code 00000000
+40000000 00000000
+00000000 00000000
+00000000 4000 3800 0100 0000 00000000
+01000000 07000000
+00000000 00000000
+00004000 00000000
+00004000 00000000
+&end 00000000
+00001000 00000000
+00100000 00000000
+
+# === code ===
+
+:code
+mov_esi_i 00004100        # rsi = INBUF 0x410000 (moved down into the dead code gap: 256KB input,
+                          # was 64KB @0x440000 -- m0-at-scale; cc.bin code ~21KB fits below 0x410000)
+:rdloop                   # LOOP read() until EOF: a PIPE delivers the C source in chunks (>4KB
+xor_eax_eax               # writes split), so a single read() truncated large sources -> CC_FAIL.
+xor_edi_edi
+mov_edx_i 00000100        # count = 0x10000 per read
+syscall                   # read(0, rsi, 0x10000) -> rax = bytes read
+test_eax_eax
+je }rddone                # 0 = EOF -> done
+add_rax_rsi               # rsi += rax  (advance the write pointer)
+mov_rsi_rax
+jmp }rdloop
+:rddone
+mov_ebx_i 00004100        # ebx = INBUF 0x410000
+mov_r13_rsi               # r13 = end of accumulated source
+mov_r15d_i 00004500       # OUT write pointer
+
+mov_esi_i =pro            # "ir main -> i32\n"
+mov_edx_i 0f000000
+call }cpy
+
+mov_esi_i =zero_line
+mov_edx_i 14000000
+call }cpy
+mov_eax_i 01000000
+mov_at_eax 00004600       # NCOUNT = 1 (v0 reserved)
+
+mov_r14d_i 00004100       # r14 = INBUF 0x410000
+:top_pre                  # consume leading struct/enum declarations
+call }skip_ws
+movzx_r14_dl
+cmp_dl_73
+jne }tp_enum
+movzx_r14_2_dl
+cmp_dl_72
+jne }tp_enum
+call }parse_struct
+jmp }top_pre
+:tp_enum
+movzx_r14_dl
+cmp_dl_65
+jne }tp_typedef
+movzx_r14_1_dl
+cmp_dl_6e
+jne }tp_typedef
+call }parse_enum
+jmp }top_pre
+:tp_typedef
+movzx_r14_dl
+cmp_dl_74
+jne }tp_global
+movzx_r14_1_dl
+cmp_dl_79
+jne }tp_global
+call }parse_typedef
+jmp }top_pre
+:tp_global
+movzx_r14_dl
+cmp_dl_69
+je }tp_g_maybe
+cmp_dl_63
+je }tp_g_maybe
+jmp }top_done
+:tp_g_maybe
+mov_rax_r14
+mov_at_rax 18404600
+movzx_r14_dl
+cmp_dl_63
+jne }tpg_int
+add_r14_4
+jmp }tpg_n
+:tpg_int
+add_r14_3
+:tpg_n
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2a
+jne }tpg_nm
+inc_r14
+call }skip_ws
+:tpg_nm
+call }read_name
+call }skip_ws
+movzx_r14_dl
+cmp_dl_28
+je }tpg_func
+mov_rax_at 18404600
+mov_r14_rax
+call }parse_global
+jmp }top_pre
+:tpg_func                    # a function (or prototype): pin code-start ONCE, then skip
+mov_eax_at f8034600          # its body and KEEP scanning for later globals (lit_lo etc)
+test_eax_eax
+jnz }tpgf_scan
+mov_eax_at 18404600          # first function -> code start (find_main/helpers begin here)
+mov_at_eax f8034600
+:tpgf_scan
+mov_rax_at 18404600
+mov_r14_rax
+xor_ecx_ecx                 # brace depth
+:tpgf_loop
+call }skip_ws               # skip ws + comments (comments may contain braces)
+movzx_r14_dl
+cmp_dl_7b                   # '{'
+je }tpgf_open
+cmp_dl_7d                   # '}'
+je }tpgf_close
+test_ecx_ecx
+jnz }tpgf_adv
+cmp_dl_3b                   # ';' at depth 0 -> a prototype, not a body
+je }tpgf_proto
+:tpgf_adv
+inc_r14
+jmp }tpgf_loop
+:tpgf_open
+inc_ecx
+inc_r14
+jmp }tpgf_loop
+:tpgf_close
+dec_ecx
+test_ecx_ecx
+jz }tpgf_body_end
+inc_r14
+jmp }tpgf_loop
+:tpgf_body_end
+inc_r14                     # consume the closing '}'
+jmp }top_pre
+:tpgf_proto
+inc_r14                     # consume ';'
+jmp }top_pre
+:top_done
+mov_eax_at f8034600         # if any function was seen, code starts at the first one
+test_eax_eax
+jz }td_nofunc
+mov_eax_at f8034600
+mov_r14_rax
+:td_nofunc
+mov_rax_r14
+mov_at_rax 88104600
+:find_main               # locate `main` anywhere (helpers may precede it)
+movzx_r14_dl
+cmp_dl_6d
+jne }fm_next
+movzx_r14_1_dl
+cmp_dl_61
+jne }fm_next
+movzx_r14_2_dl
+cmp_dl_69
+jne }fm_next
+movzx_r14_3_dl
+cmp_dl_6e
+je }fm_found
+:fm_next
+inc_r14
+jmp }find_main
+:fm_found
+movzx_r14_4_dl           # require `main(` so stray "main" in comments/idents is skipped
+cmp_dl_28
+jne }fm_next
+:find_brace
+movzx_r14_dl
+cmp_dl_7b
+je }body_start
+inc_r14
+jmp }find_brace
+:body_start
+mov_rax_r14
+mov_at_rax 90104600
+call }emit_global_inits
+call }parse_block
+mov_esi_i =ret_pfx
+mov_edx_i 07000000
+call }cpy
+xor_eax_eax
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+
+:helpers                  # re-scan all functions; emit each except main as fn
+mov_rax_at 88104600
+mov_r14_rax
+:hp_scan
+call }skip_ws
+mov_rax_r14
+cmp_rax_r13
+jae }fe_write
+mov_rax_r14
+mov_at_rax 98104600
+:hp_peek
+movzx_r14_dl
+cmp_dl_7b
+je }hp_gotbrace
+cmp_dl_3b
+je }hp_proto
+inc_r14
+jmp }hp_peek
+:hp_proto
+inc_r14
+jmp }hp_scan
+:hp_gotbrace
+mov_rax_r14
+cmp_rax_at 90104600
+je }hp_skipmain
+mov_rax_at 98104600
+mov_r14_rax
+movzx_r14_dl
+cmp_dl_63
+je }hp_t4
+cmp_dl_76
+je }hp_t4
+add_r14_3
+jmp }hp_named
+:hp_t4
+add_r14_4
+:hp_named
+call }skip_ws
+mov_esi_i =fn_kw
+mov_edx_i 03000000
+call }cpy
+mov_rdi_r14               # copy the function NAME
+call }scan_name
+mov_rsi_r14
+mov_rdx_rax
+sub_rdx_r14
+mov_r14_rax
+call }cpy
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+:hp_paren                 # `( params )` -> param bindings + the zero slot
+movzx_r14_dl
+cmp_dl_28
+je }hp_params
+inc_r14
+jmp }hp_paren
+:hp_params
+call }fn_params
+:hp_brace
+movzx_r14_dl
+cmp_dl_7b
+je }hp_body
+inc_r14
+jmp }hp_brace
+:hp_body
+call }parse_block
+mov_esi_i =ret_pfx
+mov_edx_i 07000000
+call }cpy
+mov_eax_at 58004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_esi_i =endkw
+mov_edx_i 04000000
+call }cpy
+jmp }hp_scan
+
+# parse_block: r14 at '{' -> parse `{ stmts }`, consuming both braces. Nestable
+# (an if/while body is a block; cf's brz/pool stack handles the nesting).
+:emit_continue          # emit `  cnt` and consume the ';'
+mov_esi_i =cnt_kw
+mov_edx_i 06000000
+call }cpy
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3b
+jne }ec_done
+inc_r14
+:ec_done
+ret
+
+:emit_break             # emit `  brk` and consume the ';'
+mov_esi_i =brk_kw
+mov_edx_i 06000000
+call }cpy
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3b
+jne }eb_done
+inc_r14
+:eb_done
+ret
+
+:parse_body              # body of if/while/for: a { block } or ONE statement (+ its ';')
+call }skip_ws
+movzx_r14_dl
+cmp_dl_7b
+je }pbody_brace
+call }parse_stmt
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3b
+jne }pbody_nosemi
+inc_r14
+:pbody_nosemi
+ret
+:pbody_cont
+movzx_r14_1_dl
+cmp_dl_6f
+jne }pbody_cont2
+movzx_r14_2_dl
+cmp_dl_6e
+jne }pbody_cont2
+movzx_r14_3_dl
+cmp_dl_74
+jne }pbody_cont2
+add_r14_8
+call }emit_continue
+ret
+:pbody_cont2
+call }parse_assign
+jmp }pbody_semi
+:pbody_break
+movzx_r14_1_dl
+cmp_dl_72
+jne }pbody_ret2
+movzx_r14_2_dl
+cmp_dl_65
+jne }pbody_ret2
+add_r14_5
+call }emit_break
+ret
+:pbody_ret2
+call }parse_assign
+jmp }pbody_semi
+:pbody_ret
+add_r14_6
+call }skip_ws
+call }flatten_expr
+mov_at_eax 08004600
+mov_esi_i =ret_pfx
+mov_edx_i 07000000
+call }cpy
+mov_eax_at 08004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+:pbody_semi
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3b
+jne }pbody_done
+inc_r14
+:pbody_done
+ret
+:pbody_brace
+call }parse_block
+ret
+
+:parse_block
+call }skip_ws
+inc_r14                   # consume '{'
+:pb_loop                  # block loop: parse_stmt until '}'; reset BLK_DONE for nesting
+call }parse_stmt
+mov_eax_at 78404600
+test_eax_eax
+jz }pb_loop
+xor_eax_eax
+mov_at_eax 78404600
+ret
+:parse_stmt              # parse ONE statement; sets BLK_DONE on '}'
+xor_eax_eax
+mov_at_eax 78404600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_7d
+je }pb_done
+cmp_dl_3b
+je }pb_semi
+cmp_dl_69
+je }pb_i                  # 'i' -> int / if
+cmp_dl_72
+je }pb_ret                # 'r' -> return
+cmp_dl_77
+je }pb_while              # 'w' -> while
+cmp_dl_63
+je }pb_char
+cmp_dl_66
+je }pb_for
+cmp_dl_64
+je }pb_do
+cmp_dl_73
+je }pb_smaybe
+cmp_dl_62
+je }pb_break
+cmp_dl_67
+je }pb_gmaybe
+cmp_dl_75
+je }pb_uns_chk
+cmp_dl_6c
+je }pb_long_chk
+cmp_dl_2a
+je }st_store
+jmp }pb_chktypedef
+:pb_done
+inc_r14                   # consume '}'
+mov_eax_i 01000000
+mov_at_eax 78404600
+ret
+:pb_semi
+inc_r14
+ret
+:pb_i
+mov_edx_i =kw_int
+mov_ecx_i 03000000
+call }kw_match
+test_eax_eax
+jnz }st_decl
+mov_edx_i =kw_if
+mov_ecx_i 02000000
+call }kw_match
+test_eax_eax
+jnz }st_if
+jmp }st_var
+:st_decl
+add_r14_3
+mov_eax_i 01000000
+mov_at_eax 48004600
+xor_eax_eax
+mov_at_eax 00184600
+jmp }st_var_body
+:pb_ret
+mov_rdi_r14
+mov_edx_i =kw_return
+mov_ecx_i 06000000
+:pbr_l
+test_ecx_ecx
+jz }pbr_b
+movzx_al_rdi
+movzx_r8d_rdx
+cmp_al_r8b
+jne }st_var
+inc_rdi
+inc_rdx
+dec_ecx
+jmp }pbr_l
+:pbr_b
+movzx_al_rdi
+cmp_al_5f
+je }st_var
+cmp_al_30
+jb }pbr_ok
+cmp_al_3a
+jb }st_var
+cmp_al_41
+jb }pbr_ok
+cmp_al_5b
+jb }st_var
+cmp_al_61
+jb }pbr_ok
+cmp_al_7b
+jb }st_var
+:pbr_ok
+add_r14_6
+call }skip_ws
+call }flatten_expr
+mov_at_eax 08004600
+mov_esi_i =ret_pfx
+mov_edx_i 07000000
+call }cpy
+mov_eax_at 08004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+ret
+
+:st_if
+call }parse_if
+ret
+:parse_if                # `if (cond) <block> [else <block|if>]` -- callable, recurses for else-if
+add_r14_2
+call }skip_ws
+inc_r14
+call }flatten_expr
+mov_at_eax 08004600
+call }skip_ws
+inc_r14
+mov_esi_i =brz_pfx
+mov_edx_i 07000000
+call }cpy
+mov_eax_at 08004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 08004600
+push_rax
+call }skip_ws
+call }parse_body
+mov_esi_i =pool_kw
+mov_edx_i 07000000
+call }cpy
+call }skip_ws
+movzx_r14_dl
+cmp_dl_65
+jne }pif_done
+movzx_r14_1_dl
+cmp_dl_6c
+jne }pif_done
+add_r14_4
+pop_rax
+mov_at_eax 08004600
+mov_eax_at 58004600
+mov_at_eax 10004600
+mov_eax_i 08000000
+mov_at_eax 18004600
+call }emit_binop
+mov_esi_i =brz_pfx
+mov_edx_i 07000000
+call }cpy
+mov_eax_at 00004600
+dec_eax
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+call }skip_ws
+movzx_r14_dl
+cmp_dl_69
+jne }pif_elsebody
+movzx_r14_1_dl
+cmp_dl_66
+jne }pif_elsebody
+call }parse_if
+jmp }pif_elsepool
+:pif_elsebody
+call }parse_body
+:pif_elsepool
+mov_esi_i =pool_kw
+mov_edx_i 07000000
+call }cpy
+ret
+:pif_done
+pop_rax
+ret
+
+:pb_switch                # `switch(x){ case V: ...; break; default: ... }` -> a once-loop of
+add_r14_6                 # if-guards: loop; if(x==V){body;brk} ...; default; brk; endloop.
+call }skip_ws             # `break` -> brk exits the loop; grouped `case A: case B:` -> (x==A)|(x==B).
+inc_r14                   # consume '('
+call }flatten_expr        # x -> slot
+push_rax                  # x's slot on the CPU stack (a nested switch clobbers SW_VAL 88024600)
+call }skip_ws
+inc_r14                   # consume ')'
+mov_esi_i =loop_kw
+mov_edx_i 07000000
+call }cpy
+mov_eax_i 01000000        # loop condition brz(const 1): always enter; endloop backpatches it
+mov_at_eax d0104600
+call }emit_constval
+push_rax
+mov_esi_i =brz_pfx
+mov_edx_i 07000000
+call }cpy
+pop_rax
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+call }skip_ws
+inc_r14                   # consume '{'
+:sw_caseloop
+call }skip_ws
+movzx_r14_dl
+cmp_dl_7d
+je }sw_end
+mov_edx_i =kw_case
+mov_ecx_i 04000000
+call }kw_match
+test_eax_eax
+jnz }sw_case
+mov_edx_i =kw_default
+mov_ecx_i 07000000
+call }kw_match
+test_eax_eax
+jnz }sw_default
+mov_esi_i =brz_pfx        # statements not under any case are UNREACHABLE in C: brz v0 (always
+mov_edx_i 07000000        # skip) <stray>; pool -- emitted (for goto/label targets) but dead on fall-through
+call }cpy
+xor_eax_eax
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+call }sw_body
+mov_esi_i =pool_kw
+mov_edx_i 07000000
+call }cpy
+jmp }sw_caseloop
+:sw_case
+mov_rax_atrsp             # SW_VAL = x's slot (re-establish: a nested switch clobbered 88024600)
+mov_at_eax 88024600
+add_r14_4                 # consume "case"
+call }skip_ws
+call }flatten_expr        # V -> slot
+mov_at_eax 90024600       # SW_V
+call }skip_ws
+inc_r14                   # consume ':'
+mov_eax_at 88024600       # SW_COND = eq SW_VAL SW_V
+mov_at_eax 08004600
+mov_eax_at 90024600
+mov_at_eax 10004600
+mov_eax_i 08000000
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 98024600
+:sw_group
+call }skip_ws
+mov_edx_i =kw_case
+mov_ecx_i 04000000
+call }kw_match
+test_eax_eax
+jz }sw_guard
+add_r14_4                 # grouped case -> OR another (x==Vk)
+call }skip_ws
+call }flatten_expr
+mov_at_eax 90024600
+call }skip_ws
+inc_r14
+mov_eax_at 88024600
+mov_at_eax 08004600
+mov_eax_at 90024600
+mov_at_eax 10004600
+mov_eax_i 08000000
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 90024600
+mov_eax_at 98024600
+mov_at_eax 08004600
+mov_eax_at 90024600
+mov_at_eax 10004600
+mov_eax_i 0c000000
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 98024600
+jmp }sw_group
+:sw_guard
+mov_esi_i =brz_pfx
+mov_edx_i 07000000
+call }cpy
+mov_eax_at 98024600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+call }sw_body
+mov_esi_i =pool_kw
+mov_edx_i 07000000
+call }cpy
+jmp }sw_caseloop
+:sw_default
+add_r14_7                 # consume "default"
+call }skip_ws
+inc_r14                   # consume ':'
+call }sw_body
+jmp }sw_caseloop
+:sw_end
+inc_r14                   # consume '}'
+pop_rax                   # pop x's slot off the CPU stack
+mov_esi_i =brk_kw         # final unconditional exit (one pass)
+mov_edx_i 06000000
+call }cpy
+mov_esi_i =cont_kw        # continue-target + back-edge (dead after the final brk, but cf's
+mov_edx_i 07000000        # endloop expects the while-shape)
+call }cpy
+mov_esi_i =jmp_kw
+mov_edx_i 06000000
+call }cpy
+mov_esi_i =endloop_kw
+mov_edx_i 0a000000
+call }cpy
+ret
+:sw_body                  # parse statements until the next case/default/} (non-consuming lookahead)
+call }skip_ws
+movzx_r14_dl
+cmp_dl_7d
+je }sw_body_done
+mov_edx_i =kw_case
+mov_ecx_i 04000000
+call }kw_match
+test_eax_eax
+jnz }sw_body_done
+mov_edx_i =kw_default
+mov_ecx_i 07000000
+call }kw_match
+test_eax_eax
+jnz }sw_body_done
+call }parse_stmt
+jmp }sw_body
+:sw_body_done
+ret
+:pb_gmaybe                # 'g' -> "goto" keyword, else a g-named variable/expression
+mov_edx_i =kw_goto
+mov_ecx_i 04000000
+call }kw_match
+test_eax_eax
+jnz }pb_goto
+jmp }st_var
+:pb_goto                  # `goto NAME;` -> emit `goto NAME`
+add_r14_4
+call }skip_ws
+call }read_name
+mov_esi_i =goto_kw
+mov_edx_i 07000000
+call }cpy
+mov_rsi_at 08034600
+mov_edx_at 10034600
+call }cpy
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3b
+jne }pbg_done
+inc_r14
+:pbg_done
+ret
+:pb_label                 # `NAME:` -> emit `label NAME` (name already read by st_var -> 18/20034600)
+mov_esi_i =label_kw
+mov_edx_i 08000000
+call }cpy
+mov_rsi_at 18034600
+mov_edx_at 20034600
+call }cpy
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+inc_r14                   # consume ':'
+ret
+
+:pb_char                  # `char` decl OR `continue` -- both start 'c'
+mov_edx_i =kw_char
+mov_ecx_i 04000000
+call }kw_match
+test_eax_eax
+jz }pb_cont_chk
+add_r14_4
+mov_eax_i 01000000
+mov_at_eax 48004600
+mov_eax_i ff000000
+mov_at_eax 00184600
+jmp }st_var_body
+
+:pb_while                  # `while ( <cond> ) <block>`
+mov_edx_i =kw_while
+mov_ecx_i 05000000
+call }kw_match
+test_eax_eax
+jz }st_var
+add_r14_5                 # consume "while"
+call }skip_ws
+inc_r14                   # consume '('
+mov_esi_i =loop_kw        # "  loop"  (back-branch target)
+mov_edx_i 07000000
+call }cpy
+call }flatten_expr        # cond -> eax (emitted INSIDE the loop)
+mov_at_eax 08004600
+call }skip_ws
+inc_r14                   # consume ')'
+mov_esi_i =brz_pfx        # "  brz v<cond>"  (exit when cond == 0)
+mov_edx_i 07000000
+call }cpy
+mov_eax_at 08004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+call }skip_ws
+call }parse_body         # the loop body
+mov_esi_i =cont_kw
+mov_edx_i 07000000
+call }cpy
+mov_esi_i =jmp_kw         # "  jmp"  (back-edge)
+mov_edx_i 06000000
+call }cpy
+mov_esi_i =endloop_kw
+mov_edx_i 0a000000
+call }cpy
+ret
+
+:parse_assign            # `[int] name = expr` (init/step); emit; stop at delimiter
+call }skip_ws
+movzx_r14_dl
+cmp_dl_69
+je }pa_maybeint
+cmp_dl_63
+je }pa_maybechar
+:pa_asgn
+xor_eax_eax
+mov_at_eax 48004600
+jmp }pa_body
+:pa_maybeint
+movzx_r14_1_dl
+cmp_dl_6e
+jne }pa_asgn
+add_r14_3
+jmp }pa_decl
+:pa_maybechar
+movzx_r14_1_dl
+cmp_dl_68
+jne }pa_asgn
+add_r14_4
+:pa_decl
+mov_eax_i 01000000
+mov_at_eax 48004600
+:pa_body
+call }skip_ws
+call }read_name
+mov_rax_at 08034600
+mov_at_rax 18034600
+mov_eax_at 10034600
+mov_at_eax 20034600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2b
+je }pa_pp
+cmp_dl_2d
+je }pa_mm
+inc_r14
+:pa_flat
+call }flatten_expr
+mov_at_eax 38004600
+mov_rax_at 18034600
+mov_at_rax 08034600
+mov_eax_at 20034600
+mov_at_eax 10034600
+mov_eax_at 48004600
+test_eax_eax
+jz }pa_mutate
+mov_eax_at 38004600
+mov_at_eax 08004600
+mov_eax_at 58004600
+mov_at_eax 10004600
+xor_eax_eax
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+call }st_set
+ret
+:emit_compound_core
+mov_rax_at 18034600
+mov_at_rax 08034600
+mov_eax_at 20034600
+mov_at_eax 10034600
+call }find_global
+mov_at_eax 98404600
+mov_eax_at 10404600
+test_eax_eax
+jnz }ecc_global
+call }st_get
+mov_at_eax 08004600
+mov_at_eax 40004600
+mov_eax_at 38184600
+mov_at_eax 10004600
+mov_eax_at 40184600
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 38004600
+call }pa_mutate_emit
+ret
+
+:ecc_global             # compound op on a GLOBAL: const addr; load; op; store
+mov_eax_at 98404600
+mov_at_eax d0104600
+call }emit_constval
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 98404600
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =load_kw
+mov_edx_i 04000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 98404600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 08004600
+mov_eax_at 38184600
+mov_at_eax 10004600
+mov_eax_at 40184600
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 38004600
+mov_esi_i =store_pfx
+mov_edx_i 07000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 98404600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 38004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+ret
+
+:pa_pp
+movzx_r14_1_dl
+cmp_dl_2b
+je }pa_incr
+cmp_dl_3d
+je }pa_pluseq
+jmp }pa_flat
+:pa_incr
+add_r14_2
+mov_eax_i 01000000
+mov_at_eax 48184600
+xor_eax_eax
+mov_at_eax 40184600
+call }run_compound
+ret
+:pa_pluseq
+add_r14_2
+xor_eax_eax
+mov_at_eax 48184600
+xor_eax_eax
+mov_at_eax 40184600
+call }run_compound
+ret
+:pa_mm
+movzx_r14_1_dl
+cmp_dl_2d
+je }pa_decr
+cmp_dl_3d
+je }pa_minuseq
+jmp }pa_flat
+:pa_decr
+add_r14_2
+mov_eax_i 01000000
+mov_at_eax 48184600
+mov_eax_i 01000000
+mov_at_eax 40184600
+call }run_compound
+ret
+:pa_minuseq
+add_r14_2
+xor_eax_eax
+mov_at_eax 48184600
+mov_eax_i 01000000
+mov_at_eax 40184600
+call }run_compound
+ret
+
+:pa_mutate
+call }st_get
+mov_at_eax 40004600
+:pa_mutate_emit
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 40004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =op_table
+mov_edx_i 03000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 38004600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 58004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+ret
+:pb_for                  # for(init;cond;step) block -> init; loop; cond; brz; body; step; jmp; pool
+mov_edx_i =kw_for
+mov_ecx_i 03000000
+call }kw_match
+test_eax_eax
+jz }st_var
+add_r14_3
+call }skip_ws
+inc_r14
+call }parse_assign
+:pfor_initc               # comma-separated init clause: for (i=0, j=10; ...)
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2c
+jne }pfor_initc_done
+inc_r14
+call }parse_assign
+jmp }pfor_initc
+:pfor_initc_done
+inc_r14                   # consume ';'
+mov_esi_i =loop_kw
+mov_edx_i 07000000
+call }cpy
+call }flatten_expr
+mov_at_eax 08004600
+call }skip_ws
+inc_r14
+mov_esi_i =brz_pfx
+mov_edx_i 07000000
+call }cpy
+mov_eax_at 08004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_rax_r14
+mov_at_rax 48034600
+:pfor_skip
+movzx_r14_dl
+cmp_dl_29
+je }pfor_done
+inc_r14
+jmp }pfor_skip
+:pfor_done
+inc_r14
+call }skip_ws
+mov_rax_at 48034600
+push_rax
+call }parse_body
+mov_rax_r14
+mov_at_rax 50034600
+pop_rax
+mov_r14_rax
+mov_esi_i =cont_kw
+mov_edx_i 07000000
+call }cpy
+call }parse_assign
+mov_rax_at 50034600
+mov_r14_rax
+mov_esi_i =jmp_kw
+mov_edx_i 06000000
+call }cpy
+mov_esi_i =endloop_kw
+mov_edx_i 0a000000
+call }cpy
+ret
+
+:pb_do                   # do <body> while ( cond ) ;  -> loop; body; cond; brz; jmp; pool
+mov_edx_i =kw_do
+mov_ecx_i 02000000
+call }kw_match
+test_eax_eax
+jz }st_var
+add_r14_2
+mov_esi_i =loop_kw
+mov_edx_i 07000000
+call }cpy
+call }parse_body
+mov_esi_i =cont_kw
+mov_edx_i 07000000
+call }cpy
+call }skip_ws
+add_r14_5
+call }skip_ws
+inc_r14
+call }flatten_expr
+mov_at_eax 08004600
+call }skip_ws
+inc_r14
+mov_esi_i =brz_pfx
+mov_edx_i 07000000
+call }cpy
+mov_eax_at 08004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_esi_i =jmp_kw
+mov_edx_i 06000000
+call }cpy
+mov_esi_i =endloop_kw
+mov_edx_i 0a000000
+call }cpy
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3b
+jne }pbdo_done
+inc_r14
+:pbdo_done
+ret
+
+:pb_smaybe
+mov_edx_i =kw_struct
+mov_ecx_i 06000000
+call }kw_match
+test_eax_eax
+jnz }pb_structvar
+mov_edx_i =kw_short
+mov_ecx_i 05000000
+call }kw_match
+test_eax_eax
+jnz }pb_short
+mov_edx_i =kw_switch
+mov_ecx_i 06000000
+call }kw_match
+test_eax_eax
+jnz }pb_switch
+jmp }st_var
+:pb_short                 # 'short' -> treat as 4-byte int (no 16-bit truncation; rare-overflow only)
+add_r14_5
+call }skip_ws
+movzx_r14_dl
+cmp_dl_69
+jne }psh_decl
+add_r14_3                 # 'short int' -> skip the redundant 'int'
+:psh_decl
+mov_eax_i 01000000
+mov_at_eax 48004600       # = 1 (declaration, like st_decl/pb_long)
+xor_eax_eax
+mov_at_eax 00184600       # = 0 (the declaring flag -- was missing)
+jmp }st_var_body
+:pb_structvar           # `struct Name var;` -> reserve nfields slots, bind var (sidx packed)
+add_r14_6
+call }skip_ws
+call }read_name
+call }find_struct
+mov_at_eax 48104600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2a
+je }pb_structptr
+:pb_structvar_body
+:psv_onevar               # per-declarator loop: `struct N a, b, c;` binds each (sidx 48104600 stable)
+mov_eax_at 48104600
+shl_eax_4
+add_eax_i 00114600
+add_eax_i 0c000000
+mov_eax_atrax
+mov_at_eax 50104600
+call }skip_ws
+call }read_name
+mov_rax_at 08034600
+mov_at_rax 18034600
+mov_eax_at 10034600
+mov_at_eax 20034600
+movzx_r14_dl              # `struct N a[K];` -> reserve K*nfields slots (struct array). The binding is
+cmp_dl_5b                 # unchanged (struct sidx tag); a[i].field dispatches via pf_index ('['),
+jne }psv_noarr            # s.field via pf_dot ('.') -- no array flag needed.
+inc_r14
+xor_eax_eax
+mov_at_eax 58104600       # K = 0
+:psv_asz
+movzx_al_r14
+cmp_al_30
+jb }psv_aszd
+cmp_al_3a
+jae }psv_aszd
+mov_ecx_eax
+sub_ecx_i 30000000
+mov_eax_at 58104600
+mov_edx_eax
+shl_eax_2
+add_eax_edx
+add_eax_eax
+add_eax_ecx
+mov_at_eax 58104600
+inc_r14
+jmp }psv_asz
+:psv_aszd
+inc_r14                   # consume ']'
+mov_eax_at 50104600       # nfields
+mov_ecx_at 58104600       # K
+imul_eax_ecx
+mov_at_eax 50104600       # total slots = K * nfields
+:psv_noarr
+mov_eax_at 00004600
+mov_at_eax d0004600
+mov_eax_at 00004600
+add_eax_at 50104600
+mov_at_eax 00004600
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =ref_kw
+mov_edx_i 03000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at d0004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_rax_at 18034600
+mov_at_rax 08034600
+mov_eax_at 20034600
+mov_at_eax 10034600
+mov_eax_at 48104600
+inc_eax
+shl_eax_24
+or_eax_at 00004600
+call }st_set
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+call }skip_ws             # multi-declarator: `, name` -> bind another struct var of the same type
+movzx_r14_dl
+cmp_dl_2c
+jne }psv_semi
+inc_r14
+jmp }psv_onevar
+:psv_semi
+movzx_r14_dl
+cmp_dl_3b
+je }psv_done
+inc_r14
+jmp }psv_semi
+:psv_done
+inc_r14
+ret
+:pb_structptr           # `struct P *q [= &p];` -> 1-slot scalar pointer tagged with struct P.
+inc_r14                   # The slot holds the pointer VALUE; pf_member does get v<slot> v<off>
+call }skip_ws            # directly (no ref), which is correct for a pointer just as it is for a
+call }read_name           # struct value (whose slot holds &p). Only the declaration differs.
+mov_rax_at 08034600
+mov_at_rax 18034600       # save var name across the RHS flatten
+mov_eax_at 10034600
+mov_at_eax 20034600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3d
+jne }pbsp_uninit
+inc_r14                   # consume '='
+call }flatten_expr        # RHS (e.g. &p) -> eax
+mov_at_eax 38004600
+mov_at_eax 08004600       # emit a copy into a fresh slot: v_new = RHS + 0
+mov_eax_at 58004600
+mov_at_eax 10004600
+xor_eax_eax
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 90404600
+jmp }pbsp_bind
+:pbsp_uninit
+xor_eax_eax
+mov_at_eax d0104600       # uninitialized pointer -> v_new = const 0
+call }emit_constval
+mov_at_eax 90404600
+:pbsp_bind
+mov_rax_at 18034600       # restore name (flatten/read clobbered 08/10034600)
+mov_at_rax 08034600
+mov_eax_at 20034600
+mov_at_eax 10034600
+mov_eax_at 48104600       # tag the binding with the struct type: (P+1) << 24 | slot
+inc_eax
+shl_eax_24
+or_eax_at 90404600
+mov_at_eax 90404600
+mov_eax_at 90404600
+call }st_set
+:pbsp_semi
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3b
+jne }pbsp_done
+inc_r14
+:pbsp_done
+ret
+:pf_member              # p.field READ -> get v<base> v<offset-const>
+call }st_get
+mov_at_eax 58104600
+:pfm_havebase           # entry with 58104600=base slot, 40104600=struct type already set
+mov_eax_at 40104600
+dec_eax
+mov_at_eax 10104600
+call }read_name
+call }find_field
+mov_at_eax 68104600
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =const_kw
+mov_edx_i 06000000
+call }cpy
+mov_eax_at 68104600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 00004600
+mov_at_eax 60104600
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_5b
+jne }pfm_arrdone
+inc_r14
+call }flatten_expr
+mov_at_eax 10004600
+mov_eax_at 60104600
+mov_at_eax 08004600
+xor_eax_eax
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 60104600
+call }skip_ws
+inc_r14
+:pfm_arrdone
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =get_kw
+mov_edx_i 03000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 58104600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 60104600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+mov_eax_at 00004600
+dec_eax
+mov_at_eax f8024600       # save the field-read result slot
+mov_eax_at f0024600       # struct-pointer field AND trailing '->' -> chain (deref): a.next->v,
+test_eax_eax              # n->next->next->v ... (loop). f0024600=0 for a scalar field -> no chain.
+jz }pfm_retv
+movzx_r14_dl
+cmp_dl_2d
+jne }pfm_retv
+movzx_r14_1_dl
+cmp_dl_3e
+jne }pfm_retv
+mov_eax_at f8024600       # base = the pointer VALUE (the field-read result slot holds the address)
+mov_at_eax 58104600
+mov_eax_at f0024600       # type = the pointed-to struct (sidx+1)
+mov_at_eax 40104600
+add_r14_2                 # consume '->'
+jmp }pfm_havebase
+:pfm_retv
+mov_eax_at f8024600
+ret
+
+:pb_cont_chk
+mov_edx_i =kw_continue
+mov_ecx_i 08000000
+call }kw_match
+test_eax_eax
+jz }st_var
+:pb_continue
+add_r14_8
+call }emit_continue
+ret
+:pb_break
+mov_edx_i =kw_break
+mov_ecx_i 05000000
+call }kw_match
+test_eax_eax
+jz }pb_chktypedef
+add_r14_5
+call }emit_break
+ret
+
+:pb_uns_chk             # 'u' -> verify 'uns' (unsigned) else fall to typedef/var
+mov_edx_i =kw_unsigned
+mov_ecx_i 08000000
+call }kw_match
+test_eax_eax
+jz }pb_chktypedef
+:pb_unsigned
+add_r14_8
+call }skip_ws
+:pu_chkbase
+movzx_r14_dl
+cmp_dl_69
+je }pu_int
+cmp_dl_63
+je }pu_char
+cmp_dl_6c
+je }pu_long
+jmp }pu_decl
+:pu_int
+add_r14_3
+mov_eax_i 01000000        # G6: UNS_DECL = 1 (this declaration is unsigned)
+mov_at_eax e0024600
+jmp }pu_decl
+:pu_char
+add_r14_4
+jmp }pu_decl
+:pu_long
+add_r14_4
+call }skip_ws
+movzx_r14_dl
+cmp_dl_69
+jne }pu_decl
+add_r14_3
+:pu_decl
+mov_eax_i 01000000
+mov_at_eax 48004600
+jmp }st_var_body
+:pb_long_chk           # 'l' -> verify 'long' else fall to typedef/var
+mov_edx_i =kw_long
+mov_ecx_i 04000000
+call }kw_match
+test_eax_eax
+jz }pb_chktypedef
+movzx_r14_3_dl
+cmp_dl_67
+jne }pb_chktypedef
+:pb_long
+add_r14_4
+call }skip_ws
+movzx_r14_dl
+cmp_dl_69
+jne }pl_decl
+add_r14_3
+:pl_decl
+mov_eax_i 01000000
+mov_at_eax 48004600
+jmp }st_var_body
+
+:pb_chktypedef          # peek the identifier: if a typedef, it's a declaration; else a statement
+mov_rax_r14
+mov_at_rax 98184600
+call }read_name
+call }find_typedef
+mov_at_eax b0184600
+mov_eax_at 90184600
+test_eax_eax
+jz }pb_td_notype
+mov_eax_at b0184600
+test_eax_eax
+jnz }pb_td_struct
+mov_eax_i 01000000
+mov_at_eax 48004600
+jmp }st_var_body
+:pb_td_struct
+mov_eax_at b0184600
+dec_eax
+mov_at_eax 48104600
+mov_eax_at 48104600
+shl_eax_4
+add_eax_i 00114600
+add_eax_i 0c000000
+mov_eax_atrax
+mov_at_eax 50104600
+call }skip_ws
+jmp }pb_structvar_body
+:pb_td_notype
+mov_rax_at 98184600
+mov_r14_rax
+jmp }st_var
+
+:st_store
+inc_r14
+call }skip_ws
+call }read_name
+call }st_get
+mov_at_eax a8004600
+call }skip_ws
+inc_r14
+call }flatten_expr
+mov_at_eax b0004600
+mov_esi_i =store_pfx
+mov_edx_i 07000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at a8004600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at b0004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+jmp }sv_semi
+
+:st_var
+xor_eax_eax
+mov_at_eax 48004600
+:st_var_body
+xor_eax_eax
+mov_at_eax 08184600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2a
+jne }svb_name
+inc_r14
+mov_eax_i 01000000
+mov_at_eax 08184600
+call }skip_ws
+movzx_r14_dl
+:svb_name
+call }read_name
+mov_rax_at 08034600
+mov_at_rax 18034600
+mov_eax_at 10034600
+mov_at_eax 20034600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_5b
+je }svb_array
+cmp_dl_2e
+je }svb_dot
+cmp_dl_2b
+je }svb_plusq
+cmp_dl_2d
+je }svb_arrowq
+cmp_dl_2a
+je }svb_starq
+cmp_dl_2f
+je }svb_slashq
+cmp_dl_25
+je }svb_modeq
+cmp_dl_28
+je }svb_call
+cmp_dl_3a
+je }pb_label
+cmp_dl_3d
+jne }svb_uninit
+inc_r14                   # consume '='
+call }flatten_expr
+mov_at_eax 38004600
+mov_rax_at 18034600
+mov_at_rax 08034600
+mov_eax_at 20034600
+mov_at_eax 10034600
+mov_eax_at 48004600
+test_eax_eax
+jz }sv_chkglobal
+mov_eax_at 38004600
+mov_at_eax 08004600
+mov_eax_at 58004600
+mov_at_eax 10004600
+xor_eax_eax
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 90404600
+mov_eax_at 08184600
+test_eax_eax
+jz }svb_notag
+mov_eax_at 00184600
+shl_eax_24
+or_eax_at 90404600
+mov_at_eax 90404600
+:svb_notag
+mov_eax_at e0024600       # G6: if UNS_DECL, mark this var's slot unsigned
+test_eax_eax
+jz }svb_notag_st
+mov_eax_at 90404600
+mov_cl_1
+arr_st                    # array[slot] = 1
+xor_eax_eax
+mov_at_eax e0024600       # UNS_DECL = 0 (consumed)
+:svb_notag_st
+mov_eax_at 90404600
+call }st_set
+jmp }svb_after_decl
+:svb_array                # `[` -> array declaration or element store (multi-digit size)
+mov_eax_at 48004600
+test_eax_eax
+jz }array_put
+inc_r14
+call }skip_ws
+xor_eax_eax
+mov_at_eax d8004600
+:sa_digit
+movzx_al_r14
+cmp_al_30
+jb }sa_digdone
+cmp_al_3a
+jae }sa_digdone
+mov_ecx_eax
+sub_ecx_i 30000000
+mov_eax_at d8004600
+mov_edx_eax
+shl_eax_2
+add_eax_edx
+add_eax_eax
+add_eax_ecx
+mov_at_eax d8004600
+inc_r14
+jmp }sa_digit
+:sa_digdone
+call }skip_ws
+inc_r14
+mov_eax_at 00184600
+test_eax_eax
+jz }sa_intsize
+mov_eax_at d8004600
+add_eax_i 07000000
+shr_eax_3
+mov_at_eax d8004600
+:sa_intsize
+mov_eax_at 00004600
+mov_at_eax d0004600
+mov_eax_at 00004600
+add_eax_at d8004600
+mov_at_eax 00004600
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =ref_kw
+mov_edx_i 03000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at d0004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_rax_at 18034600
+mov_at_rax 08034600
+mov_eax_at 20034600
+mov_at_eax 10034600
+mov_eax_at 00004600
+mov_at_eax 90404600
+mov_eax_at 00184600
+test_eax_eax
+jz }sa_notag
+mov_eax_at 00184600
+shl_eax_24
+or_eax_at 90404600
+mov_at_eax 90404600
+:sa_notag
+mov_eax_at 90404600
+call }st_set
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+call }skip_ws             # `int a[N] = { e0, e1, ... }` -> put ARR_REF const_k ek per element
+movzx_r14_dl
+cmp_dl_3d
+jne }sv_semi
+inc_r14                   # consume '='
+call }skip_ws
+inc_r14                   # consume '{'
+mov_eax_at 00004600
+dec_eax
+mov_at_eax e8024600       # ARR_REF = NCOUNT-1 (the array's ref slot, bound to the name)
+xor_eax_eax
+mov_at_eax f0024600       # IDX = 0
+:sai_loop
+call }skip_ws
+movzx_r14_dl
+cmp_dl_7d
+je }sai_done
+mov_eax_at f0024600
+mov_at_eax d0104600       # emit v = const IDX
+call }emit_constval
+mov_eax_at 00004600
+dec_eax
+push_rax                  # IDXSLOT
+call }flatten_expr        # ek -> eax
+mov_at_eax f8024600       # VALSLOT
+mov_esi_i =put_pfx
+mov_edx_i 05000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at e8024600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+pop_rax
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at f8024600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at f0024600
+inc_eax
+mov_at_eax f0024600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2c
+jne }sai_loop
+inc_r14
+jmp }sai_loop
+:sai_done
+inc_r14                   # consume '}'
+jmp }sv_semi
+:array_put
+mov_rax_at 18034600
+mov_at_rax 08034600
+mov_eax_at 20034600
+mov_at_eax 10034600
+call }find_global
+mov_at_eax 28404600
+mov_eax_at 10404600
+test_eax_eax
+jz }ap_local
+mov_eax_at 28404600
+mov_at_eax d0104600
+call }emit_constval
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 68404600
+jmp }ap_typesave
+:ap_local
+call }st_get
+mov_at_eax 68404600
+:ap_typesave
+mov_eax_at 40104600
+mov_at_eax b8404600
+inc_r14
+mov_eax_at b8404600       # struct array store a[i].field = x? (type not 0=int, not 0xff=char)
+test_eax_eax
+jz }ap_notstruct
+cmp_eax_i ff000000
+je }ap_notstruct
+call }flatten_expr        # i (r14 is past '[')
+mov_at_eax c0004600
+call }skip_ws
+inc_r14                   # consume ']'
+mov_eax_at b8404600       # nfields = STRUCT[type-1].nfields
+dec_eax
+shl_eax_4
+add_eax_i 00114600
+add_eax_i 0c000000
+mov_eax_atrax
+shl_eax_3                 # stride = nfields * 8 (get/put scale offset by 8 = slot size, not 4)
+mov_at_eax d0104600
+call }emit_constval
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 10004600
+mov_eax_at c0004600
+mov_at_eax 08004600
+mov_eax_i 02000000        # op = mul
+mov_at_eax 18004600
+call }emit_binop          # v_m = i * stride
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 10004600
+mov_eax_at 68404600       # ref(a)
+mov_at_eax 08004600
+xor_eax_eax               # op = add
+mov_at_eax 18004600
+call }emit_binop          # v_base = ref(a) + v_m
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 78104600       # svm_havebase base
+mov_eax_at b8404600
+mov_at_eax 40104600       # struct type
+call }skip_ws
+inc_r14                   # consume '.'
+jmp }svm_havebase
+:ap_notstruct
+mov_rax_r14
+mov_at_rax a0404600
+mov_eax_i 01000000
+mov_at_eax b0404600
+:ap_scan
+movzx_r14_dl
+cmp_dl_5b
+jne }ap_notopen
+mov_eax_at b0404600
+inc_eax
+mov_at_eax b0404600
+jmp }ap_advance
+:ap_notopen
+cmp_dl_5d
+jne }ap_advance
+mov_eax_at b0404600
+dec_eax
+mov_at_eax b0404600
+test_eax_eax
+jz }ap_scandone
+:ap_advance
+inc_r14
+jmp }ap_scan
+:ap_scandone
+inc_r14
+call }skip_ws
+inc_r14
+call }flatten_expr
+mov_at_eax c8004600
+mov_eax_at c8004600
+inc_eax
+cmp_eax_at 00004600
+jbe }ap_nobump
+mov_at_eax 00004600
+:ap_nobump
+mov_rax_r14
+mov_at_rax a8404600
+mov_rax_at a0404600
+mov_r14_rax
+call }flatten_expr
+mov_at_eax 70404600
+mov_rax_at a8404600
+mov_r14_rax
+mov_eax_at b8404600
+test_eax_eax
+jz }ap_word
+mov_esi_i =putb_pfx
+mov_edx_i 06000000
+call }cpy
+jmp }ap_kwdone
+:ap_word
+mov_esi_i =put_pfx
+mov_edx_i 05000000
+call }cpy
+:ap_kwdone
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 68404600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 70404600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at c8004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+jmp }sv_semi
+
+:sv_chkglobal           # assignment target: a global -> store; else local mutate
+call }find_global
+mov_at_eax 28404600
+mov_eax_at 10404600
+test_eax_eax
+jz }sv_assign
+mov_eax_at 28404600
+mov_at_eax d0104600
+call }emit_constval
+mov_at_eax 30404600
+mov_esi_i =store_pfx
+mov_edx_i 07000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 30404600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 38004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+jmp }sv_semi
+
+:sv_assign
+call }st_get
+mov_at_eax 40004600
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 40004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =op_table
+mov_edx_i 03000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 38004600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 58004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+:svb_uninit              # `int x ;` / `int x ,` -- no initializer -> const 0
+mov_eax_at 48004600
+test_eax_eax
+jz }sv_semi
+mov_rax_at 18034600
+mov_at_rax 08034600
+mov_eax_at 20034600
+mov_at_eax 10034600
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =const0_kw
+mov_edx_i 08000000
+call }cpy
+mov_eax_at 00004600
+mov_at_eax 90404600       # tag uninit POINTER locals with pointee type so p[i] uses getb (char*) not get
+mov_eax_at 08184600
+test_eax_eax
+jz }svu_notag
+mov_eax_at 00184600
+shl_eax_24
+or_eax_at 90404600
+mov_at_eax 90404600
+:svu_notag
+mov_eax_at 90404600
+call }st_set
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+:svb_after_decl          # after binding a declarator: `,` -> another declarator; else finish
+mov_eax_at 48004600
+test_eax_eax
+jz }sv_semi
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2c
+jne }sv_semi
+inc_r14
+call }skip_ws
+jmp }svb_name
+
+:svb_dot
+inc_r14
+jmp }svb_member
+:svb_arrowq
+movzx_r14_1_dl
+cmp_dl_3e
+je }svb_arrowyes
+cmp_dl_2d
+je }svb_decr
+cmp_dl_3d
+je }svb_subeq
+jmp }svb_uninit
+:svb_decr
+add_r14_2
+mov_eax_i 01000000
+mov_at_eax 48184600
+mov_eax_i 01000000
+mov_at_eax 40184600
+jmp }svb_compound
+:svb_subeq
+add_r14_2
+xor_eax_eax
+mov_at_eax 48184600
+mov_eax_i 01000000
+mov_at_eax 40184600
+jmp }svb_compound
+:svb_arrowyes
+add_r14_2                  # `sp->field = expr` : arrow lvalue write -> svb_member (st_get gives the
+jmp }svb_member           # pointer's value as base, just as it gives &sv for a struct value)
+:svb_plusq
+movzx_r14_1_dl
+cmp_dl_2b
+je }svb_incr
+cmp_dl_3d
+je }svb_addeq
+jmp }svb_uninit
+:svb_incr
+add_r14_2
+mov_eax_i 01000000
+mov_at_eax 48184600
+xor_eax_eax
+mov_at_eax 40184600
+jmp }svb_compound
+:svb_addeq
+add_r14_2
+xor_eax_eax
+mov_at_eax 48184600
+xor_eax_eax
+mov_at_eax 40184600
+jmp }svb_compound
+:svb_starq
+movzx_r14_1_dl
+cmp_dl_3d
+jne }svb_uninit
+add_r14_2
+xor_eax_eax
+mov_at_eax 48184600
+mov_eax_i 02000000
+mov_at_eax 40184600
+jmp }svb_compound
+:svb_slashq
+movzx_r14_1_dl
+cmp_dl_3d
+jne }svb_uninit
+add_r14_2
+xor_eax_eax
+mov_at_eax 48184600
+mov_eax_i 03000000
+mov_at_eax 40184600
+jmp }svb_compound
+:svb_modeq                # `%=` -> op index 10 (mod)
+movzx_r14_1_dl
+cmp_dl_3d
+jne }svb_uninit
+add_r14_2
+xor_eax_eax
+mov_at_eax 48184600
+mov_eax_i 0a000000
+mov_at_eax 40184600
+jmp }svb_compound
+
+:svb_compound
+call }run_compound
+jmp }sv_semi
+:run_compound
+mov_eax_at 48184600
+test_eax_eax
+jz }rc_rhs
+mov_eax_i 01000000
+mov_at_eax d0104600
+call }emit_constval
+mov_at_eax 38184600
+jmp }rc_go
+:rc_rhs
+call }skip_ws
+call }flatten_expr
+mov_at_eax 38184600
+:rc_go
+call }emit_compound_core
+ret
+
+:svb_call               # bare call statement `f(...);` -> flatten the expr (emit call), discard
+mov_rax_at 18034600
+mov_r14_rax
+call }flatten_expr
+jmp }sv_semi
+
+:svb_member             # p.field = expr -> put v<base> v<offset> v<val> (clobber-safe)
+mov_rax_at 18034600
+mov_at_rax 08034600
+mov_eax_at 20034600
+mov_at_eax 10034600
+call }st_get
+mov_at_eax 78104600
+:svm_havebase           # entry with 78104600=base slot, 40104600=struct type (a[i].field = x reuse)
+mov_eax_at 40104600
+dec_eax
+mov_at_eax 10104600
+call }read_name
+call }find_field
+mov_at_eax 68104600
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =const_kw
+mov_edx_i 06000000
+call }cpy
+mov_eax_at 68104600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 00004600
+mov_at_eax 80104600
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_5b
+jne }svm_arrdone
+inc_r14
+call }flatten_expr
+mov_at_eax 10004600
+mov_eax_at 80104600
+mov_at_eax 08004600
+xor_eax_eax
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 80104600
+call }skip_ws
+inc_r14
+:svm_arrdone
+call }skip_ws
+inc_r14
+call }flatten_expr
+mov_at_eax 70104600
+mov_esi_i =put_pfx
+mov_edx_i 05000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 78104600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 80104600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 70104600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+jmp }sv_semi
+
+:sv_semi
+movzx_r14_dl
+cmp_dl_3b
+je }sv_done
+inc_r14
+jmp }sv_semi
+:sv_done
+inc_r14                   # consume ';'
+ret
+
+:hp_skipmain
+call }skip_block
+jmp }hp_scan
+:skip_block              # r14 at '{' -> advance past the matching '}'
+xor_eax_eax
+mov_at_eax a0104600
+:sb_loop
+movzx_r14_dl
+cmp_dl_7b
+jne }sb_chkclose
+mov_eax_at a0104600
+inc_eax
+mov_at_eax a0104600
+:sb_chkclose
+cmp_dl_7d
+jne }sb_adv
+mov_eax_at a0104600
+dec_eax
+mov_at_eax a0104600
+test_eax_eax
+jz }sb_done
+:sb_adv
+inc_r14
+jmp }sb_loop
+:sb_done
+inc_r14
+ret
+
+:fe_write
+mov_eax_i 01000000        # write(1, OUT, r15 - OUT)
+mov_edi_i 01000000
+mov_esi_i 00004500
+mov_rdx_r15
+sub_rdx_i 00004500
+syscall
+mov_eax_i 3c000000        # exit(0)
+xor_edi_edi
+syscall
+
+# emit_const: skip ws; emit `  v<NCOUNT>: i32 = const <source digits>` ; NCOUNT++
+:emit_dec                 # eax = value -> decimal digits (recursive: any width)
+xor_edx_edx
+mov_ecx_i 0a000000
+div_ecx
+push_rdx
+test_eax_eax
+jz }ed_last
+call }emit_dec
+:ed_last
+pop_rdx
+mov_at_edx e8004600
+mov_esi_i =digits
+add_rsi_at e8004600
+mov_edx_i 01000000
+call }cpy
+ret
+
+:emit_const
+call }skip_ws
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =const_kw
+mov_edx_i 06000000
+call }cpy
+# G1: integer-literal value-parse. Decimal stays verbatim (cf reads decimal). Hex 0x.. and
+# octal 0.. are PARSED to a value and re-emitted as decimal via emit_dec.
+movzx_r14_dl
+cmp_dl_30
+jne }ec_dec               # not '0' -> decimal
+movzx_r14_1_dl
+cmp_dl_78
+je }ec_hex                # 0x
+cmp_dl_58
+je }ec_hex                # 0X
+cmp_dl_30
+jb }ec_dec                # '0' alone / '0'+non-digit -> decimal (handles plain 0)
+cmp_dl_38
+jb }ec_oct                # '0'+[0-7] -> octal
+jmp }ec_dec               # '0'+[8-9] -> decimal (lenient)
+:ec_hex
+inc_r14
+inc_r14                   # skip "0x"
+xor_eax_eax
+:ech_loop
+movzx_r14_dl
+cmp_dl_30
+jb }ech_done
+cmp_dl_3a
+jb }ech_digit             # 0-9
+cmp_dl_41
+jb }ech_done
+cmp_dl_47
+jb }ech_letter            # A-F
+cmp_dl_61
+jb }ech_done
+cmp_dl_67
+jae }ech_done
+:ech_letter               # a-f / A-F: digit = (c & 0xf) + 9
+movzx_edx_dl
+and_edx_i 0f000000
+add_edx_i 09000000
+jmp }ech_acc
+:ech_digit                # 0-9: digit = c & 0xf
+movzx_edx_dl
+and_edx_i 0f000000
+:ech_acc
+shl_eax_4
+add_eax_edx
+inc_r14
+jmp }ech_loop
+:ech_done
+call }emit_dec
+jmp }ec_tail
+:ec_oct
+inc_r14                   # skip leading '0'
+xor_eax_eax
+:eco_loop
+movzx_r14_dl
+cmp_dl_30
+jb }eco_done
+cmp_dl_38
+jae }eco_done
+movzx_edx_dl
+and_edx_i 0f000000
+shl_eax_3
+add_eax_edx
+inc_r14
+jmp }eco_loop
+:eco_done
+call }emit_dec
+jmp }ec_tail
+:ec_dec
+mov_rdi_r14
+call }scan_num
+mov_rsi_r14
+mov_rdx_rax
+sub_rdx_r14
+mov_r14_rax
+call }cpy
+:ec_tail
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+ret
+
+# emit_binop: emit `  v<NCOUNT>: i32 = <op> v<ACC> v<RHS>` ; NCOUNT++
+:emit_binop
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_eax_at 18004600
+shl_eax_2
+add_eax_i =op_table
+mov_esi_eax
+mov_edx_i 03000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 08004600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 10004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 18004600       # G6: comparison ops (4-9 lt..ne, 16-19 ltu..geu) yield SIGNED int(0/1);
+cmp_eax_i 0e000000        # shifts (14 shl, 15 shr, 20 shu) take the LEFT operand's type only;
+je }eb_left               # all other ops propagate (array[res]=array[L]|array[R]).
+cmp_eax_i 0f000000
+je }eb_left
+cmp_eax_i 14000000
+je }eb_left
+cmp_eax_i 04000000
+jb }eb_prop
+cmp_eax_i 0a000000
+jb }eb_signed
+cmp_eax_i 10000000
+jb }eb_prop
+cmp_eax_i 14000000
+jb }eb_signed
+jmp }eb_prop
+:eb_left
+mov_eax_at 08004600
+arr_ld
+mov_eax_at 00004600
+arr_st
+jmp }eb_arrdone
+:eb_prop
+mov_eax_at 08004600
+arr_ld
+mov_edx_ecx
+mov_eax_at 10004600
+arr_ld
+or_ecx_edx
+mov_eax_at 00004600
+arr_st
+jmp }eb_arrdone
+:eb_signed
+xor_ecx_ecx
+mov_eax_at 00004600
+arr_st
+:eb_arrdone
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+ret
+
+:find_struct             # NAME -> eax = sidx (streq vs STRUCT_NAMES)
+xor_eax_eax
+mov_at_eax 30104600
+:fs_loop
+mov_eax_at 30104600
+cmp_eax_at 00104600
+jae }fs_nf
+shl_eax_4
+add_eax_i 00114600
+mov_at_eax 38034600
+call }streq_ent
+test_eax_eax
+jnz }fs_hit
+mov_eax_at 30104600
+inc_eax
+mov_at_eax 30104600
+jmp }fs_loop
+:fs_hit
+mov_eax_at 30104600
+ret
+:fs_nf
+xor_eax_eax
+ret
+:find_field             # CUR_SIDX + NAME -> eax = offset
+xor_eax_eax
+mov_at_eax 38104600
+:ff_loop
+mov_eax_at 38104600
+cmp_eax_at 08104600
+jae }ff_nf
+shl_eax_4
+add_eax_i 00144600
+mov_at_eax 38034600
+add_eax_i 0c000000
+mov_eax_atrax
+shr_eax_16
+and_eax_i ff000000        # mask out the PTRTYPE bits (24-31); keep sidx (bits 16-23)
+cmp_eax_at 10104600
+jne }ff_next
+call }streq_ent
+test_eax_eax
+jnz }ff_hit
+:ff_next
+mov_eax_at 38104600
+inc_eax
+mov_at_eax 38104600
+jmp }ff_loop
+:ff_hit
+mov_eax_at 38034600
+add_eax_i 0c000000
+mov_eax_atrax
+push_rax
+shr_eax_24
+mov_at_eax f0024600       # FFPTR = the field's struct-ptr target (sidx+1), or 0 for a scalar field
+pop_rax
+and_eax_i ffff0000        # return the offset (low 16 bits = fieldidx)
+ret
+:ff_nf
+xor_eax_eax
+ret
+
+:parse_typedef          # `typedef <int|char|struct X> Name;` -> register Name -> kind (0=scalar, sidx+1=struct)
+add_r14_7
+call }skip_ws
+movzx_r14_dl
+cmp_dl_63
+je }td_char
+cmp_dl_73
+je }td_struct
+add_r14_3
+xor_eax_eax
+jmp }td_name
+:td_char
+add_r14_4
+xor_eax_eax
+jmp }td_name
+:td_struct
+add_r14_6
+call }skip_ws
+call }read_name
+call }find_struct
+inc_eax
+:td_name
+mov_at_eax a8184600
+call }skip_ws
+mov_eax_at 78184600
+shl_eax_4
+add_eax_i 00244600
+mov_at_eax a0184600
+mov_edi_eax
+mov_rax_r14
+mov_atrdi_rax
+mov_rdi_r14
+call }scan_name
+mov_rcx_rax
+sub_rcx_r14
+mov_r14_rax
+mov_eax_at a0184600
+mov_edi_eax
+mov_eax_ecx
+mov_atrdi8_eax
+mov_eax_at a0184600
+mov_edi_eax
+mov_eax_at a8184600
+mov_atrdi12_eax
+mov_eax_at 78184600
+inc_eax
+mov_at_eax 78184600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3b
+jne }tdr
+inc_r14
+:tdr
+ret
+
+:find_typedef          # NAME -> TD_FOUND(0x461890) + eax=kind
+xor_eax_eax
+mov_at_eax 80184600
+:ft_loop
+mov_eax_at 80184600
+cmp_eax_at 78184600
+jae }ft_nf
+shl_eax_4
+add_eax_i 00244600
+mov_at_eax 38034600
+call }streq_ent
+test_eax_eax
+jnz }ft_hit
+mov_eax_at 80184600
+inc_eax
+mov_at_eax 80184600
+jmp }ft_loop
+:ft_hit
+mov_eax_i 01000000
+mov_at_eax 90184600
+mov_eax_at 38034600
+add_eax_i 0c000000
+mov_eax_atrax
+ret
+:ft_nf
+xor_eax_eax
+mov_at_eax 90184600
+ret
+
+:parse_enum             # `enum [Tag] { A, B = N, C, ... };` -> register name->value constants
+add_r14_4
+call }skip_ws
+movzx_r14_dl
+cmp_dl_7b
+je }pe_brace
+call }read_name
+call }skip_ws
+:pe_brace
+inc_r14
+xor_eax_eax
+mov_at_eax 60184600
+:pe_loop
+call }skip_ws
+movzx_r14_dl
+cmp_dl_7d
+je }pe_done
+mov_eax_at 50184600
+shl_eax_4
+add_eax_i 00204600
+mov_at_eax 68184600
+mov_edi_eax
+mov_rax_r14
+mov_atrdi_rax
+mov_rdi_r14
+call }scan_name
+mov_rcx_rax
+sub_rcx_r14
+mov_r14_rax
+mov_eax_at 68184600
+mov_edi_eax
+mov_eax_ecx
+mov_atrdi8_eax
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3d
+jne }pe_storeval
+inc_r14
+call }skip_ws
+xor_eax_eax
+mov_at_eax 60184600
+:pe_digit
+movzx_al_r14
+cmp_al_30
+jb }pe_digdone
+cmp_al_3a
+jae }pe_digdone
+mov_ecx_eax
+sub_ecx_i 30000000
+mov_eax_at 60184600
+mov_edx_eax
+shl_eax_2
+add_eax_edx
+add_eax_eax
+add_eax_ecx
+mov_at_eax 60184600
+inc_r14
+jmp }pe_digit
+:pe_digdone
+:pe_storeval
+mov_eax_at 68184600
+mov_edi_eax
+mov_eax_at 60184600
+mov_atrdi12_eax
+mov_eax_at 50184600
+inc_eax
+mov_at_eax 50184600
+mov_eax_at 60184600
+inc_eax
+mov_at_eax 60184600
+:pe_comma
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2c
+jne }pe_loop
+inc_r14
+jmp }pe_loop
+:pe_done
+inc_r14
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3b
+jne }pe_ret
+inc_r14
+:pe_ret
+ret
+:find_enum             # NAME -> EN_FOUND(0x461870) + eax=value
+xor_eax_eax
+mov_at_eax 58184600
+:fe2_loop
+mov_eax_at 58184600
+cmp_eax_at 50184600
+jae }fe2_nf
+shl_eax_4
+add_eax_i 00204600
+mov_at_eax 38034600
+call }streq_ent
+test_eax_eax
+jnz }fe2_hit
+mov_eax_at 58184600
+inc_eax
+mov_at_eax 58184600
+jmp }fe2_loop
+:fe2_hit
+mov_eax_i 01000000
+mov_at_eax 70184600
+mov_eax_at 38034600
+add_eax_i 0c000000
+mov_eax_atrax
+ret
+:fe2_nf
+xor_eax_eax
+mov_at_eax 70184600
+ret
+
+:parse_global           # top-level `int/char [*] NAME ... ;` -> register a global (addr 0x460000+i*8)
+movzx_r14_dl
+cmp_dl_63
+jne }pg_int
+add_r14_4
+mov_eax_i ff000000
+mov_at_eax 00184600
+jmp }pg_named
+:pg_int
+add_r14_3
+xor_eax_eax
+mov_at_eax 00184600
+:pg_named
+call }skip_ws
+xor_eax_eax
+mov_at_eax 08184600
+movzx_r14_dl
+cmp_dl_2a
+jne }pg_reg
+inc_r14
+mov_eax_i 01000000
+mov_at_eax 08184600
+call }skip_ws
+:pg_reg
+mov_eax_at e8404600
+shl_eax_4
+add_eax_i 00504600
+mov_at_eax 20404600
+mov_edi_eax
+mov_rax_r14
+mov_atrdi_rax
+mov_rdi_r14
+call }scan_name
+mov_rcx_rax
+sub_rcx_r14
+mov_r14_rax
+mov_eax_at 20404600
+mov_edi_eax
+mov_eax_ecx
+mov_atrdi8_eax
+mov_eax_i 01000000
+mov_at_eax c8404600
+xor_eax_eax
+mov_at_eax e0404600
+movzx_al_r14
+cmp_al_5b
+jne }pg_noarr
+mov_eax_i 01000000
+mov_at_eax e0404600
+inc_r14
+xor_eax_eax
+mov_at_eax c8404600
+:pg_asz
+movzx_al_r14
+cmp_al_30
+jb }pg_aszd
+cmp_al_3a
+jae }pg_aszd
+mov_ecx_eax
+sub_ecx_i 30000000
+mov_eax_at c8404600
+mov_edx_eax
+shl_eax_2
+add_eax_edx
+add_eax_eax
+add_eax_ecx
+mov_at_eax c8404600
+inc_r14
+jmp }pg_asz
+:pg_aszd
+inc_r14
+mov_eax_at 00184600
+test_eax_eax
+jz }pg_noarr
+mov_eax_at c8404600
+add_eax_i 07000000
+shr_eax_3
+mov_at_eax c8404600
+:pg_noarr
+# GADDR-WIDEN: store the FULL slot-index (NCOUNT, address/8) in a parallel array GSLOT[gidx] @0x480000,
+# instead of packing it into the descriptor's low 23 bits. The old pack overflowed NCOUNT into the
+# array-bit (bit 23) once a global's address exceeded 2^26 (67MB) -> find_global mis-classified the ref
+# -> flatten_expr runaway. The descriptor now carries ONLY the array-bit + type-tag (set below), clean.
+mov_eax_at e8404600       # gidx = NGLOB (this global's index; incremented later)
+mov_ecx_eax
+mov_eax_at 00404600       # NCOUNT (full slot-index = address/8)
+mov_atsib_eax 00004800    # GSLOT[gidx] = NCOUNT  (GSLOT base 0x480000, 4-byte stride)
+xor_eax_eax
+mov_at_eax 28404600       # descriptor := 0 (array-bit + type-tag OR'd in below; NO slot-index)
+mov_eax_at 00184600
+test_eax_eax
+jz }pg_notag
+mov_eax_at 00184600
+shl_eax_24
+or_eax_at 28404600
+mov_at_eax 28404600
+:pg_notag
+mov_eax_at e0404600
+test_eax_eax
+jz }pg_noarrbit
+mov_eax_at 28404600
+add_eax_i 00008000
+mov_at_eax 28404600
+:pg_noarrbit
+mov_eax_at 20404600
+mov_edi_eax
+mov_eax_at 28404600
+mov_atrdi12_eax
+mov_eax_at 00404600
+add_eax_at c8404600
+mov_at_eax 00404600
+mov_eax_at e8404600
+inc_eax
+mov_at_eax e8404600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3d
+jne }pg_semi
+inc_r14
+call }skip_ws
+movzx_r14_dl
+cmp_dl_7b
+je }pg_arrinit
+xor_eax_eax
+mov_at_eax 40404600
+:pg_digit
+movzx_al_r14
+cmp_al_30
+jb }pg_digdone
+cmp_al_3a
+jae }pg_digdone
+mov_ecx_eax
+sub_ecx_i 30000000
+mov_eax_at 40404600
+mov_edx_eax
+shl_eax_2
+add_eax_edx
+add_eax_eax
+add_eax_ecx
+mov_at_eax 40404600
+inc_r14
+jmp }pg_digit
+:pg_digdone
+mov_eax_at 38404600
+shl_eax_4
+add_eax_i 00604600
+mov_edi_eax
+mov_eax_at e8404600
+add_eax_i ffffffff
+mov_ecx_eax
+mov_eax_sib 00004800
+shl_eax_3
+add_eax_i 00004600
+mov_atrdi_eax
+mov_eax_at 38404600
+shl_eax_4
+add_eax_i 00604600
+add_eax_i 08000000
+mov_edi_eax
+mov_eax_at 40404600
+mov_atrdi_eax
+mov_eax_at 38404600
+inc_eax
+mov_at_eax 38404600
+:pg_semi
+movzx_r14_dl
+cmp_dl_3b
+je }pg_done
+inc_r14
+jmp }pg_semi
+:pg_done
+inc_r14
+ret
+:pg_arrinit               # global `int t[N] = { e0, e1, ... }` -> record (t_addr + k*8, ek) per
+inc_r14                   # element in the global-init table (emitted as `store` at main entry)
+mov_eax_at e8404600
+add_eax_i ffffffff
+mov_ecx_eax
+mov_eax_sib 00004800
+shl_eax_3
+add_eax_i 00004600
+mov_at_eax f8024600
+xor_eax_eax
+mov_at_eax e8024600       # IDX = 0
+:pgai_loop
+call }skip_ws
+movzx_r14_dl
+cmp_dl_7d
+je }pgai_done
+xor_eax_eax
+mov_at_eax 40404600       # NEGATE = 0; handle a leading '-' (also fixes the infinite-loop on '-')
+movzx_r14_dl
+cmp_dl_2d
+jne }pgai_noneg
+mov_eax_i 01000000
+mov_at_eax 40404600
+inc_r14
+call }skip_ws
+:pgai_noneg
+xor_eax_eax
+mov_at_eax f0024600       # parse the element value (decimal)
+:pgai_digit
+movzx_al_r14
+cmp_al_30
+jb }pgai_digdone
+cmp_al_3a
+jae }pgai_digdone
+mov_ecx_eax
+sub_ecx_i 30000000
+mov_eax_at f0024600
+mov_edx_eax
+shl_eax_2
+add_eax_edx
+add_eax_eax
+add_eax_ecx
+mov_at_eax f0024600
+inc_r14
+jmp }pgai_digit
+:pgai_digdone
+mov_eax_at 40404600       # apply the leading '-' (if any)
+test_eax_eax
+jz }pgai_rec
+mov_eax_at f0024600
+neg_eax
+mov_at_eax f0024600
+:pgai_rec
+mov_eax_at 38404600       # entry = 0x460060 + count*16; entry[+0] = t_addr + IDX*8
+shl_eax_4
+add_eax_i 00604600
+mov_edi_eax
+mov_eax_at e8024600
+shl_eax_3
+add_eax_at f8024600
+mov_atrdi_eax
+mov_eax_at 38404600       # entry[+8] = value
+shl_eax_4
+add_eax_i 00604600
+add_eax_i 08000000
+mov_edi_eax
+mov_eax_at f0024600
+mov_atrdi_eax
+mov_eax_at 38404600       # count++
+inc_eax
+mov_at_eax 38404600
+mov_eax_at e8024600       # IDX++
+inc_eax
+mov_at_eax e8024600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2c
+jne }pgai_loop
+inc_r14
+jmp }pgai_loop
+:pgai_done
+inc_r14                   # consume '}'
+jmp }pg_semi
+:emit_global_inits      # at main entry: for each `int g = N;` global, emit store of N
+xor_eax_eax
+mov_at_eax 48404600
+:egi_loop
+mov_eax_at 48404600
+cmp_eax_at 38404600
+jae }egi_done
+shl_eax_4
+add_eax_i 00604600
+mov_at_eax 50404600
+mov_eax_at 50404600
+mov_eax_atrax
+mov_at_eax d0104600
+call }emit_constval
+mov_at_eax 58404600
+mov_eax_at 50404600
+add_eax_i 08000000
+mov_eax_atrax
+mov_at_eax d0104600
+call }emit_constval
+mov_at_eax 60404600
+mov_esi_i =store_pfx
+mov_edx_i 07000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 58404600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 60404600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 48404600
+inc_eax
+mov_at_eax 48404600
+jmp }egi_loop
+:egi_done
+ret
+
+:find_global            # NAME -> GL_FOUND(0x464010) + eax=address
+xor_eax_eax
+mov_at_eax 08404600
+:fg_loop
+mov_eax_at 08404600
+cmp_eax_at e8404600
+jae }fg_nf
+shl_eax_4
+add_eax_i 00504600
+mov_at_eax 38034600
+call }streq_ent
+test_eax_eax
+jnz }fg_hit
+mov_eax_at 08404600
+inc_eax
+mov_at_eax 08404600
+jmp }fg_loop
+:fg_hit
+mov_eax_i 01000000
+mov_at_eax 10404600
+mov_eax_at 38034600
+add_eax_i 0c000000
+mov_eax_atrax
+mov_at_eax d8404600
+mov_ecx_eax
+shr_ecx_24
+mov_at_ecx 40104600
+mov_eax_at d8404600
+and_eax_i 00008000
+mov_at_eax d0404600
+mov_eax_at 08404600       # GADDR-WIDEN: gidx of the matched global
+mov_ecx_eax
+mov_eax_sib 00004800      # slot-index = GSLOT[gidx] (full, un-capped)
+shl_eax_3
+add_eax_i 00004600
+ret
+:fg_nf
+xor_eax_eax
+mov_at_eax 10404600
+ret
+
+:parse_struct            # r14 at 'struct' -> register Name + fields, advance past '};'
+add_r14_6
+call }skip_ws
+mov_eax_at 00104600
+shl_eax_4
+add_eax_i 00114600
+mov_at_eax 20104600
+mov_edi_eax
+mov_rax_r14
+mov_atrdi_rax
+mov_rdi_r14
+call }scan_name
+mov_rcx_rax
+sub_rcx_r14
+mov_r14_rax
+mov_eax_at 20104600
+mov_edi_eax
+mov_eax_ecx
+mov_atrdi8_eax
+mov_eax_at 00104600
+mov_at_eax 10104600
+xor_eax_eax
+mov_at_eax 18104600
+call }skip_ws
+inc_r14
+:ps_fld
+call }skip_ws
+movzx_r14_dl
+cmp_dl_7d
+je }ps_done
+xor_eax_eax
+mov_at_eax e8024600       # PTRTYPE = 0 (default: int/char scalar field)
+movzx_r14_dl
+cmp_dl_73                 # `struct M *field` -- a struct-pointer field (1-slot scalar holding an addr)
+je }ps_fstruct
+cmp_dl_63
+jne }ps_fint
+add_r14_4
+jmp }ps_fname
+:ps_fstruct
+add_r14_6                 # skip "struct"
+call }skip_ws
+call }read_name           # the struct name M
+call }find_struct         # M's sidx
+inc_eax
+mov_at_eax e8024600       # PTRTYPE = M_sidx + 1 (the field points to struct M)
+call }skip_ws
+inc_r14                   # skip '*'
+jmp }ps_fname
+:ps_fint
+add_r14_3
+:ps_fname
+call }skip_ws
+mov_eax_at 08104600
+shl_eax_4
+add_eax_i 00144600
+mov_at_eax 28104600
+mov_edi_eax
+mov_rax_r14
+mov_atrdi_rax
+mov_rdi_r14
+call }scan_name
+mov_rcx_rax
+sub_rcx_r14
+mov_r14_rax
+mov_eax_at 28104600
+mov_edi_eax
+mov_eax_ecx
+mov_atrdi8_eax
+mov_eax_at 28104600
+mov_edi_eax
+mov_eax_at 10104600
+shl_eax_16
+or_eax_at 18104600        # CUR_SIDX<<16 | fieldidx
+mov_at_eax f8024600
+mov_eax_at e8024600       # PTRTYPE (struct-ptr target sidx+1, or 0) in bits 24-31
+shl_eax_24
+or_eax_at f8024600
+mov_atrdi12_eax
+call }skip_ws
+movzx_r14_dl
+cmp_dl_5b
+jne }psf_scalar
+inc_r14
+call }skip_ws
+movzx_al_r14
+sub_eax_i 30000000
+mov_at_eax 88404600
+mov_eax_at 18104600
+add_eax_at 88404600
+mov_at_eax 18104600
+inc_r14
+call }skip_ws
+inc_r14
+jmp }psf_done
+:psf_scalar
+mov_eax_at 18104600
+inc_eax
+mov_at_eax 18104600
+:psf_done
+mov_eax_at 08104600
+inc_eax
+mov_at_eax 08104600
+:ps_fsemi
+movzx_r14_dl
+cmp_dl_3b
+je }ps_fsdone
+inc_r14
+jmp }ps_fsemi
+:ps_fsdone
+inc_r14
+jmp }ps_fld
+:ps_done
+inc_r14
+mov_eax_at 20104600
+mov_edi_eax
+mov_eax_at 18104600
+mov_atrdi12_eax
+mov_eax_at 00104600
+inc_eax
+mov_at_eax 00104600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3b
+jne }ps_ret
+inc_r14
+:ps_ret
+ret
+
+:skip_ws
+movzx_r14_dl
+cmp_dl_20
+je }sw_adv
+cmp_dl_0a
+je }sw_adv
+cmp_dl_09
+je }sw_adv
+cmp_dl_2f
+je }sw_slash
+ret
+:sw_adv
+inc_r14
+jmp }skip_ws
+:sw_slash                 # '/' -- a comment, or just division
+movzx_r14_1_dl
+cmp_dl_2f
+je }sw_line
+cmp_dl_2a
+je }sw_block
+ret
+:sw_line                  # // ... -> skip to end of line
+movzx_r14_dl
+cmp_dl_0a
+je }skip_ws
+inc_r14
+jmp }sw_line
+:sw_block                 # /* ... */ -> skip to the closing */
+inc_r14
+inc_r14
+:sw_blkscan
+movzx_r14_dl
+cmp_dl_2a
+je }sw_blkstar
+inc_r14
+jmp }sw_blkscan
+:sw_blkstar
+movzx_r14_1_dl
+cmp_dl_2f
+je }sw_blkend
+inc_r14
+jmp }sw_blkscan
+:sw_blkend
+inc_r14
+inc_r14
+jmp }skip_ws
+
+:scan_num
+mov_rax_rdi
+:snm_loop
+movzx_rax_dl
+cmp_dl_30
+jb }snm_done
+cmp_dl_3a
+jae }snm_done
+inc_rax
+jmp }snm_loop
+:snm_done
+ret
+
+# cpy: rsi=src rdx=len -> append to [r15], advancing r15
+:cpy
+mov_rax_r15               # SIPE-T (cf-emitter-overflow doc) §7 bounds-assert on the OUT tier: if the
+cmp_eax_i 00f04500        # rzir write pointer reaches 0x45f000 (4KB before cells @0x460000), the rzir
+jae }out_overflow         # exceeds OUTBUF -> exit DETERMINISTICALLY (code 7), never corrupt/segfault
+:cpy_l
+test_rdx_rdx
+jz }cpy_done
+movzx_at_rsi
+movb_al_r15
+inc_r15
+inc_rsi
+dec_rdx
+jmp }cpy_l
+:cpy_done
+ret
+:out_overflow             # OUTBUF near full -> STREAM: flush accumulated rzir to stdout, reset the
+push_rsi                  # write pointer, continue. rzir is forward-only (cf resolves labels/calls,
+push_rdx                  # cc never backpatches the OUT text), so chunked output concatenates exactly.
+mov_eax_i 01000000        # SAVE cpy's src+len first -- the write syscall clobbers rsi/rdx/rax.
+mov_edi_i 01000000
+mov_esi_i 00004500        # write(1, OUTBUF=0x450000, r15 - 0x450000)
+mov_rdx_r15
+sub_rdx_i 00004500
+syscall
+mov_r15d_i 00004500       # reset OUT pointer to the buffer base; the rzir cap is now unbounded
+pop_rdx
+pop_rsi
+jmp }cpy_l
+
+# find: rdi=needle rsi=len rdx=start -> rax = ptr after match
+:find
+mov_r8_rdx
+:f_outer
+mov_rax_r8
+add_rax_rsi
+cmp_rax_r13
+ja }f_none
+xor_ecx_ecx
+:f_inner
+cmp_rcx_rsi
+je }f_hit
+movzx_r8rcx
+movzx_rdircx
+cmp_al_dl
+jne }f_next
+inc_rcx
+jmp }f_inner
+:f_next
+inc_r8
+jmp }f_outer
+:f_hit
+lea_rax_r8rsi
+ret
+:f_none
+xor_eax_eax
+ret
+
+# scanners
+:scan_nl
+mov_rax_rdi
+:snl_loop
+movzx_rax_dl
+cmp_dl_0a
+je }snl_done
+inc_rax
+jmp }snl_loop
+:snl_done
+ret
+:scan_to_colon
+mov_rax_rdi
+:stc_loop
+movzx_rax_dl
+cmp_dl_3a
+je }stc_done
+inc_rax
+jmp }stc_loop
+:stc_done
+ret
+:scan_to_sp
+mov_rax_rdi
+:sts_loop
+movzx_rax_dl
+cmp_dl_20
+je }sts_done
+inc_rax
+jmp }sts_loop
+:sts_done
+ret
+:scan_to_spnl
+mov_rax_rdi
+:ssn_loop
+movzx_rax_dl
+cmp_dl_20
+je }ssn_done
+cmp_dl_0a
+je }ssn_done
+inc_rax
+jmp }ssn_loop
+:ssn_done
+ret
+
+
+# flatten_expr: parse an additive chain (terms = literal or single-char var),
+# fold it left-associatively to three-address rzir. -> result slot in eax.
+:flatten_expr            # ternary `c ? a : b` (top) -> sel; else falls to logical
+call }parse_or
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3f
+jne }ft_done
+push_rax
+inc_r14
+call }flatten_expr
+push_rax
+call }skip_ws
+inc_r14
+call }flatten_expr
+mov_at_eax 10004600
+pop_rax
+mov_at_eax 08004600
+pop_rax
+mov_at_eax 18004600
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =sel_op
+mov_edx_i 03000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 18004600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 08004600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 10004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+mov_eax_at 00004600
+dec_eax
+ret
+:ft_done
+ret
+
+:parse_or               # || (short-circuit): result starts 1; skip rhs when lhs!=0
+call }parse_and
+push_rax
+:por_loop
+call }skip_ws
+movzx_r14_dl
+cmp_dl_7c
+jne }por_done
+movzx_r14_1_dl
+cmp_dl_7c
+jne }por_done
+add_r14_2
+mov_eax_i 01000000
+mov_at_eax d0104600
+call }emit_constval
+mov_at_eax 10184600
+pop_rax
+mov_at_eax 08004600
+mov_eax_at 58004600
+mov_at_eax 10004600
+mov_eax_i 08000000
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 18184600
+mov_esi_i =brz_pfx
+mov_edx_i 07000000
+call }cpy
+mov_eax_at 18184600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 10184600
+push_rax
+call }parse_and
+mov_at_eax 08004600
+mov_eax_at 58004600
+mov_at_eax 10004600
+mov_eax_i 09000000
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 28184600
+pop_rax
+mov_at_eax 10184600
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 10184600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =op_table
+mov_edx_i 03000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 28184600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 58004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_esi_i =pool_kw
+mov_edx_i 07000000
+call }cpy
+mov_eax_at 10184600
+push_rax
+jmp }por_loop
+:por_done
+pop_rax
+ret
+:parse_and              # && (short-circuit): result starts 0; skip rhs when lhs==0
+call }parse_bit
+push_rax
+:pand_loop
+call }skip_ws
+movzx_r14_dl
+cmp_dl_26
+jne }pand_done
+movzx_r14_1_dl
+cmp_dl_26
+jne }pand_done
+add_r14_2
+xor_eax_eax
+mov_at_eax d0104600
+call }emit_constval
+mov_at_eax 10184600
+pop_rax
+mov_at_eax 18184600
+mov_esi_i =brz_pfx
+mov_edx_i 07000000
+call }cpy
+mov_eax_at 18184600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 10184600
+push_rax
+call }parse_bit
+mov_at_eax 08004600
+mov_eax_at 58004600
+mov_at_eax 10004600
+mov_eax_i 09000000
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 28184600
+pop_rax
+mov_at_eax 10184600
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 10184600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =op_table
+mov_edx_i 03000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 28184600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 58004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_esi_i =pool_kw
+mov_edx_i 07000000
+call }cpy
+mov_eax_at 10184600
+push_rax
+jmp }pand_loop
+:pand_done
+pop_rax
+ret
+
+:parse_bit               # bitwise level (& | ^), below comparison in precedence
+call }parse_cmp
+push_rax
+:bit_loop
+call }skip_ws
+movzx_r14_dl
+cmp_dl_26
+je }bit_and
+cmp_dl_7c
+je }bit_or
+cmp_dl_5e
+je }bit_xor
+pop_rax
+ret
+:bit_and
+movzx_r14_1_dl
+cmp_dl_26
+je }bit_stop
+mov_eax_i 0b000000
+jmp }bit_op
+:bit_or
+movzx_r14_1_dl
+cmp_dl_7c
+je }bit_stop
+mov_eax_i 0c000000
+jmp }bit_op
+:bit_xor
+mov_eax_i 0d000000
+:bit_op
+push_rax
+inc_r14
+call }parse_cmp
+mov_at_eax 10004600
+pop_rax
+mov_at_eax 18004600
+pop_rax
+mov_at_eax 08004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+push_rax
+jmp }bit_loop
+:bit_stop
+pop_rax
+ret
+
+:parse_cmp
+call }parse_shift
+push_rax
+:cmp_loop
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3c
+je }cmp_lt
+cmp_dl_3e
+je }cmp_gt
+cmp_dl_3d
+je }cmp_eq
+cmp_dl_21
+je }cmp_ne
+pop_rax
+ret
+:cmp_lt
+movzx_r14_1_dl
+cmp_dl_3d
+jne }cmp_lt1
+mov_eax_i 06000000
+add_r14_2
+jmp }cmp_emit
+:cmp_lt1
+mov_eax_i 04000000
+inc_r14
+jmp }cmp_emit
+:cmp_gt
+movzx_r14_1_dl
+cmp_dl_3d
+jne }cmp_gt1
+mov_eax_i 07000000
+add_r14_2
+jmp }cmp_emit
+:cmp_gt1
+mov_eax_i 05000000
+inc_r14
+jmp }cmp_emit
+:cmp_eq
+mov_eax_i 08000000
+add_r14_2
+jmp }cmp_emit
+:cmp_ne
+mov_eax_i 09000000
+add_r14_2
+:cmp_emit
+push_rax
+call }parse_shift
+mov_at_eax 10004600
+pop_rax
+mov_at_eax 18004600
+pop_rax
+mov_at_eax 08004600
+mov_eax_at 18004600       # G6: if op is lt/gt/le/ge (4..7) and an operand is unsigned, op += 12
+cmp_eax_i 04000000
+jb }cmp_emit_go
+cmp_eax_i 08000000
+jae }cmp_emit_go
+mov_eax_at 08004600
+arr_ld
+mov_edx_ecx
+mov_eax_at 10004600
+arr_ld
+or_ecx_edx
+test_ecx_ecx
+jz }cmp_emit_go
+mov_eax_at 18004600
+add_eax_i 0c000000
+mov_at_eax 18004600
+:cmp_emit_go
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+push_rax
+jmp }cmp_loop
+
+:parse_shift              # << >> : binds tighter than comparison, looser than additive
+call }parse_add
+push_rax
+:shift_loop
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3c
+je }shift_lt
+cmp_dl_3e
+je }shift_gt
+pop_rax
+ret
+:shift_lt
+movzx_r14_1_dl
+cmp_dl_3c
+jne }shift_ret           # single '<' -> comparison, return to parse_cmp
+mov_eax_i 0e000000       # op 14 = shl
+add_r14_2
+jmp }shift_emit
+:shift_gt
+movzx_r14_1_dl
+cmp_dl_3e
+jne }shift_ret           # single '>' -> comparison
+mov_eax_i 0f000000       # op 15 = shr
+add_r14_2
+jmp }shift_emit
+:shift_ret
+pop_rax
+ret
+:shift_emit
+push_rax
+call }parse_add
+mov_at_eax 10004600
+pop_rax
+mov_at_eax 18004600
+pop_rax
+mov_at_eax 08004600
+mov_eax_at 18004600       # G6: if op is shr(15) and the LEFT operand is unsigned, use shu(20)
+cmp_eax_i 0f000000
+jne }shift_emit_go
+mov_eax_at 08004600
+arr_ld
+test_ecx_ecx
+jz }shift_emit_go
+mov_eax_i 14000000        # shu = 20 (logical shift right)
+mov_at_eax 18004600
+:shift_emit_go
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+push_rax
+jmp }shift_loop
+
+:parse_add
+call }parse_mul
+push_rax
+:fxe_loop
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2b
+je }fxe_add
+cmp_dl_2d
+je }fxe_sub
+pop_rax
+ret
+:fxe_add
+xor_eax_eax
+jmp }fxe_op
+:fxe_sub
+mov_eax_i 01000000
+:fxe_op
+push_rax
+inc_r14
+call }parse_mul
+mov_at_eax 10004600
+pop_rax
+mov_at_eax 18004600
+pop_rax
+mov_at_eax 08004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+push_rax
+jmp }fxe_loop
+
+# parse_mul: the multiplicative level (* /), binds tighter than + -.
+:parse_mul
+call }parse_factor
+push_rax
+:pm_loop
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2a
+je }pm_mul
+cmp_dl_2f
+je }pm_div
+cmp_dl_25
+je }pm_mod
+pop_rax
+ret
+:pm_mul
+mov_eax_i 02000000
+jmp }pm_op
+:pm_div
+mov_eax_i 03000000
+jmp }pm_op
+:pm_mod
+mov_eax_i 0a000000
+:pm_op
+push_rax
+inc_r14
+call }parse_factor
+mov_at_eax 10004600
+pop_rax
+mov_at_eax 18004600
+pop_rax
+mov_at_eax 08004600
+mov_eax_at 18004600       # G6: div(3)/mod(10) with an unsigned operand -> duv(21)/udm(22)
+cmp_eax_i 03000000
+je }pm_uchk
+cmp_eax_i 0a000000
+jne }pm_op_go
+:pm_uchk
+mov_eax_at 08004600
+arr_ld
+mov_edx_ecx
+mov_eax_at 10004600
+arr_ld
+or_ecx_edx
+test_ecx_ecx
+jz }pm_op_go
+mov_eax_at 18004600
+cmp_eax_i 03000000
+jne }pm_umod
+mov_eax_i 15000000        # duv = 21
+mov_at_eax 18004600
+jmp }pm_op_go
+:pm_umod
+mov_eax_i 16000000        # udm = 22
+mov_at_eax 18004600
+:pm_op_go
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+push_rax
+jmp }pm_loop
+
+# parse_factor: a literal, a variable, or a parenthesised expr (recurses to the top).
+:emit_constval          # emit `v<N> = const <[CONSTVAL=0x4610d0]>`; returns slot in eax
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =const_kw
+mov_edx_i 06000000
+call }cpy
+mov_eax_at d0104600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+mov_eax_at 00004600
+dec_eax
+ret
+:emit_add               # emit `v<N> = add v<[ADDA]> v<[ADDB]>`; returns slot
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =op_table
+mov_edx_i 03000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at d8104600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at e0104600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+mov_eax_at 00004600
+dec_eax
+ret
+:pf_sizeof              # sizeof(TYPE) -> const (int 4, char 1, ptr 8, struct fields*4)
+add_r14_6
+call }skip_ws
+inc_r14
+call }skip_ws
+movzx_r14_dl
+cmp_dl_63
+je }pf_sz_char
+cmp_dl_73
+je }pf_sz_struct
+add_r14_3
+mov_eax_i 04000000
+jmp }pf_sz_ptr
+:pf_sz_char
+add_r14_4
+mov_eax_i 01000000
+jmp }pf_sz_ptr
+:pf_sz_struct
+add_r14_6
+call }skip_ws
+call }read_name
+call }find_struct
+shl_eax_4
+add_eax_i 00114600
+add_eax_i 0c000000
+mov_eax_atrax
+shl_eax_2
+:pf_sz_ptr
+mov_at_eax d0104600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2a
+jne }pf_sz_emit
+inc_r14
+mov_eax_i 08000000
+mov_at_eax d0104600
+:pf_sz_emit
+call }skip_ws
+inc_r14
+call }emit_constval
+ret
+
+:pf_string              # "..." -> byte-pack into reserved slots; yield base pointer
+inc_r14
+mov_rax_r14
+mov_at_rax a8104600
+:pfs_findend
+movzx_r14_dl
+cmp_dl_22
+je }pfs_gotend
+inc_r14
+jmp }pfs_findend
+:pfs_gotend
+mov_rax_r14
+sub_rax_at a8104600
+mov_at_eax c8104600
+mov_eax_at c8104600
+add_eax_i 08000000
+shr_eax_3
+mov_at_eax e8104600
+mov_eax_at 00004600
+mov_at_eax d0004600
+mov_eax_at 00004600
+add_eax_at e8104600
+mov_at_eax 00004600
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =ref_kw
+mov_edx_i 03000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at d0004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 00004600
+mov_at_eax c0104600
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+mov_rax_at a8104600
+mov_r14_rax
+xor_eax_eax
+mov_at_eax b0104600
+:pfs_emit
+movzx_al_r14
+cmp_al_22
+je }pfs_emitdone
+cmp_al_5c
+jne }pfs_store2
+inc_r14
+movzx_al_r14
+cmp_al_6e
+je }pfs_e_n
+cmp_al_74
+je }pfs_e_t
+cmp_al_30
+je }pfs_e_0
+cmp_al_72
+je }pfs_e_r
+jmp }pfs_store2
+:pfs_e_n
+mov_eax_i 0a000000
+jmp }pfs_store2
+:pfs_e_t
+mov_eax_i 09000000
+jmp }pfs_store2
+:pfs_e_0
+xor_eax_eax
+jmp }pfs_store2
+:pfs_e_r
+mov_eax_i 0d000000
+:pfs_store2
+mov_at_eax d0104600
+call }emit_constval
+mov_at_eax f0104600
+mov_eax_at b0104600
+mov_at_eax d0104600
+call }emit_constval
+mov_at_eax e0104600
+mov_eax_at c0104600
+mov_at_eax d8104600
+call }emit_add
+mov_at_eax f8104600
+mov_esi_i =storeb_pfx
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at f8104600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at f0104600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at b0104600
+inc_eax
+mov_at_eax b0104600
+inc_r14
+jmp }pfs_emit
+:pfs_emitdone
+inc_r14
+xor_eax_eax
+mov_at_eax d0104600
+call }emit_constval
+mov_at_eax f0104600
+mov_eax_at b0104600
+mov_at_eax d0104600
+call }emit_constval
+mov_at_eax e0104600
+mov_eax_at c0104600
+mov_at_eax d8104600
+call }emit_add
+mov_at_eax f8104600
+mov_esi_i =storeb_pfx
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at f8104600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at f0104600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at c0104600
+ret
+
+:parse_factor
+call }skip_ws
+movzx_r14_dl              # full-token match `sizeof` + non-identifier boundary
+cmp_dl_73
+jne }pf_notsizeof
+movzx_r14_1_dl
+cmp_dl_69
+jne }pf_notsizeof
+movzx_r14_2_dl
+cmp_dl_7a
+jne }pf_notsizeof
+movzx_r14_3_dl
+cmp_dl_65
+jne }pf_notsizeof
+movzx_r14_4_dl
+cmp_dl_6f
+jne }pf_notsizeof
+movzx_r14_5_dl
+cmp_dl_66
+jne }pf_notsizeof
+movzx_r14_6_dl           # char after `sizeof` must not continue an identifier
+cmp_dl_30
+jb }pf_sizeof
+cmp_dl_3a
+jb }pf_notsizeof
+cmp_dl_41
+jb }pf_sizeof
+cmp_dl_5b
+jb }pf_notsizeof
+cmp_dl_5f
+je }pf_notsizeof
+cmp_dl_61
+jb }pf_sizeof
+cmp_dl_7b
+jae }pf_sizeof
+:pf_notsizeof
+movzx_r14_dl
+cmp_dl_22
+je }pf_string
+cmp_dl_2b
+je }pf_plus
+cmp_dl_2d
+je }pf_neg
+cmp_dl_21
+je }pf_not
+cmp_dl_7e
+je }pf_bnot
+cmp_dl_27
+je }pf_char
+cmp_dl_26
+je }pf_addr
+cmp_dl_2a
+je }pf_deref
+cmp_dl_28
+je }pf_paren
+cmp_dl_30
+jb }pf_id
+cmp_dl_3a
+jae }pf_id
+call }emit_const
+mov_eax_at 00004600
+dec_eax
+ret
+:pf_id
+call }read_name
+movzx_r14_dl
+cmp_dl_2b
+je }pf_postinc_q
+cmp_dl_28
+je }pf_call
+cmp_dl_5b
+je }pf_index
+cmp_dl_2e
+je }pf_dot
+cmp_dl_2d
+je }pf_minus_q
+cmp_dl_3d
+je }pf_assign_q
+mov_rax_r14               # lookahead: ` = ` (whitespace before '=') is still an assignment
+push_rax
+call }skip_ws
+movzx_r14_dl
+cmp_dl_3d
+jne }pf_id_rewind
+movzx_r14_1_dl
+cmp_dl_3d
+je }pf_id_rewind          # ' == ' -> comparison, not assignment
+pop_rax                   # it IS ` = ` (r14 now at '='); discard the saved cursor
+jmp }pf_assign_q
+:pf_id_rewind
+pop_rax
+mov_r14_rax               # restore r14 (not an assignment)
+:pf_resolve
+call }find_enum
+mov_at_eax d0104600
+mov_eax_at 70184600
+test_eax_eax
+jz }pf_var
+call }emit_constval
+ret
+:pf_var
+call }find_global
+mov_at_eax 28404600
+mov_eax_at 10404600
+test_eax_eax
+jz }pf_local
+mov_eax_at 28404600
+mov_at_eax d0104600
+call }emit_constval
+mov_at_eax 30404600
+mov_eax_at d0404600
+test_eax_eax
+jz }pf_v_load
+mov_eax_at 30404600
+ret
+:pf_v_load
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =load_kw
+mov_edx_i 04000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 30404600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+mov_eax_at 00004600
+dec_eax
+ret
+:pf_local
+call }st_get
+ret
+:pf_dot
+inc_r14
+jmp }pf_member
+:pf_arrow
+movzx_r14_1_dl
+cmp_dl_3e
+jne }pf_arrow_no
+add_r14_2
+jmp }pf_member
+:pf_arrow_no
+jmp }pf_resolve
+:pf_assign_q              # name '=' rhs : assignment expression (locals via st_set, globals via store)
+movzx_r14_1_dl
+cmp_dl_3d
+je }pf_resolve           # '==' -> comparison, resolve the var as a value
+call }find_global        # local vs global? (sets 10404600 = found flag)
+mov_eax_at 10404600
+mov_at_eax e0034600       # save is-global flag
+mov_rax_at 18034600       # save the ENCLOSING lvalue identity + this name across the RHS flatten
+push_rax                  # (re-entrancy: the RHS may read vars/arrays/calls that clobber these,
+mov_eax_at 20034600       #  and an enclosing `v = w = e` needs 18/20 after the RHS)
+push_rax
+mov_rax_at 08034600
+push_rax
+mov_eax_at 10034600
+push_rax
+inc_r14                   # consume '='
+call }flatten_expr        # RHS (right-associative) -> eax
+mov_at_eax 38004600       # save RHS value
+pop_rax
+mov_at_eax 10034600
+pop_rax
+mov_at_rax 08034600
+pop_rax
+mov_at_eax 20034600
+pop_rax
+mov_at_rax 18034600
+mov_eax_at e0034600
+test_eax_eax
+jnz }pf_assign_global
+call }st_get              # LOCAL: write the var's EXISTING slot (v_slot = add RHS ZERO), like
+mov_at_eax 40004600       # sv_assign -- NOT st_set (which remaps to a fresh slot that a skipped
+call }pa_mutate_emit      # branch never writes -> garbage). 38004600 holds the RHS value.
+mov_eax_at 40004600       # the assignment value = the var's (now-updated) slot
+ret
+:pf_assign_global         # g = value: emit const(addr); store addr value; result is the value
+call }find_global
+mov_eax_at 28404600
+mov_at_eax d0104600
+call }emit_constval
+mov_at_eax 30404600
+mov_esi_i =store_pfx
+mov_edx_i 07000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 30404600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at 38004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 38004600
+ret
+:pf_postinc_q             # after a name: '++' postfix, else binary '+'
+movzx_r14_1_dl
+cmp_dl_2b
+je }pf_postinc
+jmp }pf_resolve
+:pf_minus_q               # after a name: '--' postfix, '->' arrow, else binary '-'
+movzx_r14_1_dl
+cmp_dl_2d
+je }pf_postdec
+cmp_dl_3e
+jne }pf_resolve
+add_r14_2
+jmp }pf_member
+:pf_postinc               # a++ : old=a; a=a+1; return OLD (reuses compound machinery + temp scratch)
+add_r14_2
+mov_rax_at 08034600
+mov_at_rax e8034600       # TEMP: save name "a"
+mov_eax_at 10034600
+mov_at_eax f0034600
+call }pf_resolve          # eax = a's value slot
+mov_at_eax 08004600       # emit a STABLE copy: old = a + 0 (a's slot gets reassigned by the mutate)
+mov_eax_at 58004600
+mov_at_eax 10004600
+xor_eax_eax
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+mov_at_eax c8034600       # TEMP: stable old-value copy
+mov_rax_at 18034600       # save enclosing lvalue identity (run_compound clobbers it)
+push_rax
+mov_eax_at 20034600
+push_rax
+mov_rax_at e8034600       # set increment identity from temp
+mov_at_rax 18034600
+mov_eax_at f0034600
+mov_at_eax 20034600
+mov_eax_i 01000000
+mov_at_eax 48184600
+xor_eax_eax
+mov_at_eax 40184600       # op = 0 (add)
+call }run_compound
+pop_rax
+mov_at_eax 20034600
+pop_rax
+mov_at_rax 18034600
+mov_eax_at c8034600        # return OLD value
+ret
+:pf_postdec               # a-- : op = 1 (sub)
+add_r14_2
+mov_rax_at 08034600
+mov_at_rax e8034600
+mov_eax_at 10034600
+mov_at_eax f0034600
+call }pf_resolve
+mov_at_eax 08004600
+mov_eax_at 58004600
+mov_at_eax 10004600
+xor_eax_eax
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+mov_at_eax c8034600
+mov_rax_at 18034600
+push_rax
+mov_eax_at 20034600
+push_rax
+mov_rax_at e8034600
+mov_at_rax 18034600
+mov_eax_at f0034600
+mov_at_eax 20034600
+mov_eax_i 01000000
+mov_at_eax 48184600
+mov_eax_i 01000000
+mov_at_eax 40184600       # op = 1 (sub)
+call }run_compound
+pop_rax
+mov_at_eax 20034600
+pop_rax
+mov_at_rax 18034600
+mov_eax_at c8034600
+ret
+:pf_index
+call }find_global
+mov_at_eax 28404600
+mov_eax_at 10404600
+test_eax_eax
+jz }pi_local
+mov_eax_at 28404600
+mov_at_eax d0104600
+call }emit_constval
+mov_eax_at 00004600
+dec_eax
+mov_at_eax b8004600
+jmp }pi_typesave
+:pi_local
+call }st_get
+mov_at_eax b8004600
+:pi_typesave
+mov_eax_at 40104600
+mov_at_eax c0404600
+inc_r14
+mov_eax_at b8004600       # SAVE base + type on the CPU stack across flatten -- the index may be a
+push_rax                  # NESTED array read b[c[i]] whose flatten recursively re-enters pf_index and
+mov_eax_at c0404600       # clobbers b8004600/c0404600 (the T9 re-entrancy trap). LIFO -> arbitrary nesting.
+push_rax
+call }flatten_expr
+mov_at_eax c0004600
+pop_rax
+mov_at_eax c0404600
+pop_rax
+mov_at_eax b8004600
+call }skip_ws
+inc_r14
+mov_eax_at c0404600       # struct array? (element type not 0=int, not 0xff=char) -> a[i].field
+test_eax_eax
+jz }pi_emit
+cmp_eax_i ff000000
+je }pi_emit
+mov_eax_at c0404600       # nfields = STRUCT[type-1].nfields
+dec_eax
+shl_eax_4
+add_eax_i 00114600
+add_eax_i 0c000000
+mov_eax_atrax
+shl_eax_3                 # stride = nfields * 8 (get/put scale the offset by 8 = slot size, NOT 4;
+mov_at_eax d0104600       # the implicit constraint: stride units must match the get/put offset alphabet)
+call }emit_constval       # v_stride = const stride_bytes
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 10004600
+mov_eax_at c0004600       # v_i (index)
+mov_at_eax 08004600
+mov_eax_i 02000000        # op = mul
+mov_at_eax 18004600
+call }emit_binop          # v_m = v_i * stride_bytes
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 10004600
+mov_eax_at b8004600       # ref(a)
+mov_at_eax 08004600
+xor_eax_eax               # op = add
+mov_at_eax 18004600
+call }emit_binop          # v_base = ref(a) + v_m
+mov_eax_at 00004600
+dec_eax
+mov_at_eax 58104600       # pfm_havebase base = v_base
+mov_eax_at c0404600
+mov_at_eax 40104600       # restore struct type (flatten_expr may have clobbered it)
+call }skip_ws
+inc_r14                   # consume '.'
+jmp }pfm_havebase
+:pi_emit
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_eax_at c0404600
+test_eax_eax
+jz }pi_word
+mov_esi_i =getb_kw
+mov_edx_i 04000000
+call }cpy
+jmp }pi_kwdone
+:pi_word
+mov_esi_i =get_kw
+mov_edx_i 03000000
+call }cpy
+:pi_kwdone
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at b8004600
+call }emit_dec
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at c0004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+mov_eax_at 00004600
+dec_eax
+ret
+
+:pf_call                  # RE-ENTRANT (a nested-call arg re-enters pf_call via flatten_expr):
+mov_rax_at 08034600       # name start ptr
+push_rax                  # save NAME_START on the real stack (was global 88 -> clobbered)
+mov_rcx_at 10034600
+add_rax_rcx               # name end ptr
+push_rax                  # save NAME_END on the real stack (was global 90)
+inc_r14                   # skip '('
+mov_eax_at e0004600       # ARG_SP = the GROWING arg-slot stack top
+push_rax                  # save ARG_base (this call's args start at ARG_SP)
+:pc_arg
+call }skip_ws
+movzx_r14_dl
+cmp_dl_29
+je }pc_done
+call }flatten_expr
+mov_ecx_at e0004600
+mov_atsib_eax 00024600
+mov_eax_at e0004600
+inc_eax
+mov_at_eax e0004600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2c
+jne }pc_arg
+inc_r14
+jmp }pc_arg
+:pc_done
+inc_r14
+pop_rax
+mov_at_eax f0004600       # restore ARG_base -> f0 (reused: old ARGN)
+pop_rax
+mov_at_rax 90004600       # restore NAME_END
+pop_rax
+mov_at_rax 88004600       # restore NAME_START
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+call }is_syscall          # __syscall(...) builtin -> emit `syscall` not `call NAME`
+test_eax_eax
+jnz }pc_syscall
+mov_esi_i =call_kw
+mov_edx_i 05000000
+call }cpy
+mov_rsi_at 88004600
+mov_rdx_at 90004600
+sub_rdx_at 88004600
+call }cpy
+jmp }pc_kwdone
+:pc_syscall
+mov_esi_i =sys_kw
+mov_edx_i 08000000
+call }cpy
+:pc_kwdone
+mov_eax_at f0004600       # emit args from ARG_base ..
+mov_at_eax f8004600
+:pc_emit
+mov_eax_at f8004600
+cmp_eax_at e0004600       # .. to ARG_SP (this call's slice of the growing arg stack)
+jae }pc_emitdone
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_ecx_at f8004600
+mov_eax_sib 00024600
+call }emit_dec
+mov_eax_at f8004600
+inc_eax
+mov_at_eax f8004600
+jmp }pc_emit
+:pc_emitdone
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at f0004600       # pop the arg stack: ARG_SP = ARG_base (frees this call's slots)
+mov_at_eax e0004600
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+mov_eax_at 00004600
+dec_eax
+ret
+
+:pf_paren
+inc_r14
+call }skip_ws
+movzx_r14_dl
+cmp_dl_69
+je }pf_castchk_i
+cmp_dl_63
+je }pf_castchk_c
+:pf_parenexpr
+call }flatten_expr
+:pp_comma                 # comma operator inside ( ): evaluate each, value is the LAST
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2c
+jne }pp_close
+inc_r14                   # consume ','
+call }flatten_expr        # next expr -> overwrites eax (the running last value)
+jmp }pp_comma
+:pp_close
+inc_r14                   # consume ')'
+mov_at_eax d8034600       # trailing .field after a paren, e.g. (*q).x -> member access on the result
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2e
+jne }pp_noprefix
+inc_r14
+mov_eax_at d8034600
+mov_at_eax 58104600
+jmp }pfm_havebase
+:pp_noprefix
+mov_eax_at d8034600
+ret
+:pf_castchk_i
+movzx_r14_1_dl
+cmp_dl_6e
+jne }pf_parenexpr
+movzx_r14_2_dl
+cmp_dl_74
+jne }pf_parenexpr
+movzx_r14_3_dl
+cmp_dl_29
+je }pf_cast_i
+cmp_dl_2a
+je }pf_cast_i
+cmp_dl_20
+je }pf_cast_i
+jmp }pf_parenexpr
+:pf_cast_i
+add_r14_3
+jmp }pf_cast_fin
+:pf_castchk_c
+movzx_r14_1_dl
+cmp_dl_68
+jne }pf_parenexpr
+movzx_r14_2_dl
+cmp_dl_61
+jne }pf_parenexpr
+movzx_r14_3_dl
+cmp_dl_72
+jne }pf_parenexpr
+movzx_r14_4_dl
+cmp_dl_29
+je }pf_cast_c
+cmp_dl_2a
+je }pf_cast_c
+cmp_dl_20
+je }pf_cast_c
+jmp }pf_parenexpr
+:pf_cast_c
+add_r14_4
+:pf_cast_fin
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2a
+jne }pf_cast_rp
+inc_r14
+:pf_cast_rp
+call }skip_ws
+inc_r14
+call }parse_factor
+ret
+:pf_neg                  # -x -> v<N> = sub v<ZERO> v<x>  (or '--a' predecrement)
+movzx_r14_1_dl
+cmp_dl_2d
+je }pf_predec
+inc_r14
+call }parse_factor
+mov_at_eax 10004600
+mov_eax_at 58004600
+mov_at_eax 08004600
+mov_eax_i 01000000
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+ret
+:pf_not                  # !x -> v<N> = eq v<x> v<ZERO>
+inc_r14
+call }parse_factor
+mov_at_eax 08004600
+mov_eax_at 58004600
+mov_at_eax 10004600
+mov_eax_i 08000000
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+ret
+
+:pf_plus                  # '+' prefix: '++a' (pre-increment) or unary '+' (no-op)
+movzx_r14_1_dl
+cmp_dl_2b
+je }pf_preinc
+inc_r14                   # single '+' -> unary plus: skip, parse the operand
+jmp }pf_notsizeof
+:pf_preinc                # ++a -> a = a + 1 ; result is the NEW value (reuses the compound machinery)
+add_r14_2
+mov_rax_at 18034600       # SAVE the enclosing lvalue/decl identity -- read_name + run_compound
+push_rax                  # below clobber it, and an enclosing `x = ++a` needs it after the RHS
+mov_eax_at 20034600
+push_rax
+mov_rax_at 08034600
+push_rax
+mov_eax_at 10034600
+push_rax
+call }read_name
+mov_rax_at 08034600
+mov_at_rax 18034600
+mov_eax_at 10034600
+mov_at_eax 20034600
+mov_eax_i 01000000
+mov_at_eax 48184600       # is-increment: RHS = const 1
+xor_eax_eax
+mov_at_eax 40184600       # op = 0 (add)
+call }run_compound
+pop_rax
+mov_at_eax 10034600       # RESTORE (LIFO)
+pop_rax
+mov_at_rax 08034600
+pop_rax
+mov_at_eax 20034600
+pop_rax
+mov_at_rax 18034600
+mov_eax_at 38004600       # the new value
+ret
+
+:pf_predec                # --a -> a = a - 1 ; result is the NEW value
+add_r14_2
+mov_rax_at 18034600
+push_rax
+mov_eax_at 20034600
+push_rax
+mov_rax_at 08034600
+push_rax
+mov_eax_at 10034600
+push_rax
+call }read_name
+mov_rax_at 08034600
+mov_at_rax 18034600
+mov_eax_at 10034600
+mov_at_eax 20034600
+mov_eax_i 01000000
+mov_at_eax 48184600       # is-increment: RHS = const 1
+mov_eax_i 01000000
+mov_at_eax 40184600       # op = 1 (sub)
+call }run_compound
+pop_rax
+mov_at_eax 10034600
+pop_rax
+mov_at_rax 08034600
+pop_rax
+mov_at_eax 20034600
+pop_rax
+mov_at_rax 18034600
+mov_eax_at 38004600
+ret
+
+:pf_bnot                  # ~x -> v<N> = xor v<x> v<negone>  (negone = const 0xFFFFFFFF = -1)
+inc_r14
+call }parse_factor
+push_rax
+mov_eax_i ffffffff
+mov_at_eax d0104600
+call }emit_constval
+mov_at_eax 10004600
+pop_rax
+mov_at_eax 08004600
+mov_eax_i 0d000000
+mov_at_eax 18004600
+call }emit_binop
+mov_eax_at 00004600
+dec_eax
+ret
+
+:pf_char                  # 'X' -> v<N> = const <ascii>
+inc_r14
+movzx_al_r14
+cmp_al_5c
+je }pfc_esc
+mov_at_eax 20024600
+inc_r14
+inc_r14
+jmp }pfc_emit
+:pfc_esc
+inc_r14
+movzx_al_r14
+cmp_al_6e
+je }pfc_n
+cmp_al_74
+je }pfc_t
+cmp_al_30
+je }pfc_0
+cmp_al_72
+je }pfc_r
+mov_at_eax 20024600
+jmp }pfc_escdone
+:pfc_n
+mov_eax_i 0a000000
+mov_at_eax 20024600
+jmp }pfc_escdone
+:pfc_t
+mov_eax_i 09000000
+mov_at_eax 20024600
+jmp }pfc_escdone
+:pfc_0
+xor_eax_eax
+mov_at_eax 20024600
+jmp }pfc_escdone
+:pfc_r
+mov_eax_i 0d000000
+mov_at_eax 20024600
+:pfc_escdone
+inc_r14
+inc_r14
+:pfc_emit
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =const_kw
+mov_edx_i 06000000
+call }cpy
+mov_eax_at 20024600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+mov_eax_at 00004600
+dec_eax
+ret
+
+:pf_addr
+inc_r14
+call }skip_ws
+call }read_name
+call }st_get
+mov_at_eax a0004600
+mov_eax_at 40104600
+test_eax_eax
+jz }pa_ref
+mov_eax_at a0004600
+ret
+:pa_ref
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =ref_kw
+mov_edx_i 03000000
+call }cpy
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at a0004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+mov_eax_at 00004600
+dec_eax
+ret
+:pf_deref                 # *p -> v<N> = load v<p>
+inc_r14
+call }parse_factor
+mov_at_eax a0004600
+mov_eax_at 40104600       # struct pointer? (40104600: 0=int, 0xff=char, else struct type) ->
+test_eax_eax              # *q yields the struct BASE (q's slot), no load, type kept for a trailing dot
+jz }pfd_load
+cmp_eax_i ff000000
+je }pfd_load
+mov_eax_at a0004600
+ret
+:pfd_load
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_eax_at 40104600
+cmp_eax_i ff000000
+je }pfd_b
+mov_esi_i =load_kw
+mov_edx_i 04000000
+call }cpy
+jmp }pfd_arg
+:pfd_b
+mov_esi_i =loadb_kw
+mov_edx_i 05000000
+call }cpy
+:pfd_arg
+mov_esi_i =sv
+mov_edx_i 02000000
+call }cpy
+mov_eax_at a0004600
+call }emit_dec
+mov_esi_i =nl
+mov_edx_i 01000000
+call }cpy
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+mov_eax_at 00004600
+dec_eax
+ret
+
+:fn_params                # r14 at '(' -> emit `vK = param` per parameter, then zero
+inc_r14
+xor_eax_eax
+mov_at_eax 00004600       # NCOUNT = 0
+xor_eax_eax
+mov_at_eax 28034600       # NVAR = 0 (reset local/param symbol table per function)
+xor_eax_eax               # G6: clear the slot->unsigned array (0x468000, 8KB) + UNS_DECL per fn
+mov_at_eax e0024600
+mov_edi_i 00804600
+mov_ecx_i 00200000
+xor_al_al
+rep_stosb
+:fp_loop
+call }skip_ws
+movzx_r14_dl
+cmp_dl_29
+je }fp_done
+cmp_dl_73
+je }fp_struct
+cmp_dl_63
+jne }fp_int
+add_r14_4
+mov_eax_i ff000000
+mov_at_eax 00184600
+jmp }fp_named
+:fp_int
+add_r14_3
+xor_eax_eax
+mov_at_eax 00184600
+:fp_named
+call }skip_ws
+xor_eax_eax
+mov_at_eax 08184600
+movzx_r14_dl
+cmp_dl_2a
+jne }fpn_read
+inc_r14
+mov_eax_i 01000000
+mov_at_eax 08184600
+call }skip_ws
+:fpn_read
+call }read_name
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =param_kw
+mov_edx_i 06000000
+call }cpy
+mov_eax_at 08184600
+test_eax_eax
+jz }fpn_notag
+mov_eax_at 00184600
+shl_eax_24
+or_eax_at 00004600
+jmp }fpn_bind
+:fpn_notag
+mov_eax_at 00004600
+:fpn_bind
+call }st_set              # ST[name] = NCOUNT (tag in high byte)
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+:fp_comma
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2c
+jne }fp_loop
+inc_r14
+jmp }fp_loop
+:fp_struct               # `struct Name *p` parameter
+add_r14_6
+call }skip_ws
+call }read_name
+call }find_struct
+mov_at_eax 48104600
+call }skip_ws
+movzx_r14_dl
+cmp_dl_2a
+jne }fps_name
+inc_r14
+:fps_name
+call }skip_ws
+call }read_name
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =param_kw
+mov_edx_i 06000000
+call }cpy
+mov_eax_at 48104600
+inc_eax
+shl_eax_24
+or_eax_at 00004600
+call }st_set
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+jmp }fp_comma
+
+:fp_done
+inc_r14                   # consume ')'
+mov_eax_at 00004600
+mov_at_eax 58004600       # ZERO_SLOT = NCOUNT
+mov_esi_i =lp
+mov_edx_i 03000000
+call }cpy
+mov_eax_at 00004600
+call }emit_dec
+mov_esi_i =om
+mov_edx_i 08000000
+call }cpy
+mov_esi_i =const0_kw
+mov_edx_i 08000000
+call }cpy
+mov_eax_at 00004600
+inc_eax
+mov_at_eax 00004600
+ret
+:scan_name                # rdi = start -> rax = end of identifier [A-Za-z0-9_]
+mov_rax_rdi
+:sname_loop
+movzx_rax_dl
+cmp_dl_30
+jb }sname_done
+cmp_dl_3a
+jb }sname_ok
+cmp_dl_41
+jb }sname_done
+cmp_dl_5b
+jb }sname_ok
+cmp_dl_5f
+je }sname_ok
+cmp_dl_61
+jb }sname_done
+cmp_dl_7b
+jae }sname_done
+:sname_ok
+inc_rax
+jmp }sname_loop
+:sname_done
+ret
+# string->slot symbol table: entries of (ptr:8, len:4, slot:4) = 16 bytes at ST_BASE.
+# read_name: scan the identifier at r14 -> NAME_P/NAME_L span, advance r14.
+:read_name
+mov_rax_r14
+mov_at_rax 08034600
+mov_rdi_r14
+call }scan_name
+mov_rcx_rax
+sub_rcx_r14
+mov_at_ecx 10034600
+mov_r14_rax
+ret
+# streq_ent: ENT_A entry vs NAME_P/NAME_L query -> eax = 1 if the names match
+:is_syscall              # callee name [88004600,90004600) == "__syscall"? (matches "__syscall(")
+mov_rdi_at 88004600
+mov_edx_i =sys_name
+mov_ecx_i 0a000000
+:isc_loop
+test_ecx_ecx
+jz }isc_yes
+movzx_al_rdi
+movzx_r8d_rdx
+cmp_al_r8b
+jne }isc_no
+inc_rdi
+inc_rdx
+dec_ecx
+jmp }isc_loop
+:isc_yes
+mov_eax_i 01000000
+ret
+:isc_no
+xor_eax_eax
+ret
+
+:streq_ent
+mov_eax_at 38034600
+add_eax_i 08000000
+mov_eax_atrax
+cmp_eax_at 10034600
+jne }se_no
+mov_rdi_at 08034600
+mov_eax_at 38034600
+mov_rdx_atrax
+mov_ecx_at 10034600
+:se_loop
+test_ecx_ecx
+jz }se_yes
+movzx_al_rdi
+movzx_r8d_rdx
+cmp_al_r8b
+jne }se_no
+inc_rdi
+inc_rdx
+dec_ecx
+jmp }se_loop
+:se_yes
+mov_eax_i 01000000
+ret
+:se_no
+xor_eax_eax
+ret
+# st_get: NAME_P/NAME_L -> eax = slot (0 if absent)
+:st_get
+xor_eax_eax
+mov_at_eax 30034600
+:stg_loop
+mov_eax_at 30034600
+cmp_eax_at 28034600
+jae }stg_nf
+shl_eax_4
+add_eax_i 00074600
+mov_at_eax 38034600
+call }streq_ent
+test_eax_eax
+jnz }stg_hit
+mov_eax_at 30034600
+inc_eax
+mov_at_eax 30034600
+jmp }stg_loop
+:stg_hit
+mov_eax_at 38034600
+add_eax_i 0c000000
+mov_eax_atrax
+mov_ecx_eax
+shr_ecx_24
+mov_at_ecx 40104600
+and_eax_i ffffff00
+ret
+:stg_nf
+xor_eax_eax
+ret
+# st_set: NAME_P/NAME_L bound to slot in eax (update if present, else append)
+:st_set
+mov_at_eax 40034600
+xor_eax_eax
+mov_at_eax 30034600
+:ssetloop
+mov_eax_at 30034600
+cmp_eax_at 28034600
+jae }sts_append
+shl_eax_4
+add_eax_i 00074600
+mov_at_eax 38034600
+call }streq_ent
+test_eax_eax
+jnz }sts_update
+mov_eax_at 30034600
+inc_eax
+mov_at_eax 30034600
+jmp }ssetloop
+:sts_update
+mov_eax_at 38034600
+add_eax_i 0c000000
+mov_edi_eax
+mov_eax_at 40034600
+mov_atrdi_eax
+ret
+:sts_append
+mov_eax_at 28034600
+shl_eax_4
+add_eax_i 00074600
+mov_edi_eax
+mov_rax_at 08034600
+mov_atrdi_rax
+mov_eax_at 10034600
+mov_atrdi8_eax
+mov_eax_at 40034600
+mov_atrdi12_eax
+mov_eax_at 28034600
+inc_eax
+mov_at_eax 28034600
+ret
+
+
+# === data ===
+:pro
+6972206d61696e202d3e206933320a
+:ret_kw
+72657475726e
+:lp
+202076
+:om
+3a20693332203d20
+:const_kw
+636f6e737420
+:sys_name
+5f5f73797363616c6c28
+:sys_kw
+73797363616c6c20
+:op_table
+61646420737562206d756c20646976206c742020677420206c65202067652020657120206e6520206d6f6420616e64206f722020786f722073686c20736872206c747520677475206c65752067657520736875206475762075646d20
+:sv
+2076
+:sel_op
+73656c
+:nl
+0a
+:ret_pfx
+20207265742076
+:ref_kw
+726566
+:kw_return
+72657475726e
+:kw_while
+7768696c65
+:kw_switch
+737769746368
+:kw_goto
+676f746f
+:kw_case
+63617365
+:kw_default
+64656661756c74
+:kw_for
+666f72
+:kw_do
+646f
+:kw_break
+627265616b
+:kw_int
+696e74
+:kw_if
+6966
+:kw_char
+63686172
+:kw_continue
+636f6e74696e7565
+:kw_struct
+737472756374
+:kw_unsigned
+756e7369676e6564
+:kw_long
+6c6f6e67
+:kw_short
+73686f7274
+:kw_match
+mov_rdi_r14
+:kwm_l
+test_ecx_ecx
+jz }kwm_bnd
+movzx_al_rdi
+movzx_r8d_rdx
+cmp_al_r8b
+jne }kwm_no
+inc_rdi
+inc_rdx
+dec_ecx
+jmp }kwm_l
+:kwm_bnd
+movzx_al_rdi
+cmp_al_5f
+je }kwm_no
+cmp_al_30
+jb }kwm_yes
+cmp_al_3a
+jb }kwm_no
+cmp_al_41
+jb }kwm_yes
+cmp_al_5b
+jb }kwm_no
+cmp_al_61
+jb }kwm_yes
+cmp_al_7b
+jb }kwm_no
+:kwm_yes
+mov_eax_i 01000000
+ret
+:kwm_no
+xor_eax_eax
+ret
+:get_kw
+676574
+:getb_kw
+67657462
+:put_pfx
+2020707574
+:putb_pfx
+202070757462
+:load_kw
+6c6f6164
+:loadb_kw
+6c6f616462
+:storeb_pfx
+202073746f726562
+:store_pfx
+202073746f7265
+:fn_kw
+666e20
+:param_kw
+706172616d0a
+:const0_kw
+636f6e737420300a
+:call_kw
+63616c6c20
+:goto_kw
+2020676f746f20
+:label_kw
+20206c6162656c20
+:endkw
+656e640a
+:zero_line
+202076303a20693332203d20636f6e737420300a
+:brz_pfx
+202062727a2076
+:loop_kw
+20206c6f6f700a
+:jmp_kw
+20206a6d700a
+:pool_kw
+2020706f6f6c0a
+:endloop_kw
+2020656e646c6f6f700a
+:brk_kw
+202062726b0a
+:cont_kw
+2020636f6e740a
+:cnt_kw
+2020636e740a
+:digits
+30313233343536373839
+:end

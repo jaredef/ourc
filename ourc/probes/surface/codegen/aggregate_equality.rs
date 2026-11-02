@@ -1,0 +1,1 @@
+#[derive(PartialEq, Debug)] struct P { x: i64, n: String } fn mk(x: i64) -> P { P { x: x, n: String::from("a") } } fn main() { let q = mk(1); let o = Some(3); println!("{} {} {} {} {}", mk(1) == mk(1), q == mk(1), mk(2) != mk(3), o == Some(3), (q.x, 2) == (1, 2)); }

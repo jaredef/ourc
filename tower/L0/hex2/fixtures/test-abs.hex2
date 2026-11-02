@@ -1,0 +1,21 @@
+# exit-42 ELF with NO hand-computed addresses (single-char labels c, e):
+#   e_entry  = =c   (absolute vaddr of label c)
+#   p_filesz = &e   (offset of label e = file size)
+7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00
+02 00 3e 00 01 00 00 00
+=c 00 00 00 00            # e_entry
+40 00 00 00 00 00 00 00   # e_phoff 64
+00 00 00 00 00 00 00 00   # e_shoff
+00 00 00 00 40 00 38 00 01 00 00 00 00 00 00 00
+01 00 00 00 05 00 00 00   # PT_LOAD R+X
+00 00 00 00 00 00 00 00
+00 00 40 00 00 00 00 00   # p_vaddr 0x400000
+00 00 40 00 00 00 00 00
+&e 00 00 00 00            # p_filesz
+&e 00 00 00 00            # p_memsz
+00 10 00 00 00 00 00 00
+:c
+48 c7 c0 3c 00 00 00
+48 c7 c7 2a 00 00 00
+0f 05
+:e

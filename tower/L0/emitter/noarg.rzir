@@ -1,0 +1,7 @@
+ir main -> i32
+  v0: i32 = call k
+  ret v0
+fn k
+  v0: i32 = const 7
+  ret v0
+end

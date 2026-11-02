@@ -1,0 +1,1 @@
+fn main() { let s = "Café Über αβγ Привет Łódź"; println!("{} | {}", s.to_uppercase(), s.to_lowercase()); let c = 'é'; let d = 'Ü'; println!("{} {} {} {}", c.is_lowercase(), c.is_uppercase(), d.is_uppercase(), "ABC".to_lowercase()); }

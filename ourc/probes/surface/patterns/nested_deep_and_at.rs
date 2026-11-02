@@ -1,0 +1,1 @@
+fn f(o: Option<Option<i64>>) -> i64 { match o { Some(Some(v)) => v, Some(None) => 1, None => 2 } } fn g(o: Option<i64>) -> i64 { match o { Some(n @ 1..=5) => n * 100, Some(_) => 7, None => 0 } } fn main() { println!("{} {} {} {} {}", f(Some(Some(40))), f(Some(None)), f(None), g(Some(3)), g(Some(9))); }

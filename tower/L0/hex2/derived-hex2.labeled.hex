@@ -1,0 +1,162 @@
+# hex2 = hex1 + absolute/offset label refs, DERIVED from hex2-seed.md (Doc 247).
+# hex1 (hex0+rel32 labels) PLUS:  =X -> absolute vaddr (BASE+offset),  &X -> offset.
+# Removes hand-computed absolute addresses (the off-by-4 seam). Authored against
+# hex1; built by hex1; then self-hosts.
+# Instruction selection is derived from the constraints E1-E9; control-flow
+# displacements are written as :label / }label and resolved by hex1 itself (E5),
+# so no jump offset is computed by hand. Buffers use absolute addresses (padded
+# safely past the code). Expanded by an existing hex1; the result self-hosts.
+# rsi=cursor rbx=IN(base) r13=end r12=outpos r14b=pending(0xff none) r15d=pass
+# IN=0x400278 OUT=0x410278 LT=0x420278 (label table, 256 dwords)
+
+# --- ELF header (64) --- entry 0x400078, filesz 0x1dc, memsz 0x20678
+7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00
+02 00 3e 00 01 00 00 00
+78 00 40 00 00 00 00 00   # e_entry
+40 00 00 00 00 00 00 00   # e_phoff
+00 00 00 00 00 00 00 00   # e_shoff
+00 00 00 00 40 00 38 00 01 00 00 00 00 00 00 00
+# --- program header (56) PT_LOAD R+W+X ---
+01 00 00 00 07 00 00 00
+00 00 00 00 00 00 00 00
+00 00 40 00 00 00 00 00
+00 00 40 00 00 00 00 00
+21 02 00 00 00 00 00 00   # p_filesz 545 (hex2)
+78 06 02 00 00 00 00 00   # p_memsz  0x20678
+00 10 00 00 00 00 00 00
+
+# --- code @ 0x400078 ---
+# read(0, IN, 65536); rbx=IN; r13=IN+n; pass1; pass2; write(1,OUT,outpos); exit
+31 c0                     # xor eax,eax   (read=0)
+31 ff                     # xor edi,edi   (fd 0)
+be 78 02 40 00            # mov esi, IN
+ba 00 00 01 00            # mov edx, 65536
+0f 05                     # syscall
+# T3: no read-error guard — a non-positive count makes end<=base, loop emits nothing
+bb 78 02 40 00            # mov ebx, IN
+4c 8d 2c 03               # lea r13,[rbx+rax]   (end)
+45 31 ff                  # xor r15d,r15d       (pass 1)
+e8 }P                     # call pass
+41 bf 01 00 00 00         # mov r15d, 1         (pass 2)
+e8 }P                     # call pass
+be 78 02 41 00            # mov esi, OUT
+4c 89 e2                  # mov rdx, r12        (outpos = length)
+b8 01 00 00 00            # mov eax, 1          (write)
+bf 01 00 00 00            # mov edi, 1          (fd 1)
+0f 05                     # syscall
+:Z
+b8 3c 00 00 00            # mov eax, 60         (exit)
+31 ff                     # xor edi,edi
+0f 05                     # syscall
+
+# pass: one sweep. r15=0 record labels, r15=1 emit+resolve.
+:P
+48 89 de                  # mov rsi, rbx        (cursor = IN)
+45 31 e4                  # xor r12d,r12d       (outpos = 0)
+41 be ff 00 00 00         # mov r14d, 0xff      (pending = none)
+:L
+4c 39 ee                  # cmp rsi, r13
+0f 83 }D                  # jae done
+0f b6 06                  # movzbl (rsi), eax
+48 ff c6                  # inc rsi
+3c 23                     # cmp al, '#'
+0f 84 }C                  # je comment
+3c 3a                     # cmp al, ':'
+0f 84 }B                  # je label
+3c 7d                     # cmp al, '}'
+0f 84 }R                  # je ref
+3c 3d                     # cmp al, '='
+0f 84 }Q                  # je absref
+3c 26                     # cmp al, '&'
+0f 84 }J                  # je offref
+3c 30                     # cmp al, '0'
+0f 82 }L                  # jb loop   (ignore)
+3c 39                     # cmp al, '9'
+0f 86 }N                  # jbe d09
+3c 61                     # cmp al, 'a'
+0f 82 }L                  # jb loop   (ignore)
+3c 66                     # cmp al, 'f'
+0f 87 }L                  # ja loop   (ignore)
+2c 57                     # sub al, 0x57   (a..f -> 10..15)
+e9 }H                     # jmp have
+:N
+2c 30                     # sub al, '0'    (0..9)
+:H
+41 80 fe ff               # cmp r14b, 0xff   (pending?)
+0f 85 }W                  # jne low
+44 0f b6 f0               # movzbl al, r14d  (hold high nibble)
+e9 }L                     # jmp loop
+:W
+41 c0 e6 04               # shl r14b, 4
+41 08 c6                  # or  r14b, al     (byte = hi<<4 | lo)
+45 85 ff                  # test r15d, r15d
+0f 84 }A                  # jz byte_adv      (pass 1: no emit)
+b9 78 02 41 00            # mov ecx, OUT
+46 88 34 21               # mov [rcx+r12], r14b   (emit byte)
+:A
+49 ff c4                  # inc r12
+41 be ff 00 00 00         # mov r14d, 0xff   (clear pending)
+e9 }L                     # jmp loop
+
+:B
+# T1/T2: name char guaranteed present (well-formed input, padded buffer)
+0f b6 06                  # movzbl (rsi), eax   (label char)
+48 ff c6                  # inc rsi
+45 85 ff                  # test r15d, r15d
+0f 85 }L                  # jnz loop        (pass 2: nothing)
+b9 78 02 42 00            # mov ecx, LT
+44 89 24 81               # mov [rcx+rax*4], r12d   (labeltab[c] = outpos)
+e9 }L                     # jmp loop
+
+:R
+# T1/T2: name char guaranteed present
+0f b6 06                  # movzbl (rsi), eax   (label char)
+48 ff c6                  # inc rsi
+45 85 ff                  # test r15d, r15d
+0f 84 }F                  # jz ref_adv      (pass 1: reserve 4)
+b9 78 02 42 00            # mov ecx, LT
+8b 14 81                  # mov edx, [rcx+rax*4]   (target offset)
+41 8d 44 24 04            # lea eax, [r12+4]       (here + 4)
+29 c2                     # sub edx, eax           (disp = target-(here+4))
+b9 78 02 41 00            # mov ecx, OUT
+42 89 14 21               # mov [rcx+r12], edx     (emit 4 LE bytes)
+:F
+49 83 c4 04               # add r12, 4
+e9 }L                     # jmp loop
+
+# =X : emit absolute vaddr  BASE(0x400000) + offset(X)  (4 LE bytes)
+:Q
+0f b6 06                  # movzbl (rsi), eax   (name char)
+48 ff c6                  # inc rsi
+45 85 ff                  # test r15d
+0f 84 }F                  # jz ref_adv          (pass 1: reserve 4)
+b9 78 02 42 00            # mov ecx, LT
+8b 14 81                  # mov edx, [rcx+rax*4] (offset of X)
+81 c2 00 00 40 00         # add edx, 0x400000    (BASE)
+b9 78 02 41 00            # mov ecx, OUT
+42 89 14 21               # mov [rcx+r12], edx
+e9 }F                     # jmp ref_adv
+
+# &X : emit raw offset of X (4 LE bytes)
+:J
+0f b6 06                  # movzbl (rsi), eax
+48 ff c6                  # inc rsi
+45 85 ff                  # test r15d
+0f 84 }F                  # jz ref_adv
+b9 78 02 42 00            # mov ecx, LT
+8b 14 81                  # mov edx, [rcx+rax*4] (offset of X)
+b9 78 02 41 00            # mov ecx, OUT
+42 89 14 21               # mov [rcx+r12], edx
+e9 }F                     # jmp ref_adv
+
+:C
+4c 39 ee                  # cmp rsi, r13
+0f 83 }D                  # jae done
+0f b6 06                  # movzbl (rsi), eax
+48 ff c6                  # inc rsi
+3c 0a                     # cmp al, 10
+0f 85 }C                  # jne comment
+e9 }L                     # jmp loop
+
+:D
+c3                        # ret

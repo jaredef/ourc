@@ -1,0 +1,12 @@
+mod geom {
+  struct Pt { x: int, y: int }
+  fn mk(a: int, b: int) -> Pt { geom::Pt { a, b } }
+  fn tot(p: Pt) -> int { p.x + p.y }
+}
+mod util {
+  fn twice(n: int) -> int { n * 2 }
+}
+let p = geom::mk(13, 8);
+print_int(geom::tot(&p));
+print_int(util::twice(21));
+geom::tot(&p) + util::twice(21) - 21

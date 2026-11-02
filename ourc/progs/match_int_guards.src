@@ -1,0 +1,8 @@
+fn name(n: int) -> int { match n { 0 => 100, 1 => 200, 2 => 300, _ => 999 } }
+fn classify(n: int) -> int { match n { 0 => 0, _ if n < 10 => 1, _ if n < 100 => 2, _ => 3 } }
+print_int(name(1));
+print_int(name(7));
+print_int(classify(5));
+print_int(classify(50));
+print_int(classify(500));
+name(2) - 300 + classify(5) * 42

@@ -1,0 +1,5 @@
+# Label A is at output offset 0.
+# =A emits preferred __TEXT.__text address 0x00000001000002b0.
+:A
+=A
+

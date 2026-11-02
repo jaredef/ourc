@@ -1,0 +1,19 @@
+Crate
+  Item Const@0..22 vis=pub ident=K
+    Ty Path u32
+    Expr LitInt 5
+  Item Struct@22..59 vis=pub ident=S
+    Field vis=pub ident=a Ty Path u32
+    Field vis=priv ident=b Ty Path bool
+  Item Enum@59..84 vis=pub ident=E
+    Variant ident=A Unit
+    Variant ident=B Tuple(Ty Path u32)
+  Item Fn@84..134 vis=pub ident=f
+    Param name=x Ty Path u32
+    Ret Ty Path u32
+    Block(Let Pat Ident y Ty Path u32 = Expr Bin Add(Expr Path x, Expr LitInt 1); Expr Expr Path y)
+  Item Impl@134..174 Ty Path S
+    Item Fn@143..172 vis=pub ident=m
+      Param name=&self ImplicitSelf
+      Ret Ty Path u32
+      Block(Expr Expr LitInt 0)

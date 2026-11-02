@@ -1,0 +1,22 @@
+Crate
+  Item Struct@0..39 vis=pub ident=Buf
+    Field vis=priv ident=data Ty Path Vec<Ty Path u8>
+  Item Impl@39..437 Ty Path Buf
+    Item Fn@54..121 vis=pub ident=new
+      Ret Ty Path Buf
+      Block(Expr Expr Struct(Buf, [data: Expr MacCall(vec ! Bracket[0 ; 16])]))
+    Item Fn@121..199 vis=pub ident=set
+      Param name=&mut self ImplicitSelf
+      Param name=i Ty Path usize
+      Param name=v Ty Path u8
+      Ret Default
+      Block(Semi Expr Assign(Expr Index(Expr Field(Expr Path self, data), Expr Path i) = Expr Path v))
+    Item Fn@199..251 vis=pub ident=tag
+      Param name=&self ImplicitSelf
+      Ret Ty Path char
+      Block(Expr Expr Char '\n')
+    Item Fn@251..435 vis=pub ident=map_all<T>
+      Param name=items Ty Path Vec<Ty Path T>
+      Param name=f Ty Impl(Fn(Ty Path T) -> Ty Path u8)
+      Ret Ty Path Vec<Ty Path u8>
+      Block(Let Pat Ident mut out = Expr Call(Expr Path Vec::new, []); Expr Expr ForLoop(Pat Ident it in Expr Path items, Block(Semi Expr Method(Expr Path out, push, [Expr Call(Expr Path f, [Expr Path it])]))); Expr Expr Path out)

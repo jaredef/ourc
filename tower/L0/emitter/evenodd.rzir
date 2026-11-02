@@ -1,0 +1,23 @@
+ir main -> i32
+  v0: i32 = argc
+  v1: i32 = call even v0
+  ret v1
+fn even
+  v0: i32 = param
+  v1: i32 = const 1
+  v2: i32 = const 1
+  brz v0
+  v3: i32 = sub v0 v2
+  v1: i32 = call odd v3
+  pool
+  ret v1
+fn odd
+  v0: i32 = param
+  v1: i32 = const 0
+  v2: i32 = const 1
+  brz v0
+  v3: i32 = sub v0 v2
+  v1: i32 = call even v3
+  pool
+  ret v1
+end

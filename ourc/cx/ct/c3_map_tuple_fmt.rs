@@ -1,0 +1,1 @@
+fn main() { let v: Vec<(String, usize)> = vec![("ab".to_string(), 1), ("x".to_string(), 2)]; let s: Vec<String> = v.iter().map(|(p, b)| format!("{}={}", p, b)).collect(); println!("{}", s.join(" | ")); }

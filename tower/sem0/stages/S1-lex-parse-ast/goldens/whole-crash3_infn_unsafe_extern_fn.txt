@@ -1,0 +1,7 @@
+Crate
+  Item Fn@71..120 vis=priv ident=f
+    Ret Default
+    Block(Item   Item Fn@80..118 vis=priv ident=cb abi="C"
+    Param name=x Ty Path usize
+    Ret Default
+    Block())

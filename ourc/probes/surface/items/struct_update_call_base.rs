@@ -1,0 +1,1 @@
+#[derive(Debug, Clone)] struct P { x: i64, n: String, y: i64 } fn dflt() -> P { P { x: 0, n: String::from("d"), y: 5 } } fn main() { let a = P { x: 3, n: String::from("a"), y: 9 }; let b = P { x: 1, ..a.clone() }; let c = P { n: String::from("c"), ..dflt() }; let d = P { y: 2, ..P { x: 8, ..dflt() } }; println!("{:?} {:?} {:?} {:?}", a, b, c, d); }

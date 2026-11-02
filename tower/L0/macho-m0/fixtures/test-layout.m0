@@ -1,0 +1,9 @@
+# offset and preferred-address references using multi-character labels.
+00
+:payload
+aa
+&payload
+:end
+&end
+=payload
+

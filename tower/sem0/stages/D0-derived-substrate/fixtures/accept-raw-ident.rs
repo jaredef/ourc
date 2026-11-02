@@ -1,0 +1,1 @@
+fn main(){ let r#type = 1; println!("{}", r#type); }

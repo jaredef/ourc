@@ -1,0 +1,13 @@
+Crate
+  Item Fn@0..115 vis=pub ident=is_whitespace
+    Param name=c Ty Path char
+    Ret Ty Path bool
+    Block(Expr Expr Match(Expr Path c, [Arm(Pat Or([Pat Lit(Expr Char 'a'), Pat Lit(Expr Char 'b'), Pat Lit(Expr Char 'c')]) => Expr LitBool true), Arm(Pat Wild => Expr LitBool false)]))
+  Item Fn@115..180 vis=pub ident=is_id_start
+    Param name=c Ty Path char
+    Ret Ty Path bool
+    Block(Expr Expr Bin Or(Expr Bin Eq(Expr Path c, Expr Char 'x'), Expr Bin Eq(Expr Path c, Expr Char 'y')))
+  Item Fn@180..319 vis=pub ident=class
+    Param name=c Ty Path char
+    Ret Ty Path u32
+    Block(Expr Expr If(Expr Call(Expr Path is_whitespace, [Expr Path c]), Block(Expr Expr LitInt 1), Expr If(Expr Call(Expr Path is_id_start, [Expr Path c]), Block(Expr Expr LitInt 2), Expr Block(Block(Expr Expr LitInt 0)))))

@@ -1,0 +1,10 @@
+struct Cur { s: str, i: int }
+fn peek(c: Cur) -> int { if c.i < len(c.s) { str_at(c.s, c.i) } else { 0 } }
+fn bump(c: Cur) -> int { c.i = c.i + 1; 0 }
+fn num(c: Cur) -> int { let mut v = 0; while peek(&mut c) >= 48 && peek(&mut c) <= 57 { v = v * 10 + (peek(&mut c) - 48); bump(&mut c); } v }
+fn term(c: Cur) -> int { let mut v = num(&mut c); while peek(&mut c) == 42 { bump(&mut c); v = v * num(&mut c); } v }
+fn sum(c: Cur) -> int { let mut v = term(&mut c); while peek(&mut c) == 43 { bump(&mut c); v = v + term(&mut c); } v }
+fn eval(s: str) -> int { let c = Cur { s, 0 }; sum(&mut c) }
+print_int(eval("2+3*4"));
+print_int(eval("7*6"));
+eval("40+2")

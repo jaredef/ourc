@@ -1,0 +1,1 @@
+fn main() { let mut x = 6; x %= 4; x <<= 2; x ^= 3; x |= 16; x &= 23; x >>= 1; let mut v = vec![5u8, 9]; v[0] |= 2; v[1] &= 12; let mut f = false; f |= true; let mut b = true; b &= false; b ^= true; println!("{} {:?} {} {}", x, v, f, b); }

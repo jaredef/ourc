@@ -1,0 +1,1 @@
+struct Pair<T> { a: T, b: T } impl<T: PartialOrd + Copy> Pair<T> { fn max(&self) -> T { if self.a > self.b { self.a } else { self.b } } } fn main() { let p = Pair { a: -1.5, b: -2.5 }; let q = Pair { a: "pear", b: "apple" }; let r = Pair { a: -3, b: 2 }; println!("{} {} {}", p.max(), q.max(), r.max()); }

@@ -1,0 +1,1 @@
+const ADD_A: (u32, bool) = 5u32.overflowing_add(2); const MUL_B: (u8, bool) = 200u8.overflowing_mul(2); fn main() { let x: i32 = i32::MIN; let y = 1; println!("{:?} {:?} {:?} {:?}", ADD_A, MUL_B, x.overflowing_sub(y), 3u32.overflowing_sub(5)); }

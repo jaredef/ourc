@@ -1,0 +1,53 @@
+# S4 STAGE-BOUNDARY FREEZE (AST -> HIR lowering) -- keeper-authorized 2026-08-10
+
+WHAT: the S4 AST->HIR lowering stage in s1_parser.rs is frozen at the HIR stage boundary (design doc
+telos-achievement-design-2026-08-05.md \xA74). A CHECKPOINT of the S-stage compiler; the live s1_parser.rs continues
+into S5. Pairs with STAGE-S2-FROZEN-AT + STAGE-S3-FROZEN-AT. Supersedes STAGE-S4-HOIST-SURFACED.txt (the pending marker).
+
+FROZEN ARTIFACT: sub-arcs/S4-hir-lowering/s1_parser.rs.S4-frozen
+  (byte-identical snapshot of S1-lex-parse-ast/s1_parser.rs at this freeze)
+  live source: sub-arcs/S1-lex-parse-ast/s1_parser.rs  (2648 lines, 209242 bytes)
+FROZEN AT COMMIT: (this commit)  [prior tip e1677ce2]
+
+CAPABILITY FROZEN -- S4 TELOS CLOSED (dual-compiled rustc == rzrs stage0; S1+S2+S3 gates held throughout):
+  s1_parser's //@S4HIR post-parse emit_hir(&ast) HIR dump == rustc -Zunpretty=hir, across 10 witnesses + a composite:
+    CONTROL-FLOW DESUGARS (visibly rewritten):
+      ?      -> match branch(E) { Break { 0: residual } => return from_residual(residual), Continue { 0: val } => val, }
+      for    -> { let _t = match into_iter(IT) { mut iter => loop { match next(&mut iter) { None {} => break, Some { 0: P } => B } }, }; _t }
+      while  -> loop { if COND { B } else { break; } }   (plain + while-let)
+      range EXPR -> Range { start: A, end: B }   (lang-item struct literal)
+    RETAINED SUGAR (rustc HIR keeps at the pretty-print tier; lowers deeper in MIR-building):
+      if-let / let-else verbatim; pattern syntax (struct/tuple/or/range lo...hi / at x@10 / ref/slice/rest);
+      loop / labeled-loop / break-label / unsafe / const-block.
+    EXPR SURFACE: bin(flat, word-op->symbol) / unary / paren / field / method(+turbofish) / index / match(trailing-comma
+      + guard) / str / char / bool / ref / deref / cast / tuple / array / struct-lit(+base) / closure(|p| body) / float.
+    TYPES: path+generics / tup () / ref (&'_ elided) / slice.
+
+ARCHITECTURE: //@S4HIR marker mode (8-byte sniff) dispatches post-parse to emit_hir(&ast) -- a PURE Krate walk, NO
+Parser field, so the two Parser init sites + the S1/S2/S3 goldens are byte-untouched. The hir_* emitter is the proven
+free-fn dump idiom (source-form, not the S-expr dump form).
+
+KEY HIR-TIER FINDING: -Zunpretty=hir is a RETAINED-SUGAR target -- only ?/for/while/let-else control flow + range-EXPRs
+are visibly desugared; if-let/while-let/let-else/patterns/struct-variant forms are retained and lower only below the HIR
+pretty-print tier. S4 parity is defined at THAT tier.
+
+GATES AT FREEZE: s4-hir 10/10 GREEN (9 focused witnesses + hir_close_composite); s1-ast GREEN; s2-expand 13/13;
+s3-resolve 56/0; s3-crate-native 12/0. Trust gates (selfhost/provenance/corpus) carried -- S4 did NOT edit L6/stage0.
+
+INSTRUMENTS: s4-hir-diff.sh (EXPECTED = normalized rustc -Zunpretty=hir; ACTUAL = //@S4HIR `HIR `-prefixed dump;
+both tr -s ws-collapsed; BOOTSTRAP rz==rc). Witnesses: witnesses/hir{0_try,2_for,3_whilelet,4_iflet,5_letelse,7_expr,
+8_closure,9_pat,10_residual}.rs + hir_close_composite.rs.
+
+DEFERRED (parsing-frozen S1 AST gaps -- the S4 emitter cannot recover info S1 never stored; each needs a keeper-gated
+S1 amendment): closure `move` (no capture-mode slot), closure return type |x| -> R (no ret slot), async {..} (rustc
+lowers to a |mut _task_context: ResumeTy| generator). rustc's own front-end uses move-closures + async fns -> real
+S1-unfreezing candidates when the front-end corpus needs them.
+DEFERRED (rare/deeper, not gaps): HIR-6 Res/DefId bridge (needs a stable hir-tree oracle); residual exprs QPath/MacCall/
+RawRef/Repeat; non-exclusive range EXPRs (RangeInclusive::new / RangeFrom / RangeTo / RangeFull).
+
+RESUME (S5): the frozen s1_parser is the S4 baseline the S5 stage builds ON.
+
+# SNAPSHOT RE-MINTED 2026-08-10 (keeper-directed, commit b39005ec): refreshed to the live s1_parser.rs after the S1
+# UNFREEZE amendments (method receiver form + closure move/ret + async block/fn). All gates GREEN at re-mint (s1-ast,
+# s2-expand 13, s3-resolve 56 + crate-native 12, s4-hir 11, s5-typeck 12). The snapshot is again byte-identical to the
+# live source; the per-stage CAPABILITY described above is unchanged (S1 amendments only refined AST fidelity).

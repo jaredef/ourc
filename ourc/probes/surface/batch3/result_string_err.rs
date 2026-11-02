@@ -1,0 +1,1 @@
+fn div(a: i64, b: i64) -> Result<i64, String> { if b == 0 { Err(String::from("div0")) } else { Ok(a / b) } } fn main() { match div(7, 0) { Ok(v) => println!("{}", v), Err(e) => println!("err {}", e) } println!("{:?}", div(8, 2)); }

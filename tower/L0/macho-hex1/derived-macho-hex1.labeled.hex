@@ -1,0 +1,133 @@
+# Mach-O hex1 arm64 audited body seed
+#
+# This is the audited body source for the current macho-hex1 executable body.
+# It is expanded by macho-hex0, wrapped as a signed Mach-O, and then checked by
+# macho-hex1/run.sh. The comments map instruction blocks to hex1-seed.md.
+#
+# Register choices are contingent, named in the seed:
+# x10 input base, x11 input end, x12 output base, x13 label table,
+# x14 cursor, w15 pass flag, x19 pending nibble, x20 output offset,
+# w21 current char, w22 branch opcode, w23 branch word scratch.
+
+# 0x000..0x014 — Stack and buffer layout.
+# Satisfies T2/T3 and the contingent stack/register layout:
+# reserve 0x21000 bytes; input at +0x00000, output at +0x10000,
+# labels at +0x20000.
+29 04 80 d2   # mov x9, #0x21
+29 cd 74 d3   # lsl x9, x9, #12
+ff 63 29 cb   # sub sp, sp, x9
+ea 03 00 91   # mov x10, sp
+4c 41 40 91   # add x12, x10, #0x10, lsl #12
+4d 81 40 91   # add x13, x10, #0x20, lsl #12
+
+# 0x018..0x02c — E4 stream input.
+# Darwin read(0, input, 65536), then input_end = input + nread.
+70 00 80 d2   # mov x16, #3
+00 00 80 d2   # mov x0, #0
+e1 03 0a aa   # mov x1, x10
+22 00 a0 d2   # mov x2, #0x10000
+01 10 00 d4   # svc #0x80
+4b 01 00 8b   # add x11, x10, x0
+
+# 0x030..0x03c — E7 definition-before-resolution.
+# Pass 0 records labels and measures output; pass 1 emits bytes/references.
+0f 00 80 52   # mov w15, #0
+0b 00 00 94   # bl pass
+2f 00 80 52   # mov w15, #1
+09 00 00 94   # bl pass
+
+# 0x040..0x05c — E4/E5 stream output and successful completion.
+# Darwin write(1, output, output_len), then exit(0).
+90 00 80 d2   # mov x16, #4
+20 00 80 d2   # mov x0, #1
+e1 03 0c aa   # mov x1, x12
+e2 03 14 aa   # mov x2, x20
+01 10 00 d4   # svc #0x80
+30 00 80 d2   # mov x16, #1
+00 00 80 d2   # mov x0, #0
+01 10 00 d4   # svc #0x80
+
+# 0x060..0x068 — Pass prologue.
+# Cursor resets to input; output offset resets; pending nibble sentinel = -1.
+ee 03 0a aa   # mov x14, x10
+14 00 80 d2   # mov x20, #0
+13 00 80 92   # mov x19, #-1
+
+# 0x06c..0x0b4 — Loop dispatch.
+# End check, load next char, dispatch #/:/@/!, then hex ranges.
+# Satisfies E1/E2/E3/E6/E8/E9.
+df 01 0b eb   # cmp x14, x11
+e2 06 00 54   # b.hs done
+d5 15 40 38   # ldrb w21, [x14], #1
+bf 8e 00 71   # cmp w21, #'#'
+c0 05 00 54   # b.eq comment
+bf ea 00 71   # cmp w21, #':'
+60 03 00 54   # b.eq define_label
+bf 02 01 71   # cmp w21, #'@'
+a0 03 00 54   # b.eq branch_b
+bf 86 00 71   # cmp w21, #'!'
+a0 03 00 54   # b.eq branch_bl
+bf c2 00 71   # cmp w21, #'0'
+83 fe ff 54   # b.lo loop
+bf e6 00 71   # cmp w21, #'9'
+e9 00 00 54   # b.ls digit
+bf 86 01 71   # cmp w21, #'a'
+03 fe ff 54   # b.lo loop
+bf 9a 01 71   # cmp w21, #'f'
+c8 fd ff 54   # b.hi loop
+b5 5e 01 51   # sub w21, w21, #87
+02 00 00 14   # b have_nibble
+
+# 0x0c0..0x0ec — E1 pair decoding and P3 hex0 conservativity.
+# First nibble is held; second nibble emits/measures one output byte.
+b5 c2 00 51   # sub w21, w21, #'0'
+7f 06 00 b1   # cmn x19, #1
+61 00 00 54   # b.ne low_nibble
+f3 03 15 aa   # mov x19, x21
+e7 ff ff 17   # b loop
+73 ee 7c d3   # lsl x19, x19, #4
+73 02 15 aa   # orr x19, x19, x21
+4f 00 00 34   # cbz w15, byte_advance
+93 69 34 38   # strb w19, [x12, x20]
+94 06 00 91   # add x20, x20, #1
+13 00 80 92   # mov x19, #-1
+e0 ff ff 17   # b loop
+
+# 0x0f0..0x0fc — E6 label definition.
+# Under T1/T2 the label byte exists. Pass 0 records output offset by byte label.
+d5 15 40 38   # ldrb w21, [x14], #1
+cf fb ff 35   # cbnz w15, loop
+b4 79 35 b8   # str w20, [x13, x21, lsl #2]
+dc ff ff 17   # b loop
+
+# 0x100..0x108 — E8/E9 branch opcode selection.
+# @ selects b; ! selects bl.
+16 80 a2 52   # mov w22, #0x14000000
+02 00 00 14   # b branch_ref
+16 80 b2 52   # mov w22, #0x94000000
+
+# 0x10c..0x130 — E7/E8/E9 reference resolution.
+# Under T1/T2/T4 the label exists, is aligned, and fits imm26.
+# word = opcode | ((target - here) >> 2), emitted little-endian.
+d5 15 40 38   # ldrb w21, [x14], #1
+ef 00 00 34   # cbz w15, ref_advance
+b7 79 75 b8   # ldr w23, [x13, x21, lsl #2]
+f7 02 14 4b   # sub w23, w23, w20
+f7 7e 02 13   # asr w23, w23, #2
+f7 66 00 12   # and w23, w23, #0x03ffffff
+f7 02 16 2a   # orr w23, w23, w22
+97 69 34 b8   # str w23, [x12, x20]
+94 12 00 91   # add x20, x20, #4
+cf ff ff 17   # b loop
+
+# 0x134..0x148 — E2 comment transparency.
+# Consume through newline without changing output state.
+df 01 0b eb   # cmp x14, x11
+a2 00 00 54   # b.hs done
+d5 15 40 38   # ldrb w21, [x14], #1
+bf 2a 00 71   # cmp w21, #10
+81 ff ff 54   # b.ne comment
+c9 ff ff 17   # b loop
+
+# 0x14c — pass return.
+c0 03 5f d6   # ret

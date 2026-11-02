@@ -1,0 +1,4 @@
+Crate
+  Item Fn@80..170 vis=priv ident=f
+    Ret Ty Path R
+    Block(Expr Expr Unsafe(Block(Expr Expr Call(Expr Path g, [Expr Path os]))); Expr Expr Block(Block(Expr Expr Loop(Block(Expr Expr If(Expr Bin Eq(Expr Field(Expr Paren(Expr Deref(Expr Path c)), n), Expr LitInt 0), Block()))))))

@@ -1,0 +1,7 @@
+trait Add { fn add(self, o: V) -> V; }
+struct V { x: int, y: int }
+impl Add for V { fn add(self, o: V) -> V { V { self.x + o.x, self.y + o.y } } }
+impl V { fn tot(self) -> int { self.x + self.y } }
+let a = V { 20, 1 };
+let b = V { 20, 1 };
+(a + b).tot()

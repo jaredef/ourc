@@ -1,0 +1,1 @@
+fn main() { let w: Vec<((u32, u32), (u32, u32))> = vec![((1, 2), (3, 4))]; println!("{} {}", w.iter().filter(|(p, _)| p.0 == 1).all(|(_, c)| c.0 == 3), w.iter().filter(|(p, _)| p.0 == 1).any(|(_, c)| c.0 == 1)); }

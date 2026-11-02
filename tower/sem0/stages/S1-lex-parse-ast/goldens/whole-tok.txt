@@ -1,0 +1,13 @@
+Crate
+  Item Enum@0..167 vis=pub ident=TokenKind
+    Attr derive(Clone, Copy, PartialEq)
+    Variant ident=LineComment Unit
+    Variant ident=Whitespace Unit
+    Variant ident=Ident Unit
+    Variant ident=Literal Struct(kind Ty Path u32, suffix Ty Path usize)
+    Variant ident=OpenParen Unit
+    Variant ident=Eof Unit
+  Item Fn@167..329 vis=pub ident=is_trivia
+    Param name=k Ty Path TokenKind
+    Ret Ty Path bool
+    Block(Expr Expr Match(Expr Path k, [Arm(Pat Path TokenKind::LineComment => Expr LitBool true), Arm(Pat Path TokenKind::Whitespace => Expr LitBool true), Arm(Pat Wild => Expr LitBool false)]))

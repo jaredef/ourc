@@ -1,0 +1,8 @@
+# &A reserves four bytes, then resolves A as a forward label at offset 5.
+# Output:
+#   &A -> 05 00 00 00
+#   00
+#   label A at offset 5
+&A
+00
+:A

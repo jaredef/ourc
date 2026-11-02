@@ -1,0 +1,8 @@
+let names: Vec<str> = vec_new();
+vec_push(names, "alpha");
+vec_push(names, "beta");
+let mut hit = 0;
+for n in names { if n == "beta" { hit = hit + 1; } }
+print_int(hit);
+let a = vec_get(names, 0);
+if a == "alpha" { 42 } else { 0 }

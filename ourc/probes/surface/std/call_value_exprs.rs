@@ -1,0 +1,1 @@
+struct S { f: Box<dyn Fn(i64) -> i64> } fn main() { let k = 2; let s = S { f: Box::new(move |v| v * k) }; let x = 8; let y = 3; println!("{} {} {}", (s.f)(21), (move || x + y)(), (|a: i64| a * 10)(4)); }

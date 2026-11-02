@@ -1,0 +1,7 @@
+enum Opt { None, Some(int) }
+fn get(n: int) -> Opt { if n > 0 { Opt::Some(n * 2) } else { Opt::None } }
+fn show(n: int) -> int { if let Some(v) = get(n) { v } else { 0 - 1 } }
+print_int(show(21));
+print_int(show(0 - 5));
+if let Some(v) = get(20) { print_int(v); } else { print_int(0); }
+show(21)

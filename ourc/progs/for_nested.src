@@ -1,0 +1,11 @@
+struct P { x: int, y: int }
+let ps: Vec<P> = vec_new();
+vec_push(ps, P { 1, 2 });
+vec_push(ps, P { 10, 20 });
+let mut t = 0;
+for p in ps { t = t + p.x + p.y; }
+print_int(t);
+let mut g = 0;
+for i in 0..3 { for j in 0..3 { g = g + i * j; } }
+print_int(g);
+t + g - 0

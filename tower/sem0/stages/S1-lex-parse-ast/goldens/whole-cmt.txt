@@ -1,0 +1,8 @@
+Crate
+  Item Enum@28..86 vis=pub ident=Kind
+    Variant ident=A Unit
+    Variant ident=B Unit
+  Item Fn@86..195 vis=pub ident=k
+    Param name=n Ty Path u32
+    Ret Ty Path Kind
+    Block(Expr Expr Match(Expr Path n, [Arm(Pat Lit(Expr LitInt 0) => Expr Path Kind::A), Arm(Pat Wild => Expr Path Kind::B)]))

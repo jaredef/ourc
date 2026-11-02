@@ -1,0 +1,34 @@
+Crate
+  Item Use@0..30 vis=priv
+    Use Simple std::marker::PhantomData
+  Item Use@30..64 vis=priv
+    Use Nested std::ops { Simple Index, Simple IndexMut }
+  Item Struct@64..145 vis=pub ident=IndexVec<I, T>
+    Field vis=priv ident=raw Ty Path Vec<Ty Path T>
+    Field vis=priv ident=_marker Ty Path PhantomData<Ty FnPtr(Ty Path I)>
+  Item Impl@145..546<I: Idx, T> Ty Path IndexVec<Ty Path I, Ty Path T>
+    Item Fn@182..275 vis=pub ident=new
+      Ret Ty Path Self
+      Block(Expr Expr Struct(IndexVec, [raw: Expr Call(Expr Path Vec::new, []), _marker: Expr Path PhantomData]))
+    Item Fn@275..402 vis=pub ident=push
+      Param name=&mut self ImplicitSelf
+      Param name=d Ty Path T
+      Ret Ty Path I
+      Block(Let Pat Ident idx = Expr Call(Expr Path I::new, [Expr Method(Expr Field(Expr Path self, raw), len, [])]); Semi Expr Method(Expr Field(Expr Path self, raw), push, [Expr Path d]); Expr Expr Path idx)
+    Item Fn@402..465 vis=pub ident=len
+      Param name=&self ImplicitSelf
+      Ret Ty Path usize
+      Block(Expr Expr Method(Expr Field(Expr Path self, raw), len, []))
+    Item Fn@465..543 vis=pub ident=get
+      Param name=&self ImplicitSelf
+      Param name=i Ty Path I
+      Ret Ty Path Option<Ty Ref(Ty Path T)>
+      Block(Expr Expr Method(Expr Field(Expr Path self, raw), get, [Expr Method(Expr Path i, index, [])]))
+  Item Impl@546..685<I: Idx, T> Ty Path Index<Ty Path I> for Ty Path IndexVec<Ty Path I, Ty Path T>
+    Item TypeAlias@596..618 vis=priv ident=Output
+      = Ty Path T
+    Item Fn@618..683 vis=priv ident=index
+      Param name=&self ImplicitSelf
+      Param name=i Ty Path I
+      Ret Ty Ref(Ty Path T)
+      Block(Expr Expr AddrOf(Expr Index(Expr Field(Expr Path self, raw), Expr Method(Expr Path i, index, []))))

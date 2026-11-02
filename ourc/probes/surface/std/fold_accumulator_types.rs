@@ -1,0 +1,1 @@
+fn main() { let v = vec![1, 2, 3, 4]; let f = v.iter().fold(String::new(), |acc, x| format!("{}{}", acc, x)); let g = v.iter().fold(0.5, |a, x| a * 2.0 + (*x as f64)); let h = v.iter().fold(1, |a, x| a * x); println!("{} {} {} {}", f, f.len(), g, h); }

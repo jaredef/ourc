@@ -1,0 +1,41 @@
+# S3 STAGE-BOUNDARY FREEZE (name resolution + crate driver) — keeper-authorized 2026-08-09
+
+WHAT: the S3 name-resolution + crate-driver stage in s1_parser.rs is frozen at the resolve stage boundary
+(design doc telos-achievement-design-2026-08-05.md §4: "At a §4 stage boundary, freeze"). A CHECKPOINT of the
+S-stage compiler; the live s1_parser.rs continues into S4. Pairs with STAGE-S2-FROZEN-AT.
+
+FROZEN ARTIFACT: sub-arcs/S3-resolve-crate-driver/s1_parser.rs.S3-frozen
+  (byte-identical snapshot of S1-lex-parse-ast/s1_parser.rs at this freeze)
+  live source: sub-arcs/S1-lex-parse-ast/s1_parser.rs  (2433 lines, 193746 bytes)
+FROZEN AT COMMIT: (this commit)  [prior tip 0640a516]
+
+CAPABILITY FROZEN — S3 TELOS CLOSED (dual-compiled rustc == rzrs stage0, S1+S2 gates held):
+  name resolution == rustc across THREE scopes x FOUR observables, via the //@S3RESOLVE mode:
+    scopes:      within-crate (inline + N-segment nested modules); cross-FILE (in-parser crate driver, nested
+                 a/b.rs subdirs); cross-CRATE (extern crate + dependency)
+    observables: RESPATH def-paths (any depth; rustc -Zunpretty=hir-tree) | PRIVUSE E0603 privacy
+                 (pub/pub(crate)/pub(super); N-segment nested-module) | NOUSE E0432 unresolved-import |
+                 DUPUSE E0252 duplicate-import
+    use trees:   Simple / Nested / Glob; crate::/self:: prefixes; multi-module lookup
+  CRATE DRIVER (in-parser): s1_parser reads the module tree ITSELF -- "mod NAME;" and "extern crate NAME;" read
+    <moddir>NAME.rs via the portable std::fs::read_to_string that the fs-read-carrying stage0 (L5) lowers.
+
+FS-READ / TRUST ANCHOR: this stage required + landed the stage0 fs-read idiom (L6, commit 6cfa6e3f) and its
+  L6->L5 RE-FREEZE baking it into the trust anchor (commit b5fb77c1): selfhost 16/16 (gen2==gen3 @ 266283 L),
+  provenance 19/19, r2-corpus 874 OK (provably unchanged). L5 backup: 2026-07-14-rust-selfhost/L5.rzrs.rs.pre-fsread.
+
+GATES AT FREEZE: s3-resolve-diff 56/0 (14 witnesses x 4); s3-crate-native (cross-file) GREEN; s3-xcrate (cross-crate)
+  GREEN; s1-ast-diff GREEN; s2-expand-diff 13/13. Trust gates carried by the fs-read re-freeze (above).
+
+INSTRUMENTS: s3-resolve-diff.sh (single-file) | s3-crate-native.sh (in-parser cross-file) | s3-xcrate-diff.sh
+  (cross-crate 2-crate build) | s3-crate-diff.sh + crate-driver.py (external-driver cross-check, retired-but-kept).
+
+RESUME (S4): the frozen s1_parser is the S3 baseline the S4 HIR-lowering stage builds ON.
+
+DEFERRED (recorded, not blocking): pub use re-exports, glob-import privacy across crates, larger multi-crate dep
+  graphs, the RESREF path-Res binding (noisy hir-tree oracle).
+
+# SNAPSHOT RE-MINTED 2026-08-10 (keeper-directed, commit b39005ec): refreshed to the live s1_parser.rs after the S1
+# UNFREEZE amendments (method receiver form + closure move/ret + async block/fn). All gates GREEN at re-mint (s1-ast,
+# s2-expand 13, s3-resolve 56 + crate-native 12, s4-hir 11, s5-typeck 12). The snapshot is again byte-identical to the
+# live source; the per-stage CAPABILITY described above is unchanged (S1 amendments only refined AST fidelity).

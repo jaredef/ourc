@@ -1,0 +1,1 @@
+fn main(){ let n = 100; let x = match 3 { y if y > 50 => 1, y => y * 10 }; let o = Some(3); let z = match o { y @ Some(_) => { let _ = y; 7 }, None => 2 }; let w = match o { ref y @ None => { let _ = y; 1 }, _ => 9 }; println!("{} {} {} {}", n, x, z, w); }

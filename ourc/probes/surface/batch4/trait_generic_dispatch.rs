@@ -1,0 +1,1 @@
+trait Speak { fn say(&self) -> String; } struct Dog; struct Cat; impl Speak for Dog { fn say(&self) -> String { String::from("woof") } } impl Speak for Cat { fn say(&self) -> String { String::from("meow") } } fn talk<T: Speak>(t: &T) -> String { t.say() } fn main() { println!("{} {}", talk(&Dog), talk(&Cat)); }

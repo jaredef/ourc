@@ -1,0 +1,23 @@
+# minimal ELF; _start does jmp }A over a trap byte, lands on exit(42)
+# --- ELF header (64) --- entry 0x400078, filesz/memsz 142
+7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00
+02 00 3e 00 01 00 00 00
+78 00 40 00 00 00 00 00   # e_entry
+40 00 00 00 00 00 00 00   # e_phoff
+00 00 00 00 00 00 00 00   # e_shoff
+00 00 00 00 40 00 38 00 01 00 00 00 00 00 00 00
+# --- program header (56) PT_LOAD RWX ---
+01 00 00 00 07 00 00 00
+00 00 00 00 00 00 00 00
+00 00 40 00 00 00 00 00
+00 00 40 00 00 00 00 00
+8e 00 00 00 00 00 00 00   # p_filesz 142
+8e 00 00 00 00 00 00 00   # p_memsz 142
+00 10 00 00 00 00 00 00
+# --- code @ 0x400078 ---
+e9 }A          # jmp rel32 -> A
+cc             # int3 (trap: reached only if the jump is wrong)
+:A
+48 c7 c7 2a 00 00 00   # mov $42, %rdi
+48 c7 c0 3c 00 00 00   # mov $60, %rax
+0f 05                  # syscall

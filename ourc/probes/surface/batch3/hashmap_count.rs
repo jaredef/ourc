@@ -1,0 +1,1 @@
+use std::collections::HashMap; fn main() { let mut m = HashMap::new(); for w in "a b a c a".split(' ') { *m.entry(w).or_insert(0) += 1; } let mut k: Vec<_> = m.iter().collect(); k.sort(); println!("{:?}", k); }

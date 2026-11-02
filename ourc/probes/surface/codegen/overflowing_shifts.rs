@@ -1,0 +1,1 @@
+const SHL_A: (u32, bool) = 0x1u32.overflowing_shl(4); const SHL_B: (u32, bool) = 0x1u32.overflowing_shl(132); const SHR_A: (i8, bool) = (-64i8).overflowing_shr(2); fn main() { let x: u16 = 0x8000; println!("{:?} {:?} {:?} {:?} {:?}", SHL_A, SHL_B, SHR_A, x.overflowing_shl(1), 7u64.overflowing_shr(64)); }

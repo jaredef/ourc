@@ -1,0 +1,5 @@
+# Invalid: @A target is not 4-byte aligned.
+@A
+00
+:A
+40 05 80 d2

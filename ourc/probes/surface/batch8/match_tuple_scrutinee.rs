@@ -1,0 +1,1 @@
+fn f(a: i64, b: bool) -> &'static str { match (a, b) { (0, _) => "zero", (x, true) if x > 0 => "pos-t", (_, true) => "neg-t", _ => "f" } } fn main() { println!("{} {} {} {}", f(0, true), f(3, true), f(-1, true), f(5, false)); }

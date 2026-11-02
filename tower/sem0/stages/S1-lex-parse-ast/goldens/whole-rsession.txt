@@ -1,0 +1,47 @@
+Crate
+  Item Use@0..33 vis=priv
+    Use Simple std::collections::BTreeMap
+  Item Enum@33..145 vis=pub ident=OptLevel
+    Attr derive(Clone, PartialEq, Eq)
+    Variant ident=No Unit
+    Variant ident=Less Unit
+    Variant ident=Default Unit
+    Variant ident=Aggressive Unit
+    Variant ident=Size Unit
+  Item Enum@145..219 vis=pub ident=DebugInfo
+    Attr derive(Clone)
+    Variant ident=None Unit
+    Variant ident=Limited Unit
+    Variant ident=Full Unit
+  Item Struct@219..473 vis=pub ident=Options
+    Field vis=pub ident=opt_level Ty Path OptLevel
+    Field vis=pub ident=debuginfo Ty Path DebugInfo
+    Field vis=pub ident=crate_name Ty Path Option<Ty Path String>
+    Field vis=pub ident=search_paths Ty Path Vec<Ty Path String>
+    Field vis=pub ident=cfg Ty Path BTreeMap<Ty Path String, Ty Path Option<Ty Path String>>
+    Field vis=pub ident=incremental Ty Path bool
+    Field vis=pub ident=edition Ty Path Edition
+  Item Enum@473..618 vis=pub ident=Edition
+    Attr derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)
+    Variant ident=Edition2015 Unit
+    Variant ident=Edition2018 Unit
+    Variant ident=Edition2021 Unit
+    Variant ident=Edition2024 Unit
+  Item Impl@618..963 Ty Path Default for Ty Path Options
+    Item Fn@649..960 vis=priv ident=default
+      Ret Ty Path Self
+      Block(Expr Expr Struct(Options, [opt_level: Expr Path OptLevel::No, debuginfo: Expr Path DebugInfo::None, crate_name: Expr Path None, search_paths: Expr Call(Expr Path Vec::new, []), cfg: Expr Call(Expr Path BTreeMap::new, []), incremental: Expr LitBool false, edition: Expr Path Edition::Edition2021]))
+  Item Impl@963..1215 Ty Path Options
+    Item Fn@982..1078 vis=pub ident=is_optimized
+      Param name=&self ImplicitSelf
+      Ret Ty Path bool
+      Block(Expr Expr Unary Not(Expr MacCall(matches ! Paren[self . opt_level , OptLevel :: No])))
+    Item Fn@1078..1212 vis=pub ident=set_cfg
+      Param name=&mut self ImplicitSelf
+      Param name=key Ty Ref(Ty Path str)
+      Param name=val Ty Path Option<Ty Ref(Ty Path str)>
+      Ret Default
+      Block(Semi Expr Method(Expr Field(Expr Path self, cfg), insert, [Expr Method(Expr Path key, to_string, []), Expr Method(Expr Path val, map, [Expr Closure([Pat Ident v], Expr Method(Expr Path v, to_string, []))])]))
+  Item Const@1215..1274 vis=pub ident=DEFAULT_EDITION
+    Ty Path Edition
+    Expr Path Edition::Edition2021

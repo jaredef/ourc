@@ -1,0 +1,12 @@
+ir main -> i32
+  v0: i32 = argc
+  v1: i32 = const 0
+  v2: i32 = const 1
+  loop
+  brz v0
+  v1: i32 = add v1 v0
+  v0: i32 = sub v0 v2
+  jmp
+  pool
+  ret v1
+end

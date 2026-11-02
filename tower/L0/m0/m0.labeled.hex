@@ -1,0 +1,296 @@
+# M0 slice 1 (tokenizer + multi-char labels) DERIVED from m0-seed.md, authored
+# against hex2 (=entry, &filesz, } jumps; M0's own labels are single-char hex2).
+# Tokens are whitespace-separated. # -> comment to EOL. :NAME defines a label
+# (multi-char). =NAME/&NAME/}NAME -> abs/offset/rel32 refs. Hex tokens emit bytes.
+# Two passes: pass1 builds the label table, pass2 emits + resolves.
+# Fixed bss: INBUF 0x410000 (256KB to OUT), OUT 0x450000, LTAB 0x460000 (16B entries:
+#   name_ptr:8 name_len:4 value:4, up to 2048), MTAB 0x468000 (32B), LCOUNT 0x46f000. memsz 0x70000.
+
+7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00
+02 00 3e 00 01 00 00 00
+=m 00 00 00 00            # e_entry
+40 00 00 00 00 00 00 00   # e_phoff
+00 00 00 00 00 00 00 00   # e_shoff
+00 00 00 00 40 00 38 00 01 00 00 00 00 00 00 00
+01 00 00 00 07 00 00 00   # PT_LOAD R+W+X
+00 00 00 00 00 00 00 00
+00 00 40 00 00 00 00 00
+00 00 40 00 00 00 00 00
+&z 00 00 00 00            # p_filesz
+00 00 07 00 00 00 00 00   # p_memsz 0x70000
+00 10 00 00 00 00 00 00
+:m
+31 c0                     # xor eax,eax   (read=0)
+31 ff                     # xor edi,edi   (fd 0)
+be 00 00 41 00            # mov esi, INBUF (0x410000)
+ba 00 00 04 00            # mov edx, 262144 (0x40000 = 256KB, fills to OUT)
+0f 05                     # syscall
+bb 00 00 41 00            # mov ebx, INBUF
+4c 8d 2c 03               # lea r13,[rbx+rax]
+48 31 c0                  # xor rax,rax
+48 89 04 25 00 f0 46 00   # mov [LCOUNT], rax  (=0)
+45 31 ff                  # xor r15d,r15d      (pass 1)
+e8 }P
+41 bf 01 00 00 00         # mov r15d, 1        (pass 2)
+e8 }P
+b8 01 00 00 00            # mov eax,1
+bf 01 00 00 00            # mov edi,1
+be 00 00 45 00            # mov esi, OUT
+4c 89 e2                  # mov rdx, r12       (outpos)
+0f 05                     # syscall
+b8 3c 00 00 00            # mov eax,60
+31 ff                     # xor edi,edi
+0f 05                     # syscall
+
+:P
+48 89 de                  # mov rsi, rbx       (cursor)
+45 31 e4                  # xor r12d,r12d      (outpos)
+48 31 c0                  # xor rax,rax
+48 89 04 25 08 f0 46 00   # mov [MCOUNT], rax  (=0 each pass)
+:A
+4c 39 ee                  # cmp rsi, r13
+0f 83 }R                  # jae return
+0f b6 06                  # movzbl (rsi),eax
+3c 20                     # cmp al,' '
+0f 84 }S
+3c 09                     # cmp al,tab
+0f 84 }S
+3c 0a                     # cmp al,nl
+0f 84 }S
+e9 }T
+:S
+48 ff c6                  # inc rsi
+e9 }A
+:R
+c3
+:T
+49 89 f0                  # mov r8, rsi        (token start)
+:U
+4c 39 ee                  # cmp rsi,r13
+0f 83 }V
+0f b6 06
+3c 20
+0f 84 }V
+3c 09
+0f 84 }V
+3c 0a
+0f 84 }V
+48 ff c6                  # inc rsi
+e9 }U
+:V
+49 89 f1                  # mov r9, rsi
+4d 29 c1                  # sub r9, r8         (token_len)
+41 0f b6 00               # movzbl (r8),eax    (first char)
+3c 23
+0f 84 }B                  # '#' comment
+3c 3a
+0f 84 }C                  # ':' label
+3c 3d
+0f 84 }D                  # '=' ref
+3c 26
+0f 84 }D                  # '&' ref
+3c 7d
+0f 84 }D                  # '}' ref
+3c 25
+0f 84 }M                  # '%' macro def
+e9 }Y                     # bare token (macro use, else hex)
+
+:B
+4c 39 ee
+0f 83 }A
+0f b6 06
+48 ff c6
+3c 0a
+0f 85 }B
+e9 }A
+
+:C
+45 85 ff                  # test r15d
+0f 85 }A                  # pass2: nothing
+48 8b 0c 25 00 f0 46 00   # mov rcx, [LCOUNT]
+48 c1 e1 04               # shl rcx, 4         (*16)
+49 8d 40 01               # lea rax, [r8+1]    (name ptr)
+48 89 81 00 00 46 00      # mov [rcx+LTAB], rax
+49 8d 41 ff               # lea rax, [r9-1]    (name len)
+89 81 08 00 46 00         # mov [rcx+LTAB+8], eax
+44 89 a1 0c 00 46 00      # mov [rcx+LTAB+12], r12d  (value=outpos)
+48 ff 04 25 00 f0 46 00   # inc qword [LCOUNT]
+e9 }A
+
+:D
+45 85 ff
+0f 84 }d                  # pass1: reserve 4
+49 8d 78 01               # lea rdi, [r8+1]    (name)
+49 8d 49 ff               # lea rcx, [r9-1]    (len)
+e8 }L                     # lookup -> eax=value
+41 0f b6 10               # movzbl (r8), edx   (ref kind)
+80 fa 3d                  # cmp dl,'='
+0f 84 }j
+80 fa 26                  # cmp dl,'&'
+0f 84 }k
+41 8d 4c 24 04            # lea ecx,[r12+4]
+29 c8                     # sub eax, ecx       (rel32)
+e9 }e
+:j
+05 00 00 40 00            # add eax, 0x400000  (abs = BASE+value)
+e9 }e
+:k
+:e
+42 89 04 25 00 00 45 00   # mov [OUT+r12], eax (4 LE bytes)
+:d
+49 83 c4 04               # add r12, 4
+e9 }A
+
+:L
+4d 31 d2                  # xor r10, r10       (i=0)
+:a
+4c 3b 14 25 00 f0 46 00   # cmp r10, [LCOUNT]
+0f 83 }f                  # not found
+4d 89 d3                  # mov r11, r10
+49 c1 e3 04               # shl r11, 4
+49 81 c3 00 00 46 00      # add r11, LTAB      (entry base)
+41 8b 53 08               # mov edx, [r11+8]   (entry.len)
+39 ca                     # cmp edx, ecx
+0f 85 }n
+4d 8b 0b                  # mov r9, [r11]      (entry name ptr)
+48 31 d2                  # xor rdx, rdx       (k=0)
+:c
+48 39 ca                  # cmp rdx, rcx
+0f 83 }h                  # all matched
+41 0f b6 04 11            # movzbl (r9+rdx), eax
+3a 04 17                  # cmp al, (rdi+rdx)
+0f 85 }n
+48 ff c2                  # inc rdx
+e9 }c
+:h
+41 8b 43 0c               # mov eax, [r11+12]  (value)
+c3
+:n
+49 ff c2                  # inc r10
+e9 }a
+:f
+31 c0                     # xor eax,eax        (not found -> 0)
+c3
+
+:G
+41 f6 c1 01               # test r9b, 1  (odd-length token?)
+0f 85 }E                  # jnz error
+48 31 c9                  # xor rcx, rcx       (k=0)
+:g
+4c 39 c9                  # cmp rcx, r9
+0f 83 }A
+41 0f b6 04 08            # movzbl (r8+rcx), eax  (hi char)
+e8 }H                     # hexval -> al
+c0 e0 04                  # shl al, 4
+88 c2                     # mov dl, al
+48 ff c1                  # inc rcx
+41 0f b6 04 08            # movzbl (r8+rcx), eax  (lo char)
+e8 }H
+08 d0                     # or al, dl          (byte)
+45 85 ff                  # test r15d
+0f 84 }q                  # pass1: no emit
+42 88 04 25 00 00 45 00   # mov [OUT+r12], al
+:q
+49 ff c4                  # inc r12
+48 ff c1                  # inc rcx
+e9 }g
+
+:H
+3c 30                     # cmp al,'0'
+0f 82 }E                  # jb error  (< '0', not hex)
+3c 3a                     # cmp al,':'
+0f 82 }w                  # jb w      (0-9)
+3c 41                     # cmp al,'A'
+0f 82 }E                  # jb error  ('9' < al < 'A')
+3c 47                     # cmp al,'G'
+0f 82 }x                  # jb x      (A-F)
+3c 61                     # cmp al,'a'
+0f 82 }E                  # jb error  ('F' < al < 'a')
+3c 67                     # cmp al,'g'
+0f 82 }i                  # jb i      (a-f)
+e9 }E                     # >= 'g' -> error
+:w
+2c 30                     # sub al,'0'
+c3
+:x
+2c 37                     # sub al,0x37 (A-F)
+c3
+:i
+2c 57                     # sub al,0x57 (a-f)
+c3
+# error: a bare token was neither a defined macro nor valid even-length hex
+:E
+b8 3c 00 00 00            # mov eax, 60
+bf 03 00 00 00            # mov edi, 3   (exit code 3)
+0f 05                     # syscall
+
+# macro def  %NAME <hexvalue> : record (name -> hexvalue token span), emit nothing
+# MTAB 0x461000, 32B entries (name_ptr:8 name_len:4 val_ptr:8 val_len:4), MCOUNT 0x46f008
+:M
+4d 8d 50 01               # lea r10, [r8+1]    (name_ptr)
+4d 8d 59 ff               # lea r11, [r9-1]    (name_len)
+:o
+0f b6 06                  # movzbl (rsi),eax
+3c 21                     # cmp al, '!'
+0f 82 }p                  # jb skip-ws
+49 89 f0                  # mov r8, rsi        (value token start)
+:I
+0f b6 06                  # movzbl (rsi),eax
+3c 21                     # cmp al, '!'
+0f 82 }r                  # jb token-done
+4c 39 ee                  # cmp rsi, r13
+0f 83 }r                  # jae token-done
+48 ff c6                  # inc rsi
+e9 }I
+:p
+48 ff c6                  # inc rsi
+e9 }o
+:r
+49 89 f1                  # mov r9, rsi
+4d 29 c1                  # sub r9, r8         (value len)
+48 8b 0c 25 08 f0 46 00   # mov rcx, [MCOUNT]
+48 c1 e1 05               # shl rcx, 5         (*32)
+4c 89 91 00 80 46 00      # mov [rcx+MTAB], r10        (name_ptr)
+44 89 99 08 80 46 00      # mov [rcx+MTAB+8], r11d     (name_len)
+4c 89 81 10 80 46 00      # mov [rcx+MTAB+16], r8      (val_ptr)
+44 89 89 18 80 46 00      # mov [rcx+MTAB+24], r9d     (val_len)
+48 ff 04 25 08 f0 46 00   # inc qword [MCOUNT]
+e9 }A
+
+# bare token: if a defined macro -> emit its bytes; else decode the token as hex
+:Y
+e8 }K                     # macro lookup (sets r8/r9 to value span on hit)
+e9 }G                     # decode (r8,r9) as hex and emit
+
+# macro lookup: name=r8 len=r9 -> on hit set r8=val_ptr r9=val_len; else unchanged
+:K
+4d 31 d2                  # xor r10, r10       (i=0)
+:l
+4c 3b 14 25 08 f0 46 00   # cmp r10, [MCOUNT]
+0f 83 }Q                  # jae not-found
+4d 89 d3                  # mov r11, r10
+49 c1 e3 05               # shl r11, 5         (*32)
+49 81 c3 00 80 46 00      # add r11, MTAB
+41 8b 53 08               # mov edx, [r11+8]   (entry.name_len)
+44 39 ca                  # cmp edx, r9d
+0f 85 }y                  # jne next
+49 8b 03                  # mov rax, [r11]     (entry.name_ptr)
+48 31 d2                  # xor rdx, rdx       (k=0)
+:v
+4c 39 ca                  # cmp rdx, r9
+0f 83 }b                  # jae hit
+0f b6 0c 10               # movzbl (rax+rdx), ecx
+41 3a 0c 10               # cmp cl, (r8+rdx)
+0f 85 }y                  # jne next
+48 ff c2                  # inc rdx
+e9 }v
+:b
+4d 8b 43 10               # mov r8, [r11+16]   (val_ptr)
+45 8b 4b 18               # mov r9d, [r11+24]  (val_len)
+c3
+:y
+49 ff c2                  # inc r10
+e9 }l
+:Q
+c3                        # not found: r8/r9 unchanged -> token decoded as hex
+:z

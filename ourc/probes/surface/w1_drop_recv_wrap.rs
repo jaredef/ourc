@@ -1,0 +1,1 @@
+struct T(i64); impl Drop for T { fn drop(&mut self) { println!("drop {}", self.0); } } struct W { t: T } impl T { fn wrap(self) -> W { W { t: self } } } fn main(){ let w = T(5).wrap(); println!("{}", w.t.0); }

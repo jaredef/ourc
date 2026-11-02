@@ -1,0 +1,13 @@
+struct V { x: int, y: int }
+impl V {
+  fn add(self, o: V) -> V { V { self.x + o.x, self.y + o.y } }
+  fn mul(self, o: V) -> V { V { self.x * o.x, self.y * o.y } }
+  fn tot(self) -> int { self.x + self.y }
+}
+let a = V { 10, 4 };
+let b = V { 20, 8 };
+let c = a + b;
+print_int(c.tot());
+let d = a * b;
+print_int(d.tot());
+(a + b).tot()

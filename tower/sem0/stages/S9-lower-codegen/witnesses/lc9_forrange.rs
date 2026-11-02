@@ -1,0 +1,5 @@
+fn main() {
+    let mut s: i32 = 0;
+    for i in 0..5 { s = s + i; }
+    println!("{}", s);
+}

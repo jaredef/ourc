@@ -1,0 +1,22 @@
+Crate
+  Item Struct@0..39 vis=pub ident=Parser
+    Field vis=priv ident=pos Ty Path usize
+  Item Impl@39..452 Ty Path Parser
+    Item Fn@57..119 vis=pub ident=peek
+      Attr inline
+      Param name=&self ImplicitSelf
+      Ret Ty Path u8
+      Block(Expr Expr LitInt 0)
+    Item Fn@119..222 vis=pub ident=parse_num
+      Param name=s Ty Ref(Ty Path str)
+      Ret Ty Path Result<Ty Path u32, Ty Path Error>
+      Block(Let Pat Ident n = Expr Try(Expr Method(Expr Path s, parse, [])); Expr Expr Call(Expr Path Ok, [Expr Path n]))
+    Item Fn@222..313 vis=pub ident=make_adder
+      Param name=base Ty Path u32
+      Ret Ty Impl(Fn(Ty Path u32) -> Ty Path u32)
+      Block(Expr Expr Closure(move [Pat Ident x], Expr Bin Add(Expr Path x, Expr Path base)))
+    Item Fn@313..450 vis=pub ident=classify
+      Param name=&self ImplicitSelf
+      Param name=c Ty Path char
+      Ret Ty Path u32
+      Block(Expr Expr If(Expr Bin Or(Expr Bin Eq(Expr Path c, Expr Char '\t'), Expr Bin Eq(Expr Path c, Expr Char ' ')), Block(Expr Expr LitInt 1), Expr Block(Block(Expr Expr LitInt 2))))

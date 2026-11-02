@@ -1,0 +1,1 @@
+fn main(){ let a:Option<Option<i64>>=Some(Some(42)); let b:Option<Option<i64>>=Some(None); let x=match a{Some(Some(n))=>n,_=>0}; let y=match b{Some(Some(n))=>n,Some(None)=>5,None=>9}; println!("{}",x+y); }

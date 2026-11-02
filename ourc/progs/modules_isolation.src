@@ -1,0 +1,3 @@
+mod a { fn v() -> int { 20 } }
+mod b { fn v() -> int { 22 } }
+a::v() + b::v()

@@ -1,0 +1,8 @@
+say("the answer is ", 42);
+say("negative ", 0 - 17);
+print(str_from_int(1234567));
+print_int(str_find("hello world", "world"));
+print_int(str_has("hello", "xyz"));
+let msg = str_cat("x=", str_from_int(21));
+print(msg);
+len(msg) * 10 + 2

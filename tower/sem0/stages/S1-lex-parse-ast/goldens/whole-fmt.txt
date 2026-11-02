@@ -1,0 +1,21 @@
+Crate
+  Item Struct@0..43 vis=pub ident=Printer
+    Field vis=priv ident=indent Ty Path usize
+  Item Impl@43..401 Ty Path Printer
+    Item Fn@62..123 vis=pub ident=raw
+      Ret Ty Ref('static Ty Path str)
+      Block(Expr Expr Str "C:\\path")
+    Item Fn@123..170 vis=pub ident=magic
+      Ret Ty Path u8
+      Block(Expr Expr LitInt 65)
+    Item Fn@170..268 vis=pub ident=parse_id
+      Param name=s Ty Ref(Ty Path str)
+      Ret Ty Path u32
+      Block(Let Pat Ident n = Expr Method(Expr Method(Expr Path s, parse::<Ty Path u32>, []), unwrap, []); Expr Expr Path n)
+    Item Fn@268..331 vis=pub ident=make
+      Ret Ty Path Vec<Ty Path u8>
+      Block(Expr Expr Call(Expr Path Vec<Ty Path u8>::new, []))
+    Item Fn@331..399 vis=pub ident=check
+      Param name=x Ty Path u32
+      Ret Ty Path bool
+      Block(Expr Expr MacCall(matches ! Paren[x , 1 | 2 | 3]))

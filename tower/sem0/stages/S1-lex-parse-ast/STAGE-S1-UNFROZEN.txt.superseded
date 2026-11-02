@@ -1,0 +1,62 @@
+# S1 UNFROZEN -- keeper-authorized 2026-08-10
+
+WHAT: the keeper lifted the S1 (lex/parse/AST) freeze. S1's parser + AST enums are now OPEN FOR AMENDMENT to close the
+deferred S1-AST fidelity gaps that S4/S5 surfaced (the S1-unfreezing candidates). S1 was never given an explicit
+STAGE-S1-FROZEN-AT marker (it is the founding stage); its "frozen" status was the discipline that the s1-ast-diff.sh
+gate + goldens stay GREEN and that S2-S5 consume a stable AST. That discipline is now RELAXED for authorized amendments.
+
+AUTHORIZED SCOPE (the surfaced S1-AST gaps):
+  - [CLOSED 2026-08-10, rung 2] S4-a/b: closure `move` + RETURN type -- ExprK::Closure amended to
+    Closure(bool, Vec<CParam>, Vec<Ty>, P<ExprK>) [is_move, params, ret(0-or-1), body]; a pend_move Parser field threads
+    the `move` keyword; parse_closure_ret captures `-> R`; dump_expr + hir_expr render `[move ]|P|[ -> R] BODY`. S4
+    witness hir8_closure restored (move + typed-ret). == rustc HIR.
+  - [PARTIAL 2026-08-10, rung 3] S4-c: async lowering. S4-c-1 async BLOCK `async [move] { .. }` ->
+    `[move ]|mut _task_context: ResumeTy| BODY` CLOSED (hir_expr Async arm; NO S1-AST change -- Async(is_move, block)
+    already stored). S4-c-2 async FN (`async fn f() -> /*impl Trait*/` header + generator-wrapped body
+    `|mut _task_context: ResumeTy| { { let _t = { BODY }; _t } }`) DEFERRED -- needs an ASYNC FLAG on the Fn item
+    (the parser currently ELIDES `async fn` at L1524, like unsafe/const). Adding an async field to ItemKind::Fn or the
+    Item struct is stage0-safe (per S1-F2) but ripples to MANY Fn match/construction sites -- its own rung.
+  - [CLOSED 2026-08-10, rung 4] S4-c-2 async FN: ItemKind::Fn amended to add a trailing `is_async: bool` (11-site
+    ripple; append-safe per S1-F2, rz==rc held); a pend_async Parser field threads `async fn` (set at the elide site,
+    captured+cleared at parse_fn_item start so nested fns do not inherit); hir_item renders `async fn N(P) ->
+    /*impl Trait*/ |mut _task_context: ResumeTy| { { let _t = BODY; _t } }`. Witness hir11_async (async fn c/d) == rustc.
+  - [CLOSED 2026-08-10, rung 1] S5.2: method RECEIVER FORM self / &self / &mut self -- now recorded in Param.name
+    (parse_fn_params captures has_amp/has_mut; is_self_param + self_env_type; dump_item + S5 ty_fn/ty_trait_method/
+    method_sig updated; goldens regenerated -- all diffs were receiver-form only). Witness ty4b_recv == rustc.
+
+AMENDMENT DISCIPLINE (LOAD-BEARING -- S1 is the trust anchor S2-S5 build on):
+  1. RZRS-SUBSET ENUM HAZARD (finding #4): NEVER insert/reorder a variant MID-enum -- adding/reordering an ExprK/Tok
+     variant shifts discriminants and has caused GLOBAL segfaults. APPEND new variants at the END of the enum, or add a
+     field to an existing variant only if proven rz==rc. Prototype every AST change vs rz==rc by EMPTYING bodies FIRST.
+  2. A parse change MOVES the s1-ast golden. Regenerate goldens/ INTENTIONALLY (verify the new AST dump is correct vs
+     rustc's -Zunpretty=ast-tree), and keep s1-ast-diff.sh BOOTSTRAP rz==rc.
+  3. Downstream: an AST change ripples into the S2/S3/S4/S5 emitters (dump_*/emit_*/hir_*/ty_*). Re-run ALL stage gates
+     (s2-expand 13, s3-resolve 56 + crate-native 12, s4-hir 10, s5-typeck 11) and update emitters as needed.
+  4. Re-mint the stage snapshots (s1_parser.rs.S2/S3/S4/S5-frozen are byte-identical checkpoints of the SAME live file);
+     after a landed S1 amendment + all-gates-GREEN, the keeper decides whether to refresh the downstream snapshots.
+  5. Trust gates (selfhost/provenance/corpus) are carried unless the amendment touches L6/stage0 (it should not -- these
+    are s1_parser.rs AST/emit changes, not stage0 idiom changes).
+
+PROGRESS:
+  - rung 1 (2026-08-10): RECEIVER FORM closed (name-encoding, no enum change).
+  - rung 2 (2026-08-10): CLOSURE MOVE + RETURN TYPE closed. ExprK::Closure ARITY CHANGE (added is_move + ret fields) --
+    lowered CLEAN under the frozen stage0. All 5 gates GREEN (s1-ast regenerated -- only Closure lines moved, s2 13,
+    s3 56+12, s4 10, s5 12); rz==rc on the fixtures BOOTSTRAP.
+  - FINDING S1-F1 (CRITICAL METHOD NOTE): the "self-dump canary" (`s1.rz < s1_parser.rs`, the 419KB whole file) SEGFAULTS
+    even in a HEALTHY state (input-size/runtime limit, NOT correctness) -- it is a FALSE signal that nearly caused a
+    wrong revert. The CANONICAL rz==rc gate is s1-ast-diff.sh's FIXTURES BOOTSTRAP (+ small targeted inputs). NEVER
+    diagnose an AST change from the self-dump.
+  - FINDING S1-F2 (finding-#4 refinement): ADDING FIELDS to an existing ExprK variant (Closure) is stage0-SAFE (verified
+    via the fixtures BOOTSTRAP + isolation test). Finding #4's GLOBAL-segfault hazard is specific to INSERTING/REORDERING
+    variants (discriminant shift), NOT growing a variant's payload. Prototype via fixtures BOOTSTRAP, not the self-dump.
+  - rung 3 (2026-08-10): async BLOCK closed (S4-c-1). All 5 gates GREEN (s4 now 11 with hir11_async). NO S1-AST
+    change (Async already stored) -> just a hir_expr arm.
+  - rung 4 (2026-08-10): async FN closed (S4-c-2). ItemKind::Fn arity change (added is_async) -- rz==rc held on the
+    fixtures BOOTSTRAP (reconfirms S1-F2). All 5 gates GREEN (s4 11). S1 golden UNCHANGED (dump_item ignores async).
+  - *** ALL 3 AUTHORIZED S1-AST GAPS CLOSED (receiver form, closure move/ret, async block+fn). ***
+  - NEXT: re-mint the S2/S3/S4/S5 snapshots (keeper-directed: after the full gap set closes).
+
+SNAPSHOTS RE-MINTED 2026-08-10 (keeper-directed, after the full gap set closed): all four s1_parser.rs.Sx-frozen
+refreshed to the amended live s1_parser.rs (byte-identical); each STAGE-Sx-FROZEN-AT marker annotated. No longer stale.
+
+STATUS: COMPLETE. All 3 authorized S1-AST gaps closed; snapshots re-minted. S1 amendment set done.

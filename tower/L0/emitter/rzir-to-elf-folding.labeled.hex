@@ -1,0 +1,219 @@
+# rzir -> ELF emitter, FLAT + FOLDING (covers chained) — derived against hex1.
+# Adds a temp-value table TVAL[d] so intermediate temps fold; the ret operation's
+# emitted operands are its operand temps' resolved values. The ret references the
+# last op temp, so emit uses LAST_L/LAST_R/LAST_OP, updated per op line.
+# Fixed addrs: TPL=0x400078; needles at 0x40010d..; writable data 0x400138
+#   TVAL=0x400138 LAST_L=0x400160 LAST_R=0x400164 LAST_OP=0x400168; entry=0x400169.
+# filesz / memsz / INBUF set by a measuring build.
+
+# === emitter ELF header (64) === entry 0x400169
+7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00
+02 00 3e 00 01 00 00 00
+69 01 40 00 00 00 00 00   # e_entry
+40 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00
+00 00 00 00 40 00 38 00 01 00 00 00 00 00 00 00
+# === emitter program header (56) PT_LOAD R+W+X ===
+01 00 00 00 07 00 00 00
+00 00 00 00 00 00 00 00
+00 00 40 00 00 00 00 00
+00 00 40 00 00 00 00 00
+82 03 00 00 00 00 00 00   # p_filesz  (set after measure)
+82 03 01 00 00 00 00 00   # p_memsz   (S + 0x10000)
+00 10 00 00 00 00 00 00
+
+# === OUTPUT template (149) vaddr 0x400078 ===
+7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00
+02 00 3e 00 01 00 00 00
+78 00 40 00 00 00 00 00
+40 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00
+00 00 00 00 40 00 38 00 01 00 00 00 00 00 00 00
+01 00 00 00 05 00 00 00
+00 00 00 00 00 00 00 00
+00 00 40 00 00 00 00 00
+00 00 40 00 00 00 00 00
+95 00 00 00 00 00 00 00
+95 00 00 00 00 00 00 00
+00 10 00 00 00 00 00 00
+49 c7 c1 00 00 00 00      # mov $A,%r9   (A @ 0x4000f3)
+49 c7 c2 00 00 00 00      # mov $B,%r10  (B @ 0x4000fa)
+4d 01 d1                  # add %r10,%r9 (op @ 0x4000ff)
+4c 89 cf                  # mov %r9,%rdi
+48 c7 c0 3c 00 00 00      # mov $60,%rax
+0f 05                     # syscall
+
+# === needles (43) vaddr 0x40010d ===
+69 72 20 6d 61 69 6e 20 2d 3e 20 69 33 32   # "ir main -> i32"   @0x40010d
+3a 20 69 33 32 20 3d 20                      # ": i32 = "         @0x40011b
+63 6f 6e 73 74 20                            # "const "          @0x400123
+61 64 64 20                                  # "add "            @0x400129
+73 75 62 20                                  # "sub "            @0x40012d
+72 65 74 20                                  # "ret "            @0x400131
+65 6e 64                                     # "end"             @0x400135
+
+# === writable data (49) vaddr 0x400138 ===
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   # TVAL[0..3]   @0x400138
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   # TVAL[4..7]
+00 00 00 00 00 00 00 00                            # TVAL[8..9]   (40 bytes total)
+00 00 00 00                                        # LAST_L       @0x400160
+00 00 00 00                                        # LAST_R       @0x400164
+00                                                 # LAST_OP      @0x400168
+
+# === code === vaddr 0x400169 (entry)
+31 c0                     # xor eax,eax
+31 ff                     # xor edi,edi
+be 82 03 40 00            # mov esi, INBUF
+ba 00 00 01 00            # mov edx, 65536
+0f 05                     # syscall
+bb 82 03 40 00            # mov ebx, INBUF
+4c 8d 2c 03               # lea r13, [rbx+rax]   (end)
+41 bb 38 01 40 00         # mov r11d, TVAL       (table base 0x400138)
+48 89 de                  # mov rsi, rbx         (cursor)
+# find "ir main -> i32": scan, leaving rsi after it
+:S
+bf 0d 01 40 00            # mov edi, NIR
+b9 0e 00 00 00            # mov ecx, 14
+e8 }T                     # call try
+85 c0                     # test eax,eax
+0f 85 }M                  # jnz mloop (found, rsi past it)
+48 ff c6                  # inc rsi
+e9 }S                     # jmp scan
+:M
+e8 }W                     # call sw
+bf 31 01 40 00            # mov edi, NRET
+b9 04 00 00 00            # mov ecx, 4
+e8 }T                     # call try
+85 c0                     # test eax,eax
+0f 85 }E                  # jnz emit
+bf 35 01 40 00            # mov edi, NEND
+b9 03 00 00 00            # mov ecx, 3
+e8 }T                     # call try
+85 c0                     # test eax,eax
+0f 85 }E                  # jnz emit
+e8 }P                     # call pt   -> eax=d, rsi past vN
+41 89 c6                  # mov r14d, eax   (d)
+bf 1b 01 40 00            # mov edi, NTYPE
+b9 08 00 00 00            # mov ecx, 8
+e8 }T                     # call try   (": i32 = ")
+bf 23 01 40 00            # mov edi, NCONST
+b9 06 00 00 00            # mov ecx, 6
+e8 }T                     # call try
+85 c0                     # test eax,eax
+0f 85 }C                  # jnz vconst
+bf 29 01 40 00            # mov edi, NADD
+b9 04 00 00 00            # mov ecx, 4
+e8 }T                     # call try
+85 c0                     # test eax,eax
+0f 85 }A                  # jnz vadd
+bf 2d 01 40 00            # mov edi, NSUB
+b9 04 00 00 00            # mov ecx, 4
+e8 }T                     # call try
+85 c0                     # test eax,eax
+0f 85 }B                  # jnz vsub
+e9 }E                     # jmp emit (unknown)
+:C
+e8 }D                     # call pd   -> eax = value
+43 89 04 b3               # mov [r11+r14*4], eax   (TVAL[d] = value)
+e9 }M                     # jmp mloop
+:A
+45 31 ff                  # xor r15d,r15d   (op = add)
+e9 }O
+:B
+41 bf 01 00 00 00         # mov r15d, 1     (op = sub)
+:O
+e8 }P                     # call pt  -> a
+41 8b 04 83               # mov eax, [r11+rax*4]    (av = TVAL[a])
+89 04 25 60 01 40 00      # mov [LAST_L], eax
+41 89 c1                  # mov r9d, eax    (av)
+48 ff c6                  # inc rsi         (space)
+e8 }P                     # call pt  -> b
+41 8b 04 83               # mov eax, [r11+rax*4]    (bv = TVAL[b])
+89 04 25 64 01 40 00      # mov [LAST_R], eax
+41 89 c2                  # mov r10d, eax   (bv)
+44 89 c8                  # mov eax, r9d    (av)
+45 85 ff                  # test r15d,r15d
+0f 84 }G                  # jz fadd
+44 29 d0                  # sub eax, r10d   (av - bv)
+e9 }H
+:G
+44 01 d0                  # add eax, r10d   (av + bv)
+:H
+43 89 04 b3               # mov [r11+r14*4], eax    (TVAL[d] = result)
+44 88 3c 25 68 01 40 00   # mov [LAST_OP], r15b
+e9 }M                     # jmp mloop
+:E
+8b 04 25 60 01 40 00      # mov eax, [LAST_L]
+89 04 25 f3 00 40 00      # mov [0x4000f3], eax     (A)
+8b 04 25 64 01 40 00      # mov eax, [LAST_R]
+89 04 25 fa 00 40 00      # mov [0x4000fa], eax     (B)
+0f b6 04 25 68 01 40 00   # movzbl [LAST_OP], eax
+84 c0                     # test al, al
+0f 84 }Y                  # jz eadd
+c6 04 25 ff 00 40 00 29   # movb $0x29, [0x4000ff]
+:Y
+b8 01 00 00 00            # mov eax,1
+bf 01 00 00 00            # mov edi,1
+be 78 00 40 00            # mov esi, TPL
+ba 95 00 00 00            # mov edx, 149
+0f 05                     # syscall
+b8 3c 00 00 00            # mov eax,60
+31 ff                     # xor edi,edi
+0f 05                     # syscall
+
+# try: rdi=needle ecx=len; match at rsi. hit: rsi+=len, eax=1. miss: eax=0.
+:T
+45 31 c0                  # xor r8d, r8d
+:t
+49 39 c8                  # cmp r8, rcx
+0f 84 }h                  # je hit
+42 0f b6 04 06            # movzbl (rsi+r8), eax   (r8 is index -> REX.X)
+42 0f b6 14 07            # movzbl (rdi+r8), edx
+38 d0                     # cmp al, dl
+0f 85 }m                  # jne miss
+49 ff c0                  # inc r8
+e9 }t
+:h
+48 01 ce                  # add rsi, rcx
+b8 01 00 00 00            # mov eax, 1
+c3
+:m
+31 c0                     # xor eax,eax
+c3
+
+# sw: skip spaces/tabs/newlines at rsi (control flow via hex1 labels)
+:W
+0f b6 06                  # movzbl (rsi), eax
+3c 20                     # cmp al, ' '
+0f 84 }w                  # je adv
+3c 09                     # cmp al, 9 (tab)
+0f 84 }w                  # je adv
+3c 0a                     # cmp al, 10 (newline)
+0f 84 }w                  # je adv
+c3                        # ret
+:w
+48 ff c6                  # inc rsi
+e9 }W                     # jmp sw
+
+# pt: rsi at 'v' -> eax=digit, rsi+=2
+:P
+48 ff c6                  # inc rsi          (past 'v')
+0f b6 06                  # movzbl (rsi), eax
+83 e8 30                  # sub eax, '0'
+48 ff c6                  # inc rsi
+c3
+
+# pd: rsi at digit -> eax=value(1-2), rsi advanced
+:D
+0f b6 06                  # movzbl (rsi), eax
+83 e8 30                  # sub eax,'0'
+48 ff c6                  # inc rsi
+0f b6 16                  # movzbl (rsi), edx
+83 ea 30                  # sub edx,'0'
+83 fa 09                  # cmp edx, 9
+0f 87 }d                  # ja one
+6b c0 0a                  # imul eax,eax,10
+01 d0                     # add eax,edx
+48 ff c6                  # inc rsi
+:d
+c3

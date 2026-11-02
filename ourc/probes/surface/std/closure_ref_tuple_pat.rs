@@ -1,0 +1,1 @@
+fn main() { let v = vec![(1, 2), (3, 4)]; let s: i64 = v.iter().map(|&(a, b)| a * b).sum(); let t: Vec<i64> = v.iter().filter(|&&(a, _)| a > 1).map(|&(a, b)| a + b).collect(); println!("{} {:?}", s, t); }

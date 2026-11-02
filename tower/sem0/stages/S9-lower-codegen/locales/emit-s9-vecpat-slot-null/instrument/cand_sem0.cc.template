@@ -1,0 +1,2 @@
+#!/bin/sh
+t="$(mktemp)"; { echo '//@S9'; cat; } > "$t"; "${CAND:?set CAND to the candidate SEM0 binary}" < "$t"; r=$?; rm -f "$t"; exit $r

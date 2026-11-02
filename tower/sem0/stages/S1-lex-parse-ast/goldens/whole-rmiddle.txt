@@ -1,0 +1,61 @@
+Crate
+  Item Use@0..31 vis=priv
+    Use Simple std::marker::PhantomData
+  Item Struct@31..96 vis=pub ident=Ty<'tcx>
+    Attr derive(Clone, Copy)
+    Tuple(Ty Ref('tcx Ty Path TyKind<Ty Lifetime 'tcx>))
+  Item Enum@96..292 vis=pub ident=TyKind<'tcx>
+    Variant ident=Bool Unit
+    Variant ident=Int Tuple(Ty Path IntTy)
+    Variant ident=Ref Tuple(Ty Ref('tcx Ty Path TyKind<Ty Lifetime 'tcx>), Ty Path Mutability)
+    Variant ident=Adt Tuple(Ty Path DefId, Ty Ref('tcx Ty Slice(Ty Path Ty<Ty Lifetime 'tcx>)))
+    Variant ident=Tuple Tuple(Ty Ref('tcx Ty Slice(Ty Path Ty<Ty Lifetime 'tcx>)))
+    Variant ident=FnPtr Tuple(Ty Ref('tcx Ty Slice(Ty Path Ty<Ty Lifetime 'tcx>)), Ty Path Ty<Ty Lifetime 'tcx>)
+  Item Enum@292..336 vis=pub ident=IntTy
+    Variant ident=I8 Unit
+    Variant ident=I16 Unit
+    Variant ident=I32 Unit
+    Variant ident=I64 Unit
+    Variant ident=Isize Unit
+  Item Enum@336..369 vis=pub ident=Mutability
+    Variant ident=Not Unit
+    Variant ident=Mut Unit
+  Item Struct@369..422 vis=pub ident=DefId
+    Field vis=pub ident=krate Ty Path u32
+    Field vis=pub ident=index Ty Path u32
+  Item Struct@422..519 vis=pub ident=Interner<'tcx>
+    Field vis=priv ident=types Ty Path Vec<Ty Path TyKind<Ty Lifetime 'tcx>>
+    Field vis=priv ident=_marker Ty Path PhantomData<Ty Ref('tcx Ty Tup())>
+  Item Trait@519..652 vis=pub ident=TypeFoldable<'tcx>: Sized
+    Item AssocTyDecl@561..578 vis=priv ident=Output
+      ty None
+    Item Fn@578..649 vis=priv ident=fold_with<F: TyFolder<Ty Lifetime 'tcx>>
+      Param name=self ImplicitSelf
+      Param name=folder Ty Ref(mut Ty Path F)
+      Ret Ty Path Self::Output
+      Body None
+  Item Trait@652..734 vis=pub ident=TyFolder<'tcx>
+    Item Fn@683..731 vis=priv ident=fold_ty
+      Param name=&mut self ImplicitSelf
+      Param name=t Ty Path Ty<Ty Lifetime 'tcx>
+      Ret Ty Path Ty<Ty Lifetime 'tcx>
+      Body None
+  Item Impl@734..919<'tcx> Ty Path Ty<Ty Lifetime 'tcx>
+    Item Fn@760..816 vis=pub ident=kind
+      Param name=self ImplicitSelf
+      Ret Ty Ref('tcx Ty Path TyKind<Ty Lifetime 'tcx>)
+      Block(Expr Expr Field(Expr Path self, 0))
+    Item Fn@816..916 vis=pub ident=is_scalar
+      Param name=self ImplicitSelf
+      Ret Ty Path bool
+      Block(Expr Expr MacCall(matches ! Paren[self . kind ( ) , TyKind :: Bool | TyKind :: Int ( _ )]))
+  Item Impl@919..1089<'tcx> Ty Path Interner<Ty Lifetime 'tcx>
+    Item Fn@951..1086 vis=pub ident=intern
+      Param name=&mut self ImplicitSelf
+      Param name=k Ty Path TyKind<Ty Lifetime 'tcx>
+      Ret Ty Path usize
+      Block(Let Pat Ident idx = Expr Method(Expr Field(Expr Path self, types), len, []); Semi Expr Method(Expr Field(Expr Path self, types), push, [Expr Path k]); Expr Expr Path idx)
+  Item Fn@1089..1475 vis=priv ident=describe<'a>
+    Param name=t Ty Ref('a Ty Path TyKind<Ty Lifetime 'a>)
+    Ret Ty Ref('static Ty Path str)
+    Block(Expr Expr Match(Expr Path t, [Arm(Pat Path TyKind::Bool => Expr Str "bool"), Arm(Pat TupleStruct(TyKind::Int, [Pat Wild]) => Expr Str "int"), Arm(Pat TupleStruct(TyKind::Ref, [Pat Rest]) => Expr Str "ref"), Arm(Pat TupleStruct(TyKind::Adt, [Pat Wild, Pat Ident args]) if Expr Method(Expr Path args, is_empty, []) => Expr Str "adt0"), Arm(Pat TupleStruct(TyKind::Adt, [Pat Rest]) => Expr Str "adt"), Arm(Pat TupleStruct(TyKind::Tuple, [Pat Ident elems]) => Expr If(Expr Method(Expr Path elems, is_empty, []), Block(Expr Expr Str "unit"), Expr Block(Block(Expr Expr Str "tuple")))), Arm(Pat TupleStruct(TyKind::FnPtr, [Pat Rest]) => Expr Str "fnptr")]))

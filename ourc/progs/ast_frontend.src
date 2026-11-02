@@ -1,0 +1,21 @@
+enum Ex { Num(int), Add(Ex, Ex), Mul(Ex, Ex) }
+struct Pz { s: str, i: int }
+fn pk(p: Pz) -> int { if p.i < len(p.s) { str_at(p.s, p.i) } else { 0 } }
+fn bp(p: Pz) -> int { p.i = p.i + 1; 0 }
+fn ws(p: Pz) -> int { while pk(&mut p) == 32 { bp(&mut p); } 0 }
+fn dg(c: int) -> int { if c >= 48 { if c <= 57 { 1 } else { 0 } } else { 0 } }
+fn atomp(p: Pz) -> Ex {
+  ws(&mut p);
+  if pk(&mut p) == 40 { bp(&mut p); let e = addp(&mut p); ws(&mut p); if pk(&mut p) == 41 { bp(&mut p); } e }
+  else { let mut v = 0; while dg(pk(&mut p)) == 1 { v = v * 10 + (pk(&mut p) - 48); bp(&mut p); } Ex::Num(v) } }
+fn mulp(p: Pz) -> Ex { let mut e = atomp(&mut p); ws(&mut p); while pk(&mut p) == 42 { bp(&mut p); let r = atomp(&mut p); e = Ex::Mul(e, r); ws(&mut p); } e }
+fn addp(p: Pz) -> Ex { let mut e = mulp(&mut p); ws(&mut p); while pk(&mut p) == 43 { bp(&mut p); let r = mulp(&mut p); e = Ex::Add(e, r); ws(&mut p); } e }
+fn ev(e: Ex) -> int { match e { Num(v) => v, Add(a, b) => ev(&a) + ev(&b), Mul(a, b) => ev(&a) * ev(&b) } }
+fn nodes(e: Ex) -> int { match e { Num(v) => 1, Add(a, b) => nodes(&a) + nodes(&b) + 1, Mul(a, b) => nodes(&a) + nodes(&b) + 1 } }
+fn run(src: str) -> int { let p = Pz { src, 0 }; let t = addp(&mut p); ev(&t) }
+fn size(src: str) -> int { let p = Pz { src, 0 }; let t = addp(&mut p); nodes(&t) }
+print_int(run("2 + 3 * 4"));
+print_int(run("(2 + 3) * 4"));
+print_int(size("2 + 3 * 4"));
+print_int(run("6 * 7"));
+run("40 + 2")

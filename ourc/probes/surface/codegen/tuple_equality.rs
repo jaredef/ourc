@@ -1,0 +1,1 @@
+fn pair(x: i64) -> (i64, i64) { (x, x * 2) } fn main() { let a = (1, 2); let b = (1, 2); let c = (1, true); let s = (String::from("x"), 3); println!("{} {} {} {} {} {} {}", a == b, a != b, (3, 4) == (3, 4), c == (1, true), pair(2) == (2, 4), pair(2) != (2, 5), s == (String::from("x"), 3)); assert_eq!(a, (1, 2)); }

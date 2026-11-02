@@ -1,0 +1,1 @@
+fn main() { let a: i8 = i8::MIN; let b: u32 = 5; let c: i32 = -7; let z: u32 = 0; println!("{} {} {:?} {:?} {:?} {:?} {:?} {:?}", c.wrapping_abs(), a.wrapping_abs(), z.overflowing_neg(), b.overflowing_neg(), a.overflowing_neg(), 10i32.overflowing_abs(), (-10i32).overflowing_abs(), a.overflowing_abs()); }

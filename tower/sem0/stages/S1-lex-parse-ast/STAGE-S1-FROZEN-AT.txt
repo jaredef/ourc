@@ -1,0 +1,32 @@
+# S1 STAGE-BOUNDARY FREEZE (lex / parse / real AST) -- keeper-authorized 2026-08-15 (the H-a hoist)
+
+WHAT: the S1 (lex/parse/AST) stage in s1_parser.rs is RE-FROZEN at the real-AST stage boundary (design doc
+telos-achievement-design-2026-08-05.md Stage 1 / the H-a hoist). S1 is the founding stage + trust anchor S2-S9 build on.
+This is its FIRST explicit STAGE-FROZEN-AT marker; it SUPERSEDES STAGE-S1-UNFROZEN.txt (the 2026-08-10 unfreeze whose
+authorized S1-AST amendments are all now CLOSED). Pairs with STAGE-S2/S3/S4/S5/S6/S7-FROZEN-AT.
+
+FROZEN ARTIFACT: sub-arcs/S1-lex-parse-ast/s1_parser.rs.S1-frozen
+  (byte-identical snapshot of the live s1_parser.rs at this freeze)
+  live source: sub-arcs/S1-lex-parse-ast/s1_parser.rs  (5670 lines, 416309 bytes)
+FROZEN AT COMMIT: (this commit)  [prior tip a98fa5a7]
+
+CAPABILITY FROZEN -- S1 AST == rustc AST dump, plus the multi-stage //@ emit modes it hosts (the S-stage compiler shares
+one s1_parser.rs; S1 owns the lex/parse/AST spine, S2-S9 add post-parse emit modes on the frozen AST):
+  - lexer + parser + real AST (attributes, type/item/pattern/expr grammar, use-trees, generics, where-clauses, macros).
+  - S1-AST fidelity amendments from the 2026-08-10 unfreeze, all CLOSED: closure move + typed-return (ExprK::Closure),
+    async block + async fn (ItemKind::Fn is_async), method receiver form self/&self/&mut self (Param.name).
+  - residual-campaign additions landed on S1 with s1-ast GREEN throughout: coherence render surfaces (E0119/E0117 route
+    through the S7 //@S7CHECK lane), GAT assoc-type generics render, generic-context + where-clause assoc projection, and
+    B1 LITERAL-SUFFIX preservation (value-packing into the LitInt i64 via suffix_offset_of, guarded lex-loop call [S5-I],
+    render/type unpack; relies on the L6 enum-i64 value-flow completion incl. the enum-clone fix at 90ceb5d0).
+
+GATES AT FREEZE (all GREEN): s1-ast FIDELITY (whole-file crate AST == golden); s2-expand 13; s3-resolve 56 + realcrate 15;
+s4-hir 11 + hirres 13; s5-typeck 27; s6-mono 6; s7-check 30. BOOTSTRAP rz==rc held throughout (newstage0 = L6 @ 90ceb5d0).
+
+AMENDMENT DISCIPLINE (carried from STAGE-S1-UNFROZEN.txt -- still LOAD-BEARING for any future re-unfreeze): finding #4
+(NEVER insert/reorder a variant mid-enum -> global segfault; APPEND at the enum end or add a field proven rz==rc); the
+rzrs-subset idiom boundary; prototype every AST change vs rz==rc by EMPTYING bodies first. S1 did NOT edit L6/stage0.
+
+RE-UNFREEZE: like the 2026-08-10 unfreeze, S1 may be re-opened by keeper directive for the s1-parser-scale-up-plan
+(scaling the parser to real rustc-crate-scale source) or a further S1-AST fidelity gap. Until then, S2-S9 consume a stable
+frozen AST.

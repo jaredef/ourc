@@ -1,0 +1,38 @@
+Crate
+  Item Enum@0..77 vis=pub ident=Transparency
+    Variant ident=Transparent Unit
+    Variant ident=SemiTransparent Unit
+    Variant ident=Opaque Unit
+  Item Struct@77..106 vis=pub ident=ExpnId
+    Tuple(Ty Path u32)
+  Item Struct@106..211 vis=pub ident=MacroCall<'a>
+    Field vis=pub ident=name Ty Ref('a Ty Path str)
+    Field vis=pub ident=args Ty Path Vec<Ty Path TokenTree>
+    Field vis=pub ident=depth Ty Path usize
+  Item Enum@211..296 vis=pub ident=TokenTree
+    Variant ident=Token Tuple(Ty Path String)
+    Variant ident=Delimited Tuple(Ty Path Delimiter, Ty Path Vec<Ty Path TokenTree>)
+  Item Enum@296..361 vis=pub ident=Delimiter
+    Variant ident=Parenthesis Unit
+    Variant ident=Brace Unit
+    Variant ident=Bracket Unit
+  Item Struct@361..442 vis=pub ident=Expander
+    Field vis=pub ident=depth_limit Ty Path usize
+    Field vis=pub ident=calls Ty Path Vec<Ty Path ExpnId>
+  Item Impl@442..967 Ty Path Expander
+    Item Fn@462..566 vis=pub ident=new
+      Param name=depth_limit Ty Path usize
+      Ret Ty Path Self
+      Block(Expr Expr Struct(Expander, [depth_limit: Expr Path depth_limit, calls: Expr Call(Expr Path Vec::new, [])]))
+    Item Fn@566..838 vis=pub ident=count_tokens
+      Param name=&self ImplicitSelf
+      Param name=tt Ty Ref(Ty Path TokenTree)
+      Ret Ty Path usize
+      Block(Expr Expr Match(Expr Path tt, [Arm(Pat TupleStruct(TokenTree::Token, [Pat Wild]) => Expr LitInt 1), Arm(Pat TupleStruct(TokenTree::Delimited, [Pat Wild, Pat Ident inner]) => Expr Block(Block(Expr Expr Bin Add(Expr Method(Expr Method(Expr Method(Expr Path inner, iter, []), map, [Expr Closure([Pat Ident t], Expr Method(Expr Path self, count_tokens, [Expr Path t]))]), sum::<Ty Path usize>, []), Expr LitInt 2))))]))
+    Item Fn@838..964 vis=pub ident=can_expand
+      Param name=&self ImplicitSelf
+      Param name=call Ty Ref(Ty Path MacroCall<Ty Lifetime '_>)
+      Ret Ty Path bool
+      Block(Expr Expr Bin And(Expr Bin Lt(Expr Field(Expr Path call, depth), Expr Field(Expr Path self, depth_limit)), Expr Unary Not(Expr Method(Expr Field(Expr Path call, args), is_empty, []))))
+  Item MacroDef@967..1086 vis=priv ident=delim
+    MacroDef Brace[( $ d : ident , $ ( $ t : tt ) * ) => { TokenTree :: Delimited ( Delimiter :: $ d , vec ! [ $ ( $ t ) * ] ) } ;]

@@ -1,0 +1,1 @@
+fn add(v: &mut Vec<i64>, x: i64) -> &mut Vec<i64> { v.push(x); v } fn bump(x: &mut i64) -> &mut i64 { *x += 1; x } fn main() { let mut v = Vec::new(); add(add(&mut v, 1), 2).push(3); let mut a = 10; *bump(&mut a) += 5; println!("{:?} {}", v, a); }

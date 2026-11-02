@@ -1,0 +1,1 @@
+use std::collections::HashMap; fn main() { let words = vec!["a", "b", "a", "c", "a"]; let mut m = HashMap::new(); for w in words.iter() { *m.entry(*w).or_insert(0) += 1; } println!("{} {} {}", m["a"], m["b"], m.len()); }

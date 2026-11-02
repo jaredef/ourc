@@ -1,0 +1,25 @@
+# D0 KNOWN-OPEN: fixtures that currently diverge from rustc, each ranked on pipeline-oracle.md.
+# The board is a RATCHET: a divergence listed here is reported and tolerated; ANY divergence not listed is a
+# regression and fails, and so does a stale entry for a defect already closed. The list can only SHRINK.
+# Closing a pipeline means DELETING its lines here -- never adding one to quiet the board.
+reject-byte-literal-nonascii
+reject-primitive-name-unknown
+reject-attribute-unknown
+# (21/21 agree) but breaches the 5,000-line self-image headroom floor. See D0-03-escape-domain.PROPOSED.patch
+# RULE-STRATUM, not D0: these lex as KEYWORD tokens and the parser accepts them in binding position
+# (`let fn = 1;` dumps `Pat Ident ?`), so rejecting them needs grammar context, not set membership. `dyn` is
+# the same shape -- an identifier here, but legal inside `Box<dyn T>`. 34 strict keywords diverge in total;
+# five are carried as fixtures so the class stays MEASURED. Owned by S1-lex-parse-ast, watched by this board.
+reject-strict-keyword-fn
+reject-strict-keyword-let
+reject-strict-keyword-async
+reject-strict-keyword-await
+reject-strict-keyword-dyn
+reject-reserved-box
+# `do` and `yield` are EXCLUDED from is_reserved_word by measured refutation (yield is a yield-EXPRESSION
+# keyword like return; `do yeet EXPR` un-reserved restored 5 rustc files) -- rejecting them in binding
+# position needs grammar context, so they are the same rule-stratum shape as box/dyn. Watched, S1-owned.
+reject-reserved-do
+reject-reserved-yield
+reject-bare-dollar
+reject-bare-at

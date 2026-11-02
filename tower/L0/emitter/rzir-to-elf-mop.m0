@@ -1,0 +1,242 @@
+# rzir -> ELF MULTI-OP backend (constant-folding), authored in M0.
+# rz2's values are all constants, so each assignment is evaluated at compile time
+# into VALS[10] (in order, so computed temps feed later ops), and the program
+# emitted is just exit(final). Handles N op lines -- including a computed let's
+# two ops -- which the single-op template emitter could not. This NECESSARILY
+# diverges from the 1-op cc reference (rzir-to-elf.m0): the compiler has outgrown
+# its bootstrap oracle (L041). Verified by exit code. Built by M0. No cc.
+#
+# bss: INBUF 0x440000, VALS[10] dwords at 0x460000. memsz 0x70000.
+
+# === instruction-encoding library ===
+%xor_eax_eax    31c0
+%xor_edi_edi    31ff
+%syscall        0f05
+%ret            c3
+%jmp            e9
+%call           e8
+%ja             0f87
+%je             0f84
+%jz             0f84
+%jne            0f85
+%mov_eax_i      b8
+%mov_edi_i      bf
+%mov_esi_i      be
+%mov_edx_i      ba
+%mov_ebx_i      bb
+%lea_r13_rbxrax 4c8d2c03
+%lea_rsi_r14_6  498d7606
+%mov_rdx_rbx    4889da
+%mov_rdx_r14    4c89f2
+%mov_r14_rbx    4989de
+%mov_r14_rax    4989c6
+%mov_rdi_rax    4889c7
+%mov_rsi_rax    4889c6
+%sub_al_30      2c30
+%sub_cl_30      80e930
+%mov_r9d_eax    4189c1
+%mov_vals_r9    4289048d00004600
+%mov_eax_vals_c 8b048d00004600
+%mov_edx_vals_c 8b148d00004600
+%movzx_rax_4    0fb64004
+%movzx_r14_d    410fb616
+%movzx_r14_c    410fb60e
+%movzx_r14_5c   410fb64e05
+%movzx_r14_8c   410fb64e08
+%movzx_rax_c    0fb608
+%cmp_dl_63      80fa63
+%cmp_cl_73      80f973
+%add_eax_edx    01d0
+%sub_eax_edx    29d0
+%mov_at_eax     890425
+# const-value parse (pd)
+%movzx_rsi      0fb606
+%sub_eax_30     83e830
+%movzx_rsi1     0fb65601
+%sub_edx_30     83ea30
+%cmp_edx_9      83fa09
+%imul_eax_10    6bc00a
+# find helpers
+%mov_r8_rdx     4989d0
+%mov_rax_r8     4c89c0
+%add_rax_rsi    4801f0
+%cmp_rax_r13    4c39e8
+%xor_ecx_ecx    31c9
+%cmp_rcx_rsi    4839f1
+%je2            0f84
+%movzx_r8rcx    410fb60408
+%movzx_rdircx   0fb6140f
+%cmp_al_dl      38d0
+%inc_rcx        48ffc1
+%inc_r8         49ffc0
+%lea_rax_r8rsi  498d0430
+%test_eax_eax   85c0
+%mov_rax_rdi    4889f8
+%movzx_rax_dl   0fb610
+%cmp_dl_0a      80fa0a
+%dec_rax        48ffc8
+
+# === emitter ELF header ===
+7f454c46 02010100 00000000 00000000
+0200 3e00 01000000
+=code 00000000
+40000000 00000000
+00000000 00000000
+00000000 4000 3800 0100 0000 00000000
+01000000 07000000
+00000000 00000000
+00004000 00000000
+00004000 00000000
+&end 00000000
+00000700 00000000
+00100000 00000000
+
+# === OUTPUT template (exit-only: mov edi, FINAL; mov eax, 60; syscall) ===
+:template
+7f454c46 02010100 00000000 00000000
+0200 3e00 01000000
+78004000 00000000
+40000000 00000000
+00000000 00000000
+00000000 4000 3800 0100 0000 00000000
+01000000 05000000
+00000000 00000000
+00004000 00000000
+00004000 00000000
+84000000 00000000
+84000000 00000000
+00100000 00000000
+bf :imm 00000000
+b8 3c000000
+0f05
+
+# === code ===
+:code
+xor_eax_eax
+xor_edi_edi
+mov_esi_i 00004400
+mov_edx_i 00000100
+syscall
+mov_ebx_i 00004400
+lea_r13_rbxrax
+mov_r14_rbx               # cursor
+
+# assignment loop: for each `vN: i32 = RHS`, VALS[N] = eval(RHS) (in order)
+:aloop
+mov_rdx_r14
+mov_edi_i =asn_needle     # "i32 = "
+mov_esi_i 06000000
+call }find
+test_eax_eax
+jz }adone
+mov_r14_rax               # cursor = RHS start
+# target vN via backscan
+mov_rdi_rax
+call }scan_back_nl
+movzx_rax_4               # vN char
+sub_al_30
+mov_r9d_eax               # r9 = target digit
+# RHS[0]: 'c' -> const, else op
+movzx_r14_d               # edx = RHS[0]
+cmp_dl_63
+je }const_case
+# OP: VALS[target] = VALS[vX] (op) VALS[vY] ; RHS = "add v0 v1"
+movzx_r14_5c              # ecx = vX char (RHS[5])
+sub_cl_30
+mov_eax_vals_c            # eax = VALS[vX]
+movzx_r14_8c              # ecx = vY char (RHS[8])
+sub_cl_30
+mov_edx_vals_c            # edx = VALS[vY]
+movzx_r14_c               # ecx = op char (RHS[0])
+cmp_cl_73                 # 's' -> sub
+je }do_sub
+add_eax_edx
+jmp }store
+:do_sub
+sub_eax_edx
+:store
+mov_vals_r9               # VALS[target] = eax
+jmp }aloop
+:const_case
+lea_rsi_r14_6             # rsi = "const " + 6 = value digits
+call }pd
+mov_vals_r9               # VALS[target] = value
+jmp }aloop
+:adone
+
+# ret: find "ret v" ; final = VALS[that vN]
+mov_rdx_rbx
+mov_edi_i =ret_needle     # "ret v"
+mov_esi_i 05000000
+call }find
+movzx_rax_c               # ecx = vN char
+sub_cl_30
+mov_eax_vals_c            # eax = final
+# patch FINAL into the output template, write it, exit
+mov_at_eax =imm
+mov_eax_i 01000000
+mov_edi_i 01000000
+mov_esi_i =template
+mov_edx_i 84000000        # 132
+syscall
+mov_eax_i 3c000000
+xor_edi_edi
+syscall
+
+# find: rdi=needle rsi=len rdx=start -> rax = ptr after match, or 0
+:find
+mov_r8_rdx
+:f_outer
+mov_rax_r8
+add_rax_rsi
+cmp_rax_r13
+ja }f_none
+xor_ecx_ecx
+:f_inner
+cmp_rcx_rsi
+je }f_hit
+movzx_r8rcx
+movzx_rdircx
+cmp_al_dl
+jne }f_next
+inc_rcx
+jmp }f_inner
+:f_next
+inc_r8
+jmp }f_outer
+:f_hit
+lea_rax_r8rsi
+ret
+:f_none
+xor_eax_eax
+ret
+
+# pd: rsi -> eax = 1-2 digit decimal
+:pd
+movzx_rsi
+sub_eax_30
+movzx_rsi1
+sub_edx_30
+cmp_edx_9
+ja }pd_one
+imul_eax_10
+add_eax_edx
+:pd_one
+ret
+
+# scan_back_nl: rdi -> rax = preceding newline (so [rax+4] is the line's vN)
+:scan_back_nl
+mov_rax_rdi
+:sbn_loop
+dec_rax
+movzx_rax_dl
+cmp_dl_0a
+jne }sbn_loop
+ret
+
+# === data ===
+:asn_needle
+693332203d20
+:ret_needle
+7265742076
+:end

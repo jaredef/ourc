@@ -1,0 +1,18 @@
+Crate
+  Item Enum@0..81 vis=pub ident=Node
+    Variant ident=Leaf Tuple(Ty Path u32)
+    Variant ident=Pair Struct(left Ty Path u32, right Ty Path u32)
+    Variant ident=Empty Unit
+  Item Impl@81..531 Ty Path Node
+    Item Fn@97..285 vis=pub ident=sum
+      Param name=&self ImplicitSelf
+      Ret Ty Path u32
+      Block(Expr Expr Match(Expr Path self, [Arm(Pat TupleStruct(Node::Leaf, [Pat Ident v]) => Expr Deref(Expr Path v)), Arm(Pat Struct(Node::Pair, [left, right]) => Expr Bin Add(Expr Path left, Expr Path right)), Arm(Pat Path Node::Empty => Expr LitInt 0)]))
+    Item Fn@285..371 vis=pub ident=split
+      Param name=p Ty Tup(Ty Path u32, Ty Path u32)
+      Ret Ty Path u32
+      Block(Let Pat Tuple(Pat Ident a, Pat Ident b) = Expr Path p; Expr Expr Bin Add(Expr Path a, Expr Path b))
+    Item Fn@371..529 vis=pub ident=drain
+      Param name=it Ty Ref(mut Ty Path Iter)
+      Ret Ty Path u32
+      Block(Let Pat Ident mut total = Expr LitInt 0; Expr Expr While(Expr Let(Pat TupleStruct(Some, [Pat Ident x]) = Expr Method(Expr Path it, next, [])), Block(Semi Expr AssignOp(AddAssign Expr Path total Expr Path x))); Expr Expr Path total)

@@ -1,0 +1,1 @@
+#[derive(Debug, Clone)] struct P { x: i64, n: String, y: i64 } fn main() { let x = 3; let y = 9; let n = String::from("q"); let a = P { x, n: String::from("a"), y }; let b = P { y, x, n }; let base = P { x: 0, n: String::from("b"), y: 2 }; let c = P { x: 1, ..base }; let d = P { n: String::from("z"), x: 7, y: 8 }; println!("{:?} {:?} {:?} {:?}", a, b, c, d); }

@@ -1,0 +1,15 @@
+trait Area { fn area(self) -> int; }
+struct Sq { s: int }
+struct Rc { w: int, h: int }
+struct Tri { b: int, h: int }
+impl Area for Sq { fn area(self) -> int { self.s * self.s } }
+impl Area for Rc { fn area(self) -> int { self.w * self.h } }
+impl Area for Tri { fn area(self) -> int { self.b * self.h / 2 } }
+let shapes: Vec<dyn Area> = vec_new();
+vec_push(shapes, Sq { 3 });
+vec_push(shapes, Rc { 2, 5 });
+vec_push(shapes, Tri { 4, 6 });
+let mut total = 0;
+let mut i = 0;
+while i < vec_len(shapes) { let sh = vec_get(shapes, i); print_int(sh.area()); total = total + sh.area(); i = i + 1; }
+total + 11

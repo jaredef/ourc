@@ -1,0 +1,22 @@
+Crate
+  Item Struct@0..49 vis=pub ident=Interner
+    Field vis=priv ident=names Ty Path Vec<Ty Path String>
+  Item Impl@49..613 Ty Path Interner
+    Item Fn@69..214 vis=pub ident=intern
+      Param name=&mut self ImplicitSelf
+      Param name=s Ty Ref(Ty Path str)
+      Ret Ty Path u32
+      Block(Let Pat Ident n = Expr Cast(Expr Method(Expr Field(Expr Path self, names), len, []), Ty Path u32); Semi Expr Method(Expr Field(Expr Path self, names), push, [Expr Method(Expr Path s, to_string, [])]); Expr Expr Path n)
+    Item Fn@214..296 vis=pub ident=lookup
+      Param name=&self ImplicitSelf
+      Param name=i Ty Path u32
+      Ret Ty Ref(Ty Path str)
+      Block(Expr Expr AddrOf(Expr Index(Expr Field(Expr Path self, names), Expr Cast(Expr Path i, Ty Path usize))))
+    Item Fn@296..525 vis=pub ident=build
+      Param name=items Ty Ref(Ty Slice(Ty Path u32))
+      Ret Ty Path Interner
+      Block(Let Pat Ident mut out = Expr Struct(Interner, [names: Expr Call(Expr Path Vec::new, [])]); Expr Expr ForLoop(Pat Ref(Pat Ident x) in Expr Path items, Block(Let Pat Ident d = Expr Bin Mul(Expr Path x, Expr LitInt 2); Semi Expr Method(Expr Field(Expr Path out, names), push, [Expr MacCall(format ! Paren["n{}" , d])]))); Expr Expr Path out)
+    Item Fn@525..611 vis=pub ident=total
+      Param name=&self ImplicitSelf
+      Ret Ty Path usize
+      Block(Expr Expr Method(Expr Method(Expr Method(Expr Field(Expr Path self, names), iter, []), map, [Expr Closure([Pat Ident s], Expr Method(Expr Path s, len, []))]), sum, []))

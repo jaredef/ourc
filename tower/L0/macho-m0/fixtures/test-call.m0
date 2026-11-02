@@ -1,0 +1,10 @@
+# Multi-character label with a forward arm64 bl reference. The callee exits 42.
+!callee
+00000000
+00000000
+00000000
+:callee
+400580d2
+300080d2
+011000d4
+

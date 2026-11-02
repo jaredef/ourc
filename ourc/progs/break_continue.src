@@ -1,0 +1,12 @@
+let mut i = 0;
+let mut s = 0;
+while i < 100 { if i == 10 { break; } s += i; i += 1; }
+print_int(s);
+let mut j = 0;
+let mut t = 0;
+while j < 10 { j += 1; if j == j / 2 * 2 { continue; } t += j; }
+print_int(t);
+let mut f = 0;
+for k in 0..1000 { if k > 8 { break; } f += k; }
+print_int(f);
+s + t - 28

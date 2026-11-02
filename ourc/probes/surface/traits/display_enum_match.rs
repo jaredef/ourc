@@ -1,0 +1,1 @@
+use std::fmt; enum C { R, G } impl fmt::Display for C { fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { match self { C::R => write!(f, "red"), C::G => write!(f, "green") } } } fn main() { println!("{} {}", C::R, C::G); }

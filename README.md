@@ -4,8 +4,9 @@
 
 **A Rust compiler grown from 269 bytes of hand-written machine code.**
 
-No downloaded compiler anywhere in the chain. Every compiler is built by the one below it, all the way down to a
-seed small enough to read in one sitting.
+No downloaded compiler decides what the program is: every compiler is built by the one below it, all the way down
+to a seed small enough to read in one sitting. The host's LLVM only turns the final IR into machine code, and is
+checked against the hex-built path.
 
 ![trusted seed](https://img.shields.io/badge/trusted_seed-269_bytes-8A2BE2)
 ![self-hosting](https://img.shields.io/badge/self--hosting-byte--identical-2ea44f)
@@ -31,7 +32,10 @@ ba 00 00 01 00            # mov  edx, 0x10000        ; count = 64 KiB
 
 The full seed is 96 lines in [`tower/L0/hex0/hex0.hand.hex`](tower/L0/hex0/hex0.hand.hex). It turns hex text into
 bytes, and it rebuilds itself from that file. Everything else in this repository is compiled, rung by rung, from
-there.
+there. The only binaries taken from the repository are the two hex seeds, hex0 and hex1, and each must rebuild
+itself from its commented hex; the Rust driver decodes that hex itself and needs neither. Every compiler and
+backend above them is built from source, and the tower's code generator is built twice, by two different compilers,
+which must agree byte for byte.
 
 ## The tower
 
@@ -81,7 +85,6 @@ fn main() {
 }
 
 $ ourc points.rs -o points && ./points
-ourc[O0] points.rs -> ok int = <runtime> [hir=2 mir=3] ir_lines=10
 sum of squared distances: 27
 
 $ ourc half.rs -o half          # let x: f32 = 1.5;
@@ -110,6 +113,9 @@ real-world crates are out of reach.
 
 ## Verify it yourself
 
+A prebuilt `ourc` is attached to the [v0.1 release](https://github.com/jaredef/ourc/releases/tag/v0.1), with its
+`SHA256SUMS`. To check that binary rather than trust it, rebuild it from the hand-written hex.
+
 Needs x86-64 Linux with at least 24 GB of RAM (ourc compiling itself peaks near 20 GB), plus `llc` and `opt` from LLVM
 12 or newer and `cc` on `PATH`. One command builds everything from the hand-written hex and checks every artifact
 against its pinned hash:
@@ -124,47 +130,20 @@ or, with the Rust driver and its live dashboard:
 cargo run --release --manifest-path ourc/bootstrap/Cargo.toml -- --repo . OUT
 ```
 
-About 20 minutes later on a 32-core machine (over an hour on 4 cores) it ends with ourc compiling itself to a fixed
-point, and this hash:
+About 20 minutes later it ends with ourc compiling itself to a fixed point, and this hash:
 
 ```
 10b9c17a1886a9e063499c544434f370f1c257057562c85dbd9ab03379354144  ourc-v0.1-x86_64-linux/ourc
 ```
 
-That hash was produced with LLVM 22.1.8, GCC 16.2.1, binutils 2.47 and glibc 2.44. Five of the 60 pinned artifacts pass
-through those host tools, so a different toolchain builds a different ourc hash, reported as host drift. The 55
-tower artifacts, the LLVM-against-hex check and the self-compile fixed point must still match exactly. Each build
-records its toolchain in `PROVENANCE`.
-
-### A measured build
-
-One full `release.sh` run from the hand-written hex, measured with `ourc/measure-build.sh` (a systemd scope, sampled
-once a second, plus the kernel's own `memory.peak` for the scope):
-
-| | |
-|---|---|
-| machine | AMD Ryzen AI Max+ 395, 16 cores / 32 threads, 128 GB RAM |
-| system | CachyOS, Linux 7.2.7; LLVM 22.1.8, GCC 16.2.1, binutils 2.47, glibc 2.44 |
-| wall time | 19 min 51 s |
-| peak memory | **20.8 GB** for the whole build (`memory.peak`); 20.4 GB of it program memory |
-| largest process | ourc compiling itself (`ourc.g1`): 19.9 GB |
-
-Where the time and memory go:
-
-| stage | from | peak memory |
-|---|---|---|
-| the tower: hex0 up to L6, then SEM0's 28 hops and fixed points | 0 s | 1.8 GB |
-| SEM0 lowered to LLVM, checked against the hex-built SEM0 | 8 min 11 s | 6.7 GB |
-| SEM0 builds ourc (`ourc.g0`) | 14 min 37 s | 4.7 GB |
-| ourc compiles itself three times (`ourc.g0`, `ourc.g1`, `ourc.g2`) | 19 min 10 s | 20.4 GB |
-
-`SP=<scratch> bash tower/build-tower.sh --gates` builds the tower and runs its test gates. Three gates live outside
-this repository and are reported as skipped.
+Measured: 19 min 51 s and a 20.8 GB peak on a 16-core Ryzen AI Max+ 395 with 128 GB, using LLVM 22.1.8 and GCC 16.2.1.
+Another toolchain builds a different (equally checked) ourc hash. See [ourc/BUILDING.md](ourc/BUILDING.md) for the
+toolchain details, where the time and memory go, and the tower's gates.
 
 ## Layout
 
 - `tower/`: every rung's source, the build scripts and the gates
-- `ourc/`: ourc's crates (`src/`), its runtime and linker (`rt/`), the release script, the test harnesses, and
+- `ourc/`: ourc's crates (`src/`), its runtime and linker (`rt/`), the release and measuring scripts, the test harnesses, and
   `bootstrap/`, the Rust build driver
 - `scripts/`: `semc.sh` (SEM0 + LLVM as a compiler) and helpers
 

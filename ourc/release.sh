@@ -10,7 +10,7 @@
 #                                              self-compiles must be byte-identical and so must the two binaries
 #   6. ourc-v0.1-x86_64-linux.tar.gz + SHA256SUMS
 # Artifact names: apparatus/docs/tower-naming-and-trust-path.md, "Artifact names".
-# Usage:  bash ourc/release.sh OUTDIR        (needs llc, opt, cc; a full run takes hours: step 1 is the whole tower)
+# Usage:  bash ourc/release.sh OUTDIR        (needs llc, opt, cc; about 20 min on 32 cores, over an hour on 4; needs ~24 GB RAM)
 #         REUSE_SP=<dir> bash ourc/release.sh OUTDIR   (skip steps 1-2 when <dir> already holds a C2-admitted mint)
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; OUT="${1:?usage: release.sh OUTDIR}"; mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"

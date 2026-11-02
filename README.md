@@ -110,8 +110,8 @@ real-world crates are out of reach.
 
 ## Verify it yourself
 
-Needs x86-64 Linux, plus `llc`, `opt` and `cc` on `PATH`. One command builds everything from the hand-written hex
-and checks every artifact against its pinned hash:
+Needs x86-64 Linux with at least 24 GB of RAM (ourc compiling itself peaks near 20 GB), plus `llc`, `opt` and `cc` on
+`PATH`. One command builds everything from the hand-written hex and checks every artifact against its pinned hash:
 
 ```
 bash ourc/release.sh OUT
@@ -123,7 +123,8 @@ or, with the Rust driver and its live dashboard:
 cargo run --release --manifest-path ourc/bootstrap/Cargo.toml -- --repo . OUT
 ```
 
-About 20 minutes later it ends with ourc compiling itself to a fixed point, and this hash:
+About 20 minutes later on a 32-core machine (over an hour on 4 cores) it ends with ourc compiling itself to a fixed
+point, and this hash:
 
 ```
 10b9c17a1886a9e063499c544434f370f1c257057562c85dbd9ab03379354144  ourc-v0.1-x86_64-linux/ourc

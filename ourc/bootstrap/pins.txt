@@ -1,5 +1,5 @@
 # pinned sha256 of every artifact, from a full from-hex build of the tower at 8dd93d188 (release.sh, V3)
-# and of the ourc stages at 17b719b96; SEM0.h26, h27, SEM0.cf* and SEM0.llvm re-pinned 2026-11-01 (the READ-CAP pool fix; no home paths in SEM0); ourc.g0 and ourc re-pinned 2026-11-02 (macro_rules! repetition fix). class: chain = produced by the tower alone (must match on any host);
+# and of the ourc stages at 17b719b96; SEM0.h26, h27, SEM0.cf* and SEM0.llvm re-pinned 2026-11-01 (the READ-CAP pool fix; no home paths in SEM0); ourc.g0 and ourc re-pinned 2026-11-02 (macro_rules! repetition fix); B.cf.hoist re-pinned and L4.rzrs.l3, B.cf.hoist.l4 added 2026-11-02 (cf.hoist.seed removed). class: chain = produced by the tower alone (must match on any host);
 # host = passed through the host's llc/opt/cc (matches only with the same LLVM and linker).
 d7f1a7fb5723460950a298ca2419c87036328745bee028a919ba83c45d24dd52 chain sp/seeds/L0/m0/m0.bin
 144785a4e27c1b44cf1a90c3288e742682f0f92f9650cb86e04eed5aabb59d7a chain sp/seeds/cf.bin
@@ -16,8 +16,10 @@ a0477280b2dacc9b0e37e5c4de73c30e7de68208406b578b664aef93de68951c chain sp/B.ld
 e2d6156754eb0aa68bb162249d157226033cc46f97e37399fb1bff8b55c0728e chain sp/B.opt
 6774005a4ef1de4902e87e138f18d67b20a648a3eeb1c12f7fe954246c0a80ef chain sp/B.ra
 d35737522be5580b34d3fe9a21226675b4ccd9c23ac815fdb31c9509707ed1f7 chain sp/L5.rzrs.g1
-d35737522be5580b34d3fe9a21226675b4ccd9c23ac815fdb31c9509707ed1f7 chain sp/L5.rzrs.washed
-4b3fb598af56b29db4f53278b187a5225ed34123a02802f94812de96fb1521a7 chain sp/B.cf.hoist
+d35737522be5580b34d3fe9a21226675b4ccd9c23ac815fdb31c9509707ed1f7 chain sp/L5.rzrs.ddc
+4594461579415136b6d08399d1edec5a391e06ff070d4c22f911bab8264ecea0 chain sp/L4.rzrs.l3
+a7c9357b59899a75f640f378b57df3f11a6eefa0907528fac7c4915c4614fefd chain sp/B.cf.hoist.l4
+c99a3320ac3fc71214c4326581731e3f05eea809099970ad155ed707175e84fc chain sp/B.cf.hoist
 ed6c909fec118cb857838ff799a9b4e27ab7f536f7486912e3bab7e09c9c1dff chain sp/L4.rzrs.g2
 d35737522be5580b34d3fe9a21226675b4ccd9c23ac815fdb31c9509707ed1f7 chain sp/L5.rzrs.g2
 0c816672c9f3b6f2273a1242acb52afaa1e4a614cc5e6a5ae49044b36774ab1a chain sp/L6.rzrs

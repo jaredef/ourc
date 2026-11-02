@@ -9,9 +9,9 @@
 #
 # DEFAULT = FROM HEX. lib/derive-seeds.sh first mints every dev-loop seed binary (m0, cf, ccc, the L2
 # ld/opt/ra) from hex0.hand.hex into $SP/seeds/, and every stage below runs on those (TOWER_L2/TOWER_M0)
-# instead of the committed blobs; drift between the two is reported. The one committed input left is
-# L5/cf.hoist.seed (capacity cycle -- see derive-seeds.sh), and lib/check-cfhoist-seed.sh proves after
-# selfhost that it washes out of the produced compiler. --dev skips the derivation and uses the committed
+# instead of the committed blobs; drift between the two is reported. No committed backend binary is on the path: the
+# capacity backend that first lowers L5 is cf.rs compiled by the hex-rooted L4 (lib/scratch.sh), and
+# lib/check-cfhoist-ddc.sh checks it against the L5-built one. --dev skips the derivation and uses the committed
 # blobs directly (the old behavior). No host cc/ld is used anywhere in the produced chain in either mode.
 #
 # Why this file exists: the order below is a real dependency chain -- build-live-backend mints the all-Rust
@@ -129,7 +129,7 @@ run "backend twins (ld/opt/ra)" "$A/backend-live/build-live-backend.sh"
 [ "$fail" = 0 ] || { echo "== ABORT: the backend twins are the floor; nothing below can run =="; exit 1; }
 run "bootstrap (seed -> tier-0 -> tier-1)" "$A/L4/bootstrap.sh"
 run "selfhost (L5 g2==g3 + battery)"       "$A/L5/selfhost.sh"
-[ "$DEV" = 1 ] || run "cf.hoist.seed washes out"   "$A/lib/check-cfhoist-seed.sh"
+[ "$DEV" = 1 ] || run "cf.hoist DDC (L4-built == L5-built)" "$A/lib/check-cfhoist-ddc.sh"
 [ "$MINT" = 1 ] || run "parity (90 programs vs rustc)"        "$A/parity/parity.sh"
 run "stage (L5 -> L6.rzrs)"            "$A/L6/stage.sh"
 # SEM0 HOIST 2026-08-28: one tier above `stage`. L6 mints the FROZEN SEM0 in-gate, and from here the 14 S-tier

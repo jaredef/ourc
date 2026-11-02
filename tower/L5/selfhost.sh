@@ -7,23 +7,22 @@ HERE="$(cd "$(dirname "$0")" && pwd)"; CC="${TOWER_L2:-$HERE/../L2}"; SP="${SP:?
 # 2026-07-16-backend-rust-hoist/build-live-backend.sh (canonical toolchain-derivation/rzir-*.rs) before running.
 chain(){ "$SP/B.ld" | "$SP/B.opt" | "$SP/B.ra" | "$SP/B.cf.m0" > "$1"; chmod +x "$1"; }
 chainH(){ "$SP/B.ld" | "$SP/B.opt" | "$SP/B.ra" | "$CFH" > "$1"; chmod +x "$1"; }
-# CAPACITY SEED: the mainline self-image rzir (post-AST10 hoist) outgrew the M0 cf.bin input-buffer ceiling
-# (~5.7MB), so tier-0's compile of L5 can no longer be lowered by cf.bin. Seed the oversized-image lowering
-# with the FROZEN, DDC-anchored cf.hoist (cf.rs codegen, 8MB buffers; byte-identical to M0 cf below the cap;
-# re-derived + DDC-checked by provenance.sh). L5.rzrs.g1 then re-mints its OWN cf.hoist (B.cf.hoist.g1) below, proving the new
-# L5 is cf.hoist-capable (self-consistency) -- the seed only breaks the initial chicken-egg.
-SEED_CFH="$HERE/cf.hoist.seed"; CFH="$SEED_CFH"   # chainH lowers through the seed until L5 mints B.cf.hoist.g1
+# CAPACITY: the mainline self-image rzir outgrew the M0 cf input ceiling (~5.7MB), so it is lowered through
+# cf.hoist (cf.rs, 16MB buffers). The first lowering uses $SP/B.cf.hoist.l4 -- cf.rs compiled by the hex-rooted L4,
+# minted by sp_seed below. L5.rzrs.g1 then mints its OWN cf.hoist (B.cf.hoist.g1), and lib/check-cfhoist-ddc.sh
+# requires the two to lower L5 byte-identically (diverse double compilation).
 # cold start: mint cf.bin + rzrs.rsz from the hand-hex when $SP is fresh (this gate already handled capacity
 # correctly -- it is the model lib/scratch.sh generalizes -- but it still assumed the two roots pre-existed).
 . "$HERE/../lib/scratch.sh"
 sp_seed || exit 1
+CFH="$SP/B.cf.hoist.l4"   # chainH lowers through the L4-built cf.hoist until L5 mints B.cf.hoist.g1
 # Staged bootstrap: the mainline L5.rzrs.rs is now tier-1 (uses natural if-|| the C seed rejects), so it is
 # built by tier-0 -- minted once from the FROZEN seed by the C seed -- not by the C seed directly.
 SEED="$HERE/../L4/L4.rzrs.rs"
 "$SP/L3.rzrs" < "$SEED" > "$SP/L4.rzrs.rzir" 2>/dev/null || { echo "C seed FAILED on frozen seed"; exit 1; }
 chain "$SP/L4.rzrs.m0" < "$SP/L4.rzrs.rzir"
 timeout 90 "$SP/L4.rzrs.m0" < "$HERE/L5.rzrs.rs" > "$SP/L5.rzrs.g1.rzir" 2>/dev/null || { echo "tier-0 FAILED on mainline L5.rzrs.rs"; exit 1; }
-chainH "$SP/L5.rzrs.g1" < "$SP/L5.rzrs.g1.rzir"   # CAPACITY SEED: lower the oversized self-image via the frozen cf.hoist (cf.bin overflows)
+chainH "$SP/L5.rzrs.g1" < "$SP/L5.rzrs.g1.rzir"   # CAPACITY: lower the oversized self-image via the L4-built cf.hoist (cf.bin overflows)
 # cf Rust-hoist: the mainline's self-image rzir (~4.7MB post-TI-promotion) outgrew the M0 cf.bin input
 # buffer (~4MB). Build the provenance-anchored cf.rs codegen (8MB buffers, behaviorally == M0 cf per
 # provenance.sh) THROUGH the hex-rooted chain (M0 cf.bin mints it -- cf.rs's own rzir is small), and use

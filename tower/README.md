@@ -20,7 +20,7 @@ in-repo source, so no host compiler or linker enters the produced chain.
 - `L2/`: `ccc.c`, the self-hosting C compiler, and the C backend stages
 - `L3/`: `rzrs.c`, the Rust-subset compiler written in C
 - `L4/`: the first Rust compiler written in Rust, and `bootstrap.sh`
-- `L5/`: the self-hosting Rust bootstrap, `cf.hoist.seed` and `selfhost.sh`
+- `L5/`: the self-hosting Rust bootstrap and `selfhost.sh`
 - `L6/`: the next Rust bootstrap tier and `stage.sh`
 - `sem0/`: SEM0 (`stages/S1-lex-parse-ast/s1_parser.rs`), its 28 hops and its stage gates
 - `backend-cf/`: `cf.rs`, the backend's code generator

@@ -30,8 +30,8 @@ and the build itself is the same in both modes.
    hex2, the M0 assembler, the M0 backend, a C compiler written in M0, and the self-hosting C compiler
    `ccc`.
 2. Builds the tower's Rust bootstrap from there: a C-written Rust-subset compiler, the Rust backend
-   tools, the L5 compiler and its own code generator (`cf.hoist`), and L6. It also checks that the one
-   committed capacity seed, `cf.hoist.seed`, leaves no trace in the compiler that comes out.
+   tools, the L5 compiler and its own code generator (`cf.hoist`), and L6. The
+   first `cf.hoist` is `cf.rs` compiled by L4, and it must lower L5 byte-identically to the `cf.hoist` L5 builds.
 3. Climbs the SEM0 staircase. Each frozen compiler compiles the next, up to byte fixed points.
 4. Builds the LLVM-backed SEM0 and admits it only if it emits SEM0 byte-identically to the hex-rooted one
    (the C2 check).

@@ -9,7 +9,7 @@
 // program's own packers (below), so neither committed seed binary is needed; each packed seed must also
 // rebuild itself from its source. Every later stage is run as a pipeline of tower programs (stdin -> stdout),
 // exactly as the shell scripts run them. Only the gates' test batteries are left out; the checks the release
-// rests on (seed washes out, C2, the ourc fixed point) are kept.
+// rests on (the cf.hoist DDC, C2, the ourc fixed point) are kept.
 //
 // Usage:  ourc-bootstrap OUTDIR                    use the source tree embedded at build time
 //         ourc-bootstrap --repo CHECKOUT OUTDIR     use a source checkout instead
@@ -50,7 +50,7 @@ fn sources() -> Vec<String> {
         "tower/L2/link/rzir-ld.c", "tower/L2/opt/rzir-opt.c", "tower/L2/ra/rzir-ra.c", "tower/tcc/rzcpp.c",
         "tower/backend-toolchain/rzrs-seed/shim.c", "tower/backend-toolchain/rzrs-seed/headers/stdio.h",
         "tower/backend-toolchain/rzrs-seed/headers/stdlib.h", "tower/backend-toolchain/rzrs-seed/headers/string.h",
-        "tower/L3/rzrs.c", "tower/L4/L4.rzrs.rs", "tower/L5/L5.rzrs.rs", "tower/L5/cf.hoist.seed",
+        "tower/L3/rzrs.c", "tower/L4/L4.rzrs.rs", "tower/L5/L5.rzrs.rs",
         "tower/backend-toolchain/rzir-ld.rs", "tower/backend-toolchain/rzir-opt.rs", "tower/backend-toolchain/rzir-ra.rs",
         "tower/backend-cf/cf.rs", "tower/L6/L6.rzrs.rs", DEV, "tower/backend-llvm/rzir2ll.rs", LINK_RS, RT,
         "ourc/src/odrv.rs", "ourc/README.md", "ourc/LIMITATIONS.md", "LICENSE-MIT", "LICENSE-APACHE",
@@ -329,29 +329,33 @@ impl B {
         pipe(vec![F(self.s("tower/L3/rzrs.c"))], &[xa(&rzcpp, &[&inc])], &pp).map_err(|e| e.to_string())?;
         let rsz = self.p("L3.rzrs");
         self.step(&rsz, vec![F(self.s("tower/backend-toolchain/rzrs-seed/shim.c")), F(pp)], &B::with(x(&ccc), self.chain_c(&cf)), 100000, false, "rzrs.rsz (C-seed Rust frontend)")?;
-        // build-live-backend: frontend images exceed M0 cf's input ceiling, so they lower through the cf.hoist seed
-        let seed = self.s("tower/L5/cf.hoist.seed");
+        // build-live-backend: frontend images exceed M0 cf's input ceiling, so they lower through cf.hoist. Its first
+        // build is cf.rs compiled by L4, which L3 compiles; both are small enough for the C stages and M0 cf.
         let (l4, l5) = (self.s("tower/L4/L4.rzrs.rs"), self.s("tower/L5/L5.rzrs.rs"));
-        self.step(&self.p("L4.rzrs"), vec![F(l4.clone())], &B::with(x(&rsz), self.chain_c(&seed)), 10000, false, "L4 (built by L3)")?;
-        self.step(&self.p("L5.rzrs"), vec![F(l5.clone())], &B::with(x(&self.p("L4.rzrs")), self.chain_c(&seed)), 100000, false, "bootstrap frontend")?;
+        let l4l3 = self.p("L4.rzrs.l3");
+        self.step(&l4l3, vec![F(l4.clone())], &B::with(x(&rsz), self.chain_c(&cf)), 100000, false, "L4 (built by L3, M0 cf)")?;
+        let cfl4 = self.p("B.cf.hoist.l4");
+        self.step(&cfl4, vec![F(self.s("tower/backend-cf/cf.rs"))], &B::with(x(&l4l3), self.chain_c(&cf)), 20000, false, "cf.hoist (cf.rs built by L4)")?;
+        self.step(&self.p("L4.rzrs"), vec![F(l4.clone())], &B::with(x(&rsz), self.chain_c(&cfl4)), 10000, false, "L4 (built by L3)")?;
+        self.step(&self.p("L5.rzrs"), vec![F(l5.clone())], &B::with(x(&self.p("L4.rzrs")), self.chain_c(&cfl4)), 100000, false, "bootstrap frontend")?;
         for st in ["ld", "opt", "ra"] {
             let src = self.s(&format!("tower/backend-toolchain/rzir-{st}.rs"));
-            self.step(&self.p(&format!("B.{st}")), vec![F(src)], &B::with(x(&self.p("L5.rzrs")), self.chain_c(&seed)), 10000, false, st)?;
+            self.step(&self.p(&format!("B.{st}")), vec![F(src)], &B::with(x(&self.p("L5.rzrs")), self.chain_c(&cfl4)), 10000, false, st)?;
         }
-        // selfhost.sh: L4 lowered by M0 cf -> L5 lowered by the cf.hoist seed -> L5 mints its own cf.hoist from cf.rs
+        // selfhost.sh: L4 lowered by M0 cf -> L5 lowered by the L4-built cf.hoist -> L5 mints its own cf.hoist from cf.rs
         let t0 = self.p("L4.rzrs.m0");
         self.step(&t0, vec![F(l4.clone())], &B::with(x(&rsz), self.chain_rs(&cf)), 10000, false, "L4 via M0 cf")?;
         let rr = self.p("L5.rzrs.g1.rzir");
         self.step(&rr, vec![F(l5.clone())], &[x(&t0)], 1000, true, "L4 compiles L5")?;
         let rself = self.p("L5.rzrs.g1");
-        self.step(&rself, vec![F(rr.clone())], &self.chain_rs(&seed), 100000, false, "L5 (g1)")?;
+        self.step(&rself, vec![F(rr.clone())], &self.chain_rs(&cfl4), 100000, false, "L5 (g1)")?;
         let cfh5 = self.p("B.cf.hoist.g1");
         self.step(&cfh5, vec![F(self.s("tower/backend-cf/cf.rs"))], &B::with(x(&rself), self.chain_rs(&cf)), 20000, false, "cf.hoist (minted by L5)")?;
-        // check-cfhoist-seed.sh: re-lowering L5 with the source-minted cf.hoist gives the same compiler
-        let wash = self.p("L5.rzrs.washed");
-        self.step(&wash, vec![F(rr)], &self.chain_rs(&cfh5), 100000, false, "L5 via source cf.hoist")?;
-        if fs::read(&wash).ok() != fs::read(&rself).ok() { return Err("cf.hoist.seed leaks into the produced compiler (L5.rzrs.g1 differs)".into()); }
-        ui::note(format!("ok: the committed cf.hoist.seed washes out of L5"));
+        // check-cfhoist-ddc.sh: cf.rs built by L4 and by L5 lower L5 byte-identically
+        let wash = self.p("L5.rzrs.ddc");
+        self.step(&wash, vec![F(rr)], &self.chain_rs(&cfh5), 100000, false, "L5 via the L5-built cf.hoist")?;
+        if fs::read(&wash).ok() != fs::read(&rself).ok() { return Err("cf.hoist DDC: the L4-built and L5-built cf.hoist lower L5 differently".into()); }
+        ui::note(format!("ok: cf.hoist built by L4 == built by L5 on the L5 image"));
         // stage.sh: lowering now goes through the run's own cf.hoist
         let t0s = self.p("L4.rzrs.g2");
         self.step(&t0s, vec![F(l4)], &B::with(x(&rsz), self.chain_rs(&cfh5)), 10000, false, "L4 (g2)")?;
@@ -673,8 +677,6 @@ fn run(repo: Option<String>, resume: bool, tui: bool, outd: &Path) -> R<()> {
                 fs::create_dir_all(p.parent().unwrap()).map_err(|e| e.to_string())?;
                 fs::write(&p, apply_diff(&old, diff)?).map_err(|e| e.to_string())?;
             }
-            // the one source file the build executes (the capacity seed L5 lowers itself with)
-            set_exec(&d.join("tower/L5/cf.hoist.seed"));
             d
         }
     };

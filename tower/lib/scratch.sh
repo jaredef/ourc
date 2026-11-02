@@ -2,7 +2,7 @@
 # scratch.sh -- shared $SP (scratch) conventions for the tower gates. SOURCE this; do not run it.
 #
 #   . "$A/lib/scratch.sh"     # $A = apparatus/arcs/..  (i.e. the apparatus dir's arcs parent)
-#   sp_seed                   # cold-start: mint B.cf.m0 + L3.rzrs (old names cf.bin, rzrs.rsz) if absent
+#   sp_seed                   # cold-start: mint B.cf.m0, L3.rzrs (old names cf.bin, rzrs.rsz) and B.cf.hoist.l4 if absent
 #   sp_chain_rs OUT < rzir    # lower via the all-Rust twins  ($SP/B.{ld,opt,ra})
 #   sp_chain_c  OUT < rzir    # lower via the frozen C stages ($CC/rzir-{ld,opt,ra}.bin)
 #   sp_require FILE LABEL     # fail loudly on a segfault stub instead of carrying it forward
@@ -27,19 +27,16 @@
 #    is a build failure, never a test failure. Gates that compare two artifacts must also refuse to call two
 #    EMPTY outputs equal -- see bootstrap.sh's fixed-point check, which passed on 0 lines vs 0 lines.
 #
-# PROVENANCE. $CFCAP resolves to $SP/cf.hoist when a run has minted its own, else the committed capacity seed
-# 2026-07-14-rust-selfhost/cf.hoist.seed. That seed is ANCHORED in provenance.sh step 4: byte-identical ELF to
-# the in-gate re-minted B.cf-rs, and behaviorally == M0 cf below the cap. Using it here does not widen the
-# trust base -- provenance.sh remains the trust gate and re-derives everything from the hand-hex; the scripts
-# that source this file are the @dev fast loop (provenance class `dev`, per tower-naming-and-trust-path.md).
-# selfhost.sh already did exactly this by hand; this generalizes its fix rather than inventing a new one.
+# PROVENANCE. $CFCAP resolves to $SP/cf.hoist when a run has minted its own, else $SP/B.cf.hoist.l4: cf.rs compiled
+# by L4, which L3 compiles, all lowered by the frozen C stages and M0 cf. It is hex-rooted like everything else
+# here; no committed backend binary is used.
 
 SP="${SP:?set SP (scratch dir)}"
 _SL_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _SL_A="$(cd "$_SL_LIB/.." && pwd)"
 _SL_CC="${TOWER_L2:-$_SL_A/L2}"
 _SL_MC="$_SL_A/L0"
-_SL_SEEDCFH="$_SL_A/L5/cf.hoist.seed"
+_SL_CFL4="$SP/B.cf.hoist.l4"   # minted by sp_seed
 
 # sp_name NEW OLD..: artifacts are written under their canonical names (tower-naming-and-trust-path.md, "Artifact
 # names"); the old names are hard links to them for the gates that still read those. Hard links, not symlinks:
@@ -47,13 +44,13 @@ _SL_SEEDCFH="$_SL_A/L5/cf.hoist.seed"
 sp_name() { local n="$1" o; shift; for o in "$@"; do ln -f "$SP/$n" "$SP/$o"; done; }
 
 # the capacity-capable cf: a run's own freshly minted cf.hoist wins (L6/stage.sh's B.cf.hoist, else
-# L5/selfhost.sh's B.cf.hoist.g1); else the DDC-anchored committed seed.
+# L5/selfhost.sh's B.cf.hoist.g1); else the hex-rooted B.cf.hoist.l4 that sp_seed mints.
 sp_cf() {
   local f
   for f in "$SP/B.cf.hoist" "$SP/B.cf.hoist.g1"; do
     if [ -s "$f" ] && [ "$(stat -c%s "$f")" -ge 20000 ]; then echo "$f"; return; fi
   done
-  echo "$_SL_SEEDCFH"
+  echo "$_SL_CFL4"
 }
 
 # a built artifact below MIN bytes is a segfault stub, not a compiler -- say so and stop.
@@ -97,6 +94,20 @@ sp_seed() {
     echo "  seeded \$SP/L3.rzrs ($(stat -c%s "$SP/L3.rzrs") B) -- built from rzrs.c by the hex-rooted ccc"
   fi
   sp_name L3.rzcpp rzcpp; sp_name L3.rzrs rzrs.rsz
+  # CAPACITY BACKEND: L5's self-image is larger than M0 cf can take, so its first lowering needs cf.hoist (cf.rs,
+  # 16 MB buffers) -- which L5 itself normally mints. Break that cycle from below: L3 compiles L4, L4 compiles
+  # cf.rs, and the frozen C stages + M0 cf lower both (small images, under the cap). Hex-rooted, no committed blob.
+  if [ ! -s "$SP/B.cf.hoist.l4" ]; then
+    "$SP/L3.rzrs" < "$_SL_A/L4/L4.rzrs.rs" 2>/dev/null \
+      | "$_SL_CC/link/rzir-ld.bin" | "$_SL_CC/opt/rzir-opt.bin" | "$_SL_CC/ra/rzir-ra.bin" | "$SP/B.cf.m0" > "$SP/L4.rzrs.l3" 2>/dev/null
+    chmod +x "$SP/L4.rzrs.l3"
+    sp_require "$SP/L4.rzrs.l3" "L4.rzrs.l3 (L4 built by L3)" 100000 || return 1
+    "$SP/L4.rzrs.l3" < "$_SL_A/backend-cf/cf.rs" 2>/dev/null \
+      | "$_SL_CC/link/rzir-ld.bin" | "$_SL_CC/opt/rzir-opt.bin" | "$_SL_CC/ra/rzir-ra.bin" | "$SP/B.cf.m0" > "$SP/B.cf.hoist.l4" 2>/dev/null
+    chmod +x "$SP/B.cf.hoist.l4"
+    sp_require "$SP/B.cf.hoist.l4" "B.cf.hoist.l4 (cf.rs built by L4)" 20000 || return 1
+    echo "  seeded \$SP/B.cf.hoist.l4 ($(stat -c%s "$SP/B.cf.hoist.l4") B) -- the capacity backend, cf.rs compiled by the hex-rooted L4"
+  fi
   CFCAP="$(sp_cf)"; export CFCAP
   return 0
 }

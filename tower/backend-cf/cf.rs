@@ -59,7 +59,10 @@ fn read_all() -> i32 { unsafe { let mut total = 0; let mut n = __syscall(0, 0, &
 static mut BUFOVF: i32 = 0;
 static mut FB: i32 = 0;   // B1: frame-below active (framelo present) -> use 64-bit address operands for >4GB heap pointers; else byte-identical to the historical layout   // set when the input would exceed BUF: refuses the write instead of corrupting OUT
 fn eb(b: i32) { unsafe { OUT[OUTN as usize] = (b & 255) as u8; OUTN = OUTN + 1; } }
-fn ed(d: i32) { eb(d); eb(d >> 8); eb(d >> 16); eb(d >> 24); }
+fn ed(d: i32) { eb(d); eb(shr(d, 8)); eb(shr(d, 16)); eb(shr(d, 24)); }
+// SEEDLESS: `>>` written as floor-halving, so the hex-rooted L4 (which has no `>>` operator) can compile cf.rs.
+// That L4 build is the capacity backend that lowers L5 the first time; no committed backend binary is needed.
+fn shr(x: i32, k: i32) -> i32 { let mut v = x; let mut i = 0; while i < k { let q = v / 2; if q * 2 != v && v < 0 { v = q - 1; } else { v = q; } i = i + 1; } v }
 
 // R2 register allocation: honor rzir-ra's @rNN. VREG[v] = ra register code (1=r12 2=r13 3=r10 4=r11 5=rsi
 // 6=rdi 7=r8 8=r9), 0 = memory slot [rbx+v*8]. Per-function generation (VGEN==FGEN) avoids clearing 40000.
@@ -137,7 +140,7 @@ fn store_param(dv: i32, pc: i32) { unsafe {
     else { eb(72 + prex + rrexb(r)); eb(137); eb(192 + pf * 8 + rrm(r)); }
 } }
 // store a value known to be in rax into r/m[dv], but as a 32-bit move when the op is 32-bit result. (unused; kept 64-bit)
-fn patch(site: i32, target: i32) { unsafe { let r = target - site - 4; OUT[site as usize] = (r & 255) as u8; OUT[(site + 1) as usize] = ((r >> 8) & 255) as u8; OUT[(site + 2) as usize] = ((r >> 16) & 255) as u8; OUT[(site + 3) as usize] = ((r >> 24) & 255) as u8; } }
+fn patch(site: i32, target: i32) { unsafe { let r = target - site - 4; OUT[site as usize] = (r & 255) as u8; OUT[(site + 1) as usize] = ((shr(r, 8)) & 255) as u8; OUT[(site + 2) as usize] = ((shr(r, 16)) & 255) as u8; OUT[(site + 3) as usize] = ((shr(r, 24)) & 255) as u8; } }
 // R2 micro-opt: scan a function body [start .. next fn/ir header] for @r12/@r13 so the prologue pushes
 // (and the epilogue pops) only the callee-saved regs the function actually uses.
 fn scan_saves(start: i32) { unsafe {
@@ -320,7 +323,7 @@ fn main() {
         // `ebx` bound, so widening it alone would have been motion without effect. With the frame pointer now
         // 64-bit (above), the field is the binding limit, so write units into bytes 3..5. memsz = units << 24, so
         // byte3 = units & 255, byte4 = (units>>8) & 255, byte5 = (units>>16) & 255 -- no i64 arithmetic needed.
-        OUT[107] = (msz_byte & 255) as u8; OUT[108] = ((msz_byte >> 8) & 255) as u8; OUT[109] = ((msz_byte >> 16) & 255) as u8; OUT[113] = 16;   /* p_memsz byte3 (CFML per-program: default 0x40 = 1GB; adaptive = frame_base+256MB >> 24). memsz>filesz is demand-zero. */
+        OUT[107] = (msz_byte & 255) as u8; OUT[108] = ((shr(msz_byte, 8)) & 255) as u8; OUT[109] = ((shr(msz_byte, 16)) & 255) as u8; OUT[113] = 16;   /* p_memsz byte3 (CFML per-program: default 0x40 = 1GB; adaptive = frame_base+256MB >> 24). memsz>filesz is demand-zero. */
         OUTN = 120; BRZ_SP = 0; LOOP_SP = 0; CNT_SP = 0; BRK_SP = 0; NLBL = 0; NGT = 0; NF = 0; NCF = 0;
         let mut inmain = 1; let mut pc = 0;
         if spsave > 2130706432 { eb(184); ed(spsave as i32); eb(72); eb(137); eb(32); } else { eb(72); eb(137); eb(36); eb(37); ed(spsave as i32); }   /* K0: mov [spsave], rsp (>2GB: mov eax,spsave[zx] + mov [rax],rsp) -- save the entry stack pointer (argc/argv/envp at [rsp]) to a free word above the arenas, below the frame base (CFML per-program; default 64MB) */
@@ -563,14 +566,14 @@ fn main() {
             while j < NF {
                 if FA_LEN[i as usize] == FNAME_LEN[j as usize] {
                     let mut m = 1; let mut ko = 0; while ko < FA_LEN[i as usize] { if bufat(FA_OFF[i as usize] + ko) != bufat(FNAME_OFF[j as usize] + ko) { m = 0; } ko = ko + 1; }
-                    if m == 1 { let ad = 4194304 + FADDR[j as usize]; let st = FA_SITE[i as usize]; OUT[st as usize] = (ad & 255) as u8; OUT[(st + 1) as usize] = ((ad >> 8) & 255) as u8; OUT[(st + 2) as usize] = ((ad >> 16) & 255) as u8; OUT[(st + 3) as usize] = ((ad >> 24) & 255) as u8; j = NF; }
+                    if m == 1 { let ad = 4194304 + FADDR[j as usize]; let st = FA_SITE[i as usize]; OUT[st as usize] = (ad & 255) as u8; OUT[(st + 1) as usize] = ((shr(ad, 8)) & 255) as u8; OUT[(st + 2) as usize] = ((shr(ad, 16)) & 255) as u8; OUT[(st + 3) as usize] = ((shr(ad, 24)) & 255) as u8; j = NF; }
                 }
                 j = j + 1;
             }
             i = i + 1;
         }
         let n = OUTN;
-        OUT[96] = (n & 255) as u8; OUT[97] = ((n >> 8) & 255) as u8; OUT[98] = ((n >> 16) & 255) as u8; OUT[99] = ((n >> 24) & 255) as u8;
+        OUT[96] = (n & 255) as u8; OUT[97] = ((shr(n, 8)) & 255) as u8; OUT[98] = ((shr(n, 16)) & 255) as u8; OUT[99] = ((shr(n, 24)) & 255) as u8;
         // C-EAS-FBASE-CAP: refuse loudly (write nothing) rather than emit a silently mis-sized image.
         if refuse == 0 { __syscall(1, 1, &OUT[0], n); }
     }

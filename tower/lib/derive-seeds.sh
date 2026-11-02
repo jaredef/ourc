@@ -11,9 +11,7 @@
 # is derived below, with the same recipe as provenance.sh steps 0-1:
 #   hex1 -> hex2 -> m0 -> { cf (M0 backend), M0 cc } -> ld0/opt0/ra0 -> ccc -> L2 ld/opt/ra (via ccc)
 #
-# The one input NOT derived is L5/cf.hoist.seed: L5's self-image exceeds the M0 cf input ceiling (~5.7MB),
-# and cf.hoist is itself minted by L5, so the seed breaks that cycle. build-tower.sh asserts that the
-# from-hex chain re-mints it byte-for-byte (selfhost's $SP/cf.hoist == the seed), so it is checked every run.
+# The capacity backend (cf.hoist) is not a seed: lib/scratch.sh builds it from cf.rs with the hex-rooted L4.
 #
 # Each derived seed is compared to its committed blob; drift is reported (not fatal -- the derived one is used).
 set -uo pipefail
@@ -63,6 +61,5 @@ echo "== coherence vs committed blobs =="
 same "$M0" "$L0/m0/m0.bin" "m0.bin"
 same "$S/L2/ccc.bin" "$L2/ccc.bin" "ccc.bin"
 for st in link/rzir-ld opt/rzir-opt ra/rzir-ra; do same "$S/L2/$st.bin" "$L2/$st.bin" "$(basename "$st").bin"; done
-echo "  cf.hoist.seed: not derivable from hex (capacity cycle) -- re-mint checked after selfhost"
 rm -rf "$W"
 echo "== seeds ready (drift: $drift) =="

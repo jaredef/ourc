@@ -36,13 +36,13 @@ CC="$A/L2"                       # ccc is derived in-gate (step 0c) -- CCC set t
 CPIVOT="$A/L1/c-frontend/c-to-rzir.m0"   # the hex-rooted M0 cc (C->rzir) source
 SEED="$A/L4/L4.rzrs.rs"
 MAINLINE="$A/L5/L5.rzrs.rs"
-SEED_CFH="$A/L5/cf.hoist.seed"   # CAPACITY SEED: frozen cf.hoist for lowering the oversized L5 image (M0 cf.bin ceiling ~5.7MB); DDC-anchored below (behaviorally == M0 cf and == the in-gate re-minted B.cf-rs)
 HOIST_CF="$A/backend-cf/cf.rs"
 HOIST="$A/backend-toolchain"
 TCC="$A/tcc"; RZRSC="$A/L3/rzrs.c"; RSEED="$HOIST/rzrs-seed"   # for the in-gate rzrs.rsz
 SP="${SP:?set SP (scratch workdir)}"
 
 W="$SP/provenance"; rm -rf "$W"; mkdir -p "$W"
+CAP_CF="$W/B.cf-l4"   # CAPACITY BACKEND: cf.rs compiled by tier-0 (step 2); lowers the images above the M0 cf ceiling
 pass=0; fail=0
 ok(){ echo "  ok   $1"; pass=$((pass+1)); }
 no(){ echo "  FAIL $1"; fail=$((fail+1)); }
@@ -120,13 +120,13 @@ big "tier-0" "$W/L4.rzrs" 100000 || { echo "== ABORT: tier-0 rebuild failed ==";
 # Lower the oversized mainline frontend through them. cf.m0 backend unchanged: the 256MB memsz is verified
 # sufficient (the fe256 frontend compiles the full mainline == the dev reference, byte-for-byte). Trust intact:
 # the frontend still roots in the hand-hex, via ccc rather than via ld0 directly.
-# CAPACITY SEED: the post-AST10 mainline self-image exceeds the M0 cf.bin input-buffer ceiling (~5.7MB), so
-# B.cf-m0 can no longer lower it. Lower it via the frozen cf.hoist seed (cf.rs codegen, 8MB buffers). The seed
-# is DDC-ANCHORED in step 4 below: it is behaviorally == B.cf-m0 (M0 cf, hex-rooted) and == B.cf-rs (the cf.hoist
-# RE-MINTED in-gate from this very L5.rzrs), so it introduces no unverified trust -- the audited cf.rs source +
-# below-cap byte-DDC + deterministic buffer extension anchor it exactly as they anchor B.cf-rs.
-"$W/L4.rzrs"  < "$MAINLINE" 2>/dev/null | "$W/B.ld-c" | "$W/B.opt-c" | "$W/B.ra-c" | "$SEED_CFH" > "$W/L5.rzrs" 2>/dev/null; chmod +x "$W/L5.rzrs"
-big "rx.self (mainline frontend)" "$W/L5.rzrs" 100000 && ok "frontend rebuilt from frozen seed (oversized rzir lowered by the DDC-anchored cf.hoist seed)" \
+# CAPACITY: the mainline self-image exceeds the M0 cf.bin input-buffer ceiling (~5.7MB), so B.cf-m0 cannot lower
+# it. Lower it via cf.hoist (cf.rs, 16MB buffers) as compiled by tier-0 itself -- B.cf-l4, hex-rooted like tier-0.
+# Step 4 re-lowers the same image with B.cf-rs (cf.rs compiled by L5) and requires byte-identical output.
+"$W/L4.rzrs" < "$HOIST_CF" 2>/dev/null | "$W/B.ld-c" | "$W/B.opt-c" | "$W/B.ra-c" | "$W/B.cf-m0" > "$W/B.cf-l4" 2>/dev/null; chmod +x "$W/B.cf-l4"
+big "cf.hoist (cf.rs built by tier-0)" "$W/B.cf-l4" 20000 || { echo "== ABORT: B.cf-l4 build failed =="; exit 1; }
+"$W/L4.rzrs"  < "$MAINLINE" 2>/dev/null | "$W/B.ld-c" | "$W/B.opt-c" | "$W/B.ra-c" | "$CAP_CF" > "$W/L5.rzrs" 2>/dev/null; chmod +x "$W/L5.rzrs"
+big "rx.self (mainline frontend)" "$W/L5.rzrs" 100000 && ok "frontend rebuilt from source (oversized rzir lowered by the tier-0-built cf.hoist)" \
   || { echo "== ABORT: rx.self rebuild failed =="; exit 1; }
 
 # MINT the entire Rust layer with the M0 audit-floor backend directly -- ONE STEP. The Rust stages are sized
@@ -160,13 +160,10 @@ echo 'fn main()->i32{ let mut s=0; let mut i=1; while i<=10 { s=s+i*i; i=i+1; } 
 "$W/B.cf-rs" < "$W/probe.ra" > "$W/p.rs.elf" 2>/dev/null; chmod +x "$W/p.rs.elf"
 "$W/p.m0.elf" >/dev/null 2>&1; me=$?; "$W/p.rs.elf" >/dev/null 2>&1; re=$?
 [ "$me" = "$re" ] && [ "$me" = 129 ] && ok "backend   cf.rs runs == M0 cf (behavioral, exit $me = 385&255)" || no "backend behavioral (m0=$me rs=$re want 129)"
-# CAPACITY-SEED ANCHOR: the frozen cf.hoist seed (used above to lower the oversized L5 image) must be
-# behaviorally == M0 cf AND == the in-gate re-minted B.cf-rs. Byte-identical ELF to B.cf-rs closes the
-# co-backdoor gap (a seed backdooring only large images cannot also match B.cf-rs's byte-identical small-image
-# output, since B.cf-rs is minted by the audited cf.rs source through the hex-rooted M0 backend).
-"$SEED_CFH" < "$W/probe.ra" > "$W/p.seed.elf" 2>/dev/null; chmod +x "$W/p.seed.elf"
-"$W/p.seed.elf" >/dev/null 2>&1; se=$?
-{ [ "$se" = "$me" ] && cmp -s "$W/p.seed.elf" "$W/p.rs.elf"; } && ok "seed      cf.hoist.seed == B.cf-rs (byte-identical ELF) + == M0 cf (behavioral, exit $se)" || no "capacity-seed anchor (seed=$se m0=$me, elf==B.cf-rs? $(cmp -s "$W/p.seed.elf" "$W/p.rs.elf" && echo yes || echo no))"
+# CAPACITY BACKEND DDC: the same cf.rs compiled by two different compilers -- B.cf-l4 (by tier-0) and B.cf-rs (by L5)
+# -- must lower the oversized L5 image byte-identically. That is the image step 2 built with B.cf-l4.
+"$W/L4.rzrs" < "$MAINLINE" 2>/dev/null | "$W/B.ld-c" | "$W/B.opt-c" | "$W/B.ra-c" | "$W/B.cf-rs" > "$W/L5.rzrs.ddc" 2>/dev/null
+cmp -s "$W/L5.rzrs" "$W/L5.rzrs.ddc" && ok "cf.hoist  tier-0-built == L5-built on the L5 image ($(stat -c%s "$W/L5.rzrs") B, byte-identical)" || no "capacity-backend DDC (B.cf-l4 vs B.cf-rs on L5)"
 
 echo "== step 5: the from-source all-Rust pipeline self-reproduces (fixed point) =="
 allrust(){ "$W/B.ld-rs" | "$W/B.opt-rs" | "$W/B.ra-rs" | "$W/B.cf-rs"; }
@@ -181,7 +178,7 @@ echo "== step 5b: L6.rzrs (dev target, the rung above frozen L5) re-minted in-ga
 # committed L6 binary is an input. The L6 self-image exceeds the M0-cc capacity ceiling exactly like L5, so it is
 # lowered by the DDC-anchored backend (B.{ld,opt,ra}-c + the capacity seed cf.hoist), identical to L5's build.
 L6SRC="$A/L6/L6.rzrs.rs"
-timeout 240 "$W/L5.rzrs" < "$L6SRC" 2>/dev/null | "$W/B.ld-c" | "$W/B.opt-c" | "$W/B.ra-c" | "$SEED_CFH" > "$W/L6.rzrs" 2>/dev/null; chmod +x "$W/L6.rzrs"
+timeout 240 "$W/L5.rzrs" < "$L6SRC" 2>/dev/null | "$W/B.ld-c" | "$W/B.opt-c" | "$W/B.ra-c" | "$CAP_CF" > "$W/L6.rzrs" 2>/dev/null; chmod +x "$W/L6.rzrs"
 if big "L6.rzrs (dev target)" "$W/L6.rzrs" 1000000; then
   # behavioral: L6.rzrs is a compiler -- it must compile a smoke rzrs program to the right answer (sum 1..10 = 55)
   printf 'fn main()->i32{ let mut s=0; let mut i=1; while i<=10 { s=s+i; i=i+1; } s }' > "$W/l6.smoke.rs"
@@ -189,7 +186,7 @@ if big "L6.rzrs (dev target)" "$W/L6.rzrs" 1000000; then
   "$W/l6.smoke.elf" >/dev/null 2>&1; l6=$?
   [ "$l6" = 55 ] && ok "L6.rzrs re-minted from hex-rooted L5 + L6.rzrs.rs (compiles smoke, exit 55)" || no "L6.rzrs behavioral (smoke=$l6 want 55)"
   # DDC: the all-Rust ld/opt/ra (byte-DDC'd in step 4) mint the same L6.rzrs byte-for-byte -> C-path == Rust-path
-  timeout 240 "$W/L5.rzrs" < "$L6SRC" 2>/dev/null | "$W/B.ld-rs" | "$W/B.opt-rs" | "$W/B.ra-rs" | "$SEED_CFH" > "$W/L6.rzrs.rr" 2>/dev/null; chmod +x "$W/L6.rzrs.rr"
+  timeout 240 "$W/L5.rzrs" < "$L6SRC" 2>/dev/null | "$W/B.ld-rs" | "$W/B.opt-rs" | "$W/B.ra-rs" | "$CAP_CF" > "$W/L6.rzrs.rr" 2>/dev/null; chmod +x "$W/L6.rzrs.rr"
   cmp -s "$W/L6.rzrs" "$W/L6.rzrs.rr" && ok "L6.rzrs DDC: Rust-backend mint == C-backend mint (byte-identical)" || no "L6.rzrs DDC (C-path != Rust-path ld/opt/ra)"
 fi
 
@@ -211,7 +208,7 @@ echo "== step 5c: SEM0 (SEM0.FROZEN.rs) SELF-HOSTS through the hex-rooted chain 
 # every input derived in-gate from the hand-hex. This step does that: the rung above frozen L6 self-hosts on the
 # trust path, using only artifacts this gate minted. Non-circular -- no committed SEM0 binary is an input.
 S1SRC="$A/sem0/stages/SEM0-hoist/hops/h00.rs"   # SEM0.FROZEN.rs before 2026-11-01
-tback(){ "$W/B.ld-c" | "$W/B.opt-c" | "$W/B.ra-c" | "$SEED_CFH"; }
+tback(){ "$W/B.ld-c" | "$W/B.opt-c" | "$W/B.ra-c" | "$CAP_CF"; }
 if [ -s "$W/L6.rzrs" ] && [ -f "$S1SRC" ]; then
   timeout 600 "$W/L6.rzrs" < "$S1SRC" 2>/dev/null | tback > "$W/SEM0.gen1" 2>/dev/null; chmod +x "$W/SEM0.gen1"
   if big "SEM0.gen1 (hex-rooted L6.rzrs compiles SEM0.FROZEN.rs)" "$W/SEM0.gen1" 1000000; then
@@ -228,7 +225,7 @@ if [ -s "$W/L6.rzrs" ] && [ -f "$S1SRC" ]; then
       if [ -s "$W/sem0.w1" ] && cmp -s "$W/sem0.w1" "$W/sem0.w2"; then
         ok "SEM0 witness: gen2 == gen1 ($(wc -l < "$W/sem0.w1") lines, behavioral)"
       else no "SEM0 witness (gen2 != gen1, or empty)"; fi
-      "$W/B.ld-rs" < "$W/sem0.g2.rzir" 2>/dev/null | "$W/B.opt-rs" 2>/dev/null | "$W/B.ra-rs" 2>/dev/null | "$SEED_CFH" > "$W/SEM0.gen2.rr" 2>/dev/null; chmod +x "$W/SEM0.gen2.rr"
+      "$W/B.ld-rs" < "$W/sem0.g2.rzir" 2>/dev/null | "$W/B.opt-rs" 2>/dev/null | "$W/B.ra-rs" 2>/dev/null | "$CAP_CF" > "$W/SEM0.gen2.rr" 2>/dev/null; chmod +x "$W/SEM0.gen2.rr"
       cmp -s "$W/SEM0.gen2" "$W/SEM0.gen2.rr" \
         && ok "SEM0.gen2 DDC: Rust-backend mint == C-backend mint (byte-identical)" \
         || no "SEM0.gen2 DDC (C-path != Rust-path ld/opt/ra)"
@@ -264,7 +261,7 @@ cmp -s "$CC/ccc.bin" "$W/L2.ccc.g2" && ok "dev blob ccc.bin      == trust L2.ccc
 # L6.rzrs (dev target, ex-`newstage0`) coherence: the committed dev backend blobs must mint the byte-identical L6
 # image as the trust re-mint (step 5b) -- pins the dev loop's L6.rzrs to the hex-rooted derivation of L6.rzrs.rs.
 if [ -s "$W/L6.rzrs" ]; then
-  timeout 240 "$W/L5.rzrs" < "$L6SRC" 2>/dev/null | "$CC/link/rzir-ld.bin" | "$CC/opt/rzir-opt.bin" | "$CC/ra/rzir-ra.bin" | "$SEED_CFH" > "$W/L6.rzrs.dev" 2>/dev/null; chmod +x "$W/L6.rzrs.dev"
+  timeout 240 "$W/L5.rzrs" < "$L6SRC" 2>/dev/null | "$CC/link/rzir-ld.bin" | "$CC/opt/rzir-opt.bin" | "$CC/ra/rzir-ra.bin" | "$CAP_CF" > "$W/L6.rzrs.dev" 2>/dev/null; chmod +x "$W/L6.rzrs.dev"
   cmp -s "$W/L6.rzrs.dev" "$W/L6.rzrs" && ok "dev-blob coherence: L6.rzrs via committed dev backend == trust re-mint (byte-identical)" || no "dev-blob coherence: L6.rzrs via dev backend drifted from trust"
 fi
 echo

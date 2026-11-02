@@ -9,6 +9,7 @@ seed small enough to read in one sitting.
 
 ![trusted seed](https://img.shields.io/badge/trusted_seed-269_bytes-8A2BE2)
 ![self-hosting](https://img.shields.io/badge/self--hosting-byte--identical-2ea44f)
+![rustc tests passed](https://img.shields.io/badge/rustc_tests_passed-10%2C837_of_20%2C072-2ea44f)
 ![wrong answers](https://img.shields.io/badge/wrong_answers-0_of_3%2C676_run--pass_tests-2ea44f)
 ![license](https://img.shields.io/badge/license-MIT_%7C_Apache--2.0-blue)
 
@@ -91,11 +92,11 @@ ourc[O0] half.rs -> error[23..24]: expected `a type other than `f32` (f32 is not
 
 | | |
 |---|---|
-| rustc 1.99.1 `tests/ui` programs run | **20,072** |
+| rustc 1.99.1 `tests/ui` tests passed | **10,837** of 20,072 (54%): valid programs compiled correctly, invalid ones rejected |
 | wrong answers | **0** of the 3,676 run-pass programs whose output was compared with rustc's |
 | valid programs compiled correctly | **2,653** of 7,913, about a third of Rust |
 | ourc's own source | **51,210** lines, compiled by itself to a byte-identical fixed point in about 14 s |
-| artifacts pinned by sha256 on the way up | **58** |
+| artifacts pinned by sha256 on the way up | **60** |
 
 ourc's strongest areas are control flow, patterns and `match`, lifetimes, structs and enums, traits and generics,
 closures, `dyn Trait`, modules and drop order. Its standard library is a small core (`Vec`, `String`, `Option`,

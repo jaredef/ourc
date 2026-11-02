@@ -3,12 +3,14 @@
 Builds the compiler tower and **ourc** from a hand-written hex seed, and checks every stage
 against pinned hashes.
 
+Project site: [ourc.dev](https://ourc.dev) · source: [github.com/jaredef/ourc](https://github.com/jaredef/ourc)
+
 ```
 cargo install ourc-bootstrap
 ourc-bootstrap ./out          # ~20 min on 32 cores: the whole tower, ~30 SEM0 stages, then ourc compiling itself
 ```
 
-The result is `out/ourc-v0.1-x86_64-linux/ourc` plus `SHA256SUMS`. `PROVENANCE` lists the hash of every
+The result is `out/ourc-v0.1.1-x86_64-linux/ourc` plus `SHA256SUMS`. `PROVENANCE` lists the hash of every
 artifact on the way, in build order. The build needs x86-64 Linux with at least 24 GB of RAM (ourc compiling itself
 peaks near 20 GB), plus `llc` and `opt` from LLVM 16 or newer and `cc` on `PATH`.
 
@@ -21,6 +23,13 @@ On a terminal it shows a dashboard:
 Press `q`, then `y`, to stop after the running step; `--resume` continues from there. `--plain`, or any
 pipe, prints one line per step instead. The dashboard needs no extra crates: it is ANSI escapes and termios,
 and the build itself is the same in both modes.
+
+## The goal
+
+ourc is a trustless, hex-rooted speed run to rustc: a path from 269 hand-written bytes to a Rust compiler where every
+step can be rebuilt and checked, and nothing has to be taken on faith. Its target is behavioral parity with rustc
+(every program rustc accepts compiles and runs the same, every program it rejects is rejected) in a tenth of
+rustc's lines of code. v0.1 is a step on that path, not the end of it.
 
 ## What it does
 

@@ -4,6 +4,8 @@
 
 **A Rust compiler grown from 269 bytes of hand-written machine code.**
 
+[ourc.dev](https://ourc.dev)
+
 No downloaded compiler decides what the program is: every compiler is built by the one below it, all the way down
 to a seed small enough to read in one sitting. The host's LLVM only turns the final IR into machine code, and is
 checked against the hex-built path.
@@ -14,6 +16,13 @@ checked against the hex-built path.
 ![license](https://img.shields.io/badge/license-MIT_%7C_Apache--2.0-blue)
 
 </div>
+
+## The goal
+
+ourc is a trustless, hex-rooted speed run to rustc: a path from 269 hand-written bytes to a Rust compiler where every
+step can be rebuilt and checked, and nothing has to be taken on faith. Its target is behavioral parity with rustc
+(every program rustc accepts compiles and runs the same, every program it rejects is rejected) in a tenth of
+rustc's lines of code. v0.1 is a step on that path, not the end of it.
 
 ## The root of trust
 
@@ -112,7 +121,7 @@ real-world crates are out of reach.
 
 ## Verify it yourself
 
-A prebuilt `ourc` is attached to the [v0.1 release](https://github.com/jaredef/ourc/releases/tag/v0.1), with its
+A prebuilt `ourc` is attached to the [v0.1.1 release](https://github.com/jaredef/ourc/releases/tag/v0.1.1), with its
 `SHA256SUMS`. To check that binary rather than trust it, rebuild it from the hand-written hex.
 
 Needs x86-64 Linux with at least 24 GB of RAM (ourc compiling itself peaks near 20 GB), plus `llc` and `opt` from LLVM
@@ -132,7 +141,7 @@ cargo run --release --manifest-path ourc/bootstrap/Cargo.toml -- --repo . OUT
 About 20 minutes later it ends with ourc compiling itself to a fixed point, and this hash:
 
 ```
-10b9c17a1886a9e063499c544434f370f1c257057562c85dbd9ab03379354144  ourc-v0.1-x86_64-linux/ourc
+9d5fde72d8e5a4929bd929c2165b339c2adf054ab8d80672f0252a2d74074078  ourc-v0.1.1-x86_64-linux/ourc
 ```
 
 Measured: 19 min 51 s and a 20.8 GB peak on a 16-core Ryzen AI Max+ 395 with 128 GB, using LLVM 22.1.8 and GCC 16.2.1.

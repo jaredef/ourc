@@ -1,5 +1,7 @@
 # ourc
 
+Project site: [ourc.dev](https://ourc.dev) · source: [github.com/jaredef/ourc](https://github.com/jaredef/ourc)
+
 ourc is a Rust compiler written in Rust that compiles itself. It reads a single Rust source file and emits LLVM IR. With
 `-o` it then runs `llc` and the system C compiler to produce a native executable.
 
@@ -7,6 +9,13 @@ ourc is a Rust compiler written in Rust that compiles itself. It reads a single 
 way rustc's build of it runs. A program outside the subset gets an error and exit code 1, never a wrong answer. See
 [LIMITATIONS.md](LIMITATIONS.md) for what the subset covers and how this was measured, and
 [REFERENCE.md](REFERENCE.md) for the feature-by-feature list.
+
+## The goal
+
+ourc is a trustless, hex-rooted speed run to rustc: a path from 269 hand-written bytes to a Rust compiler where every
+step can be rebuilt and checked, and nothing has to be taken on faith. Its target is behavioral parity with rustc
+(every program rustc accepts compiles and runs the same, every program it rejects is rejected) in a tenth of
+rustc's lines of code. v0.1 is a step on that path, not the end of it.
 
 ## Requirements
 

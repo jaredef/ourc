@@ -575,7 +575,7 @@ impl B {
     }
 
     fn package(&mut self, ourc: &Path) -> R<()> {
-        let p = self.out.join("ourc-v0.1-x86_64-linux");
+        let p = self.out.join("ourc-v0.1.1-x86_64-linux");
         fs::create_dir_all(&p).map_err(|e| e.to_string())?;
         let dst = p.join("ourc");
         fs::copy(ourc, &dst).map_err(|e| e.to_string())?;
@@ -586,7 +586,7 @@ impl B {
         fs::copy(&dst, &k).map_err(|e| e.to_string())?;
         self.seal(&k, 100000, "ourc (release binary)")?;
         let h = sha256::hex(&fs::read(&dst).map_err(|e| e.to_string())?);
-        fs::write(self.out.join("SHA256SUMS"), format!("{h}  ourc-v0.1-x86_64-linux/ourc\n")).map_err(|e| e.to_string())?;
+        fs::write(self.out.join("SHA256SUMS"), format!("{h}  ourc-v0.1.1-x86_64-linux/ourc\n")).map_err(|e| e.to_string())?;
         let mut prov = String::from("# ourc-bootstrap: every artifact of the from-hex build, in build order\n");
         // the host tools behind the `host` pins: another LLVM, cc, linker or libc gives a different (equally checked) hash
         prov.push_str(&format!("# toolchain: {}\n", toolchain()));
@@ -716,7 +716,7 @@ fn run(repo: Option<String>, resume: bool, tui: bool, outd: &Path) -> R<()> {
     let st1 = b.ourc()?;
     let o = b.selfc(&st1)?;
     b.package(&o)?;
-    let mut summary = vec![format!("ourc-bootstrap: OK in {:.0}s -- {}", b.t0.elapsed().as_secs_f64(), out.join("ourc-v0.1-x86_64-linux/ourc").display())];
+    let mut summary = vec![format!("ourc-bootstrap: OK in {:.0}s -- {}", b.t0.elapsed().as_secs_f64(), out.join("ourc-v0.1.1-x86_64-linux/ourc").display())];
     if b.host_drift > 0 { summary.push(format!("  {} host-built artifact(s) differ from the pins: this host's llc/opt/cc are not the reference ones (the tower itself matched)", b.host_drift)); }
     summary.extend(fs::read_to_string(out.join("SHA256SUMS")).unwrap_or_default().lines().map(String::from));
     ui::finish(None, &summary);

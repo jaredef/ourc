@@ -40,7 +40,7 @@ pub struct LCx {
     pub tupglue: bool, // TUP-GLUE: the drop being built may glue a tuple (set only for a tupowned binding)
     pub recv_top: bool,
     pub borrow_bind: bool,
-    pub curfn: String, // VIS-FIELD-READ (R2a P6): the qualified name of the fn being lowered (its module = the prefix before the last `$`) // FOR-BORROW: the let being lowered binds a by-reference loop element (never dropped)
+    // (curfn, above, is also VIS-FIELD-READ (R2a P6)'s qualified fn name: its module is the prefix before the last `$`) // FOR-BORROW: the let being lowered binds a by-reference loop element (never dropped)
 }
 pub fn lcx_new() -> LCx {
     LCx {
@@ -85,7 +85,6 @@ pub fn lcx_new() -> LCx {
         tupglue: false,
         recv_top: false,
         borrow_bind: false,
-        curfn: String::new(),
     }
 }
 // C-LCXREBUILD: the nine table fields (sdefs, fnames, frets, fptys, edefs, fgps, fgbs, dimpls, fncaps) are
@@ -2412,30 +2411,6 @@ pub fn ety_of(cx: &LCx, e: &E) -> String {
             }
         }
         E::TupIdx(b, ix, _l, _h) => {
-            if const_drop_temp(cx, b) {
-                let a0: Vec<H> = Vec::new();
-                let i0 = fresh(cx);
-                return H::CallH(
-                    String::from("$a_field_of_a_drop_const_is_not_modelled"),
-                    a0,
-                    i0,
-                );
-            }
-            if let E::Call(cn, _ca, _cl, _ch) = b.as_ref() {
-                // DROP-FIELD-TEMP on a TUPLE struct (`BAR.0`, `mk().0`): the temporary must drop after the read; the named-field
-                // path (field_temp) crashes ourc here (open node) -- REFUSED until then, never answered without the drop
-                let sn = ety_of(cx, b);
-                let nost: Vec<String> = Vec::new();
-                if !cn.starts_with("$") && drop_glue("$tq", &nost, sn.as_str(), cx).len() > 0 {
-                    let a0: Vec<H> = Vec::new();
-                    let i0 = fresh(cx);
-                    return H::CallH(
-                        String::from("$a_field_of_a_drop_temporary_tuple_struct_is_not_modelled"),
-                        a0,
-                        i0,
-                    );
-                }
-            }
             let bt = ety_of(cx, b);
             // a tuple STRUCT field has a declared type; a plain tuple does not
             if bt.len() > 0 {
@@ -3554,30 +3529,6 @@ fn ety_mcall(cx: &LCx, e: &E, rt: &str) -> String {
             }
         }
         E::TupIdx(b, ix, _l, _h) => {
-            if const_drop_temp(cx, b) {
-                let a0: Vec<H> = Vec::new();
-                let i0 = fresh(cx);
-                return H::CallH(
-                    String::from("$a_field_of_a_drop_const_is_not_modelled"),
-                    a0,
-                    i0,
-                );
-            }
-            if let E::Call(cn, _ca, _cl, _ch) = b.as_ref() {
-                // DROP-FIELD-TEMP on a TUPLE struct (`BAR.0`, `mk().0`): the temporary must drop after the read; the named-field
-                // path (field_temp) crashes ourc here (open node) -- REFUSED until then, never answered without the drop
-                let sn = ety_of(cx, b);
-                let nost: Vec<String> = Vec::new();
-                if !cn.starts_with("$") && drop_glue("$tq", &nost, sn.as_str(), cx).len() > 0 {
-                    let a0: Vec<H> = Vec::new();
-                    let i0 = fresh(cx);
-                    return H::CallH(
-                        String::from("$a_field_of_a_drop_temporary_tuple_struct_is_not_modelled"),
-                        a0,
-                        i0,
-                    );
-                }
-            }
             let bt = ety_of(cx, b);
             // a tuple STRUCT field has a declared type; a plain tuple does not
             if bt.len() > 0 {
@@ -4849,6 +4800,30 @@ pub fn lower(e: &E, cx: &mut LCx) -> H {
             H::StructLitH(parts.len() as u32, lp, i)
         }
         E::TupIdx(b, ix, _l, _h) => {
+            if const_drop_temp(cx, b) {
+                let a0: Vec<H> = Vec::new();
+                let i0 = fresh(cx);
+                return H::CallH(
+                    String::from("$a_field_of_a_drop_const_is_not_modelled"),
+                    a0,
+                    i0,
+                );
+            }
+            if let E::Call(cn, _ca, _cl, _ch) = b.as_ref() {
+                // DROP-FIELD-TEMP on a TUPLE struct (`BAR.0`, `mk().0`): the temporary must drop after the read; the named-field
+                // path (field_temp) crashes ourc here (open node) -- REFUSED until then, never answered without the drop
+                let sn = ety_of(cx, b);
+                let nost: Vec<String> = Vec::new();
+                if !cn.starts_with("$") && drop_glue("$tq", &nost, sn.as_str(), cx).len() > 0 {
+                    let a0: Vec<H> = Vec::new();
+                    let i0 = fresh(cx);
+                    return H::CallH(
+                        String::from("$a_field_of_a_drop_temporary_tuple_struct_is_not_modelled"),
+                        a0,
+                        i0,
+                    );
+                }
+            }
             let mut slot = *ix;
             if oast::tix_is_end(*ix) {
                 // TUP-REST-END: `(.., b, c)` -- the slot counts from the END; the arity comes from the tuple's type name
@@ -5820,9 +5795,6 @@ pub fn lower(e: &E, cx: &mut LCx) -> H {
                     } else {
                         av
                     };
-                    let mut ca: Vec<H> = Vec::new();
-                    ca.push(rv);
-                    ca.push(arg);
                     let i1 = fresh(cx);
                     // C-STRGROW: `x.push_str(y)` assigned back to x is the one place where the old handle is
                     // provably dead -- rustc's own borrow rules make the receiver uniquely borrowed -- so the
@@ -5831,6 +5803,9 @@ pub fn lower(e: &E, cx: &mut LCx) -> H {
                     // that quadratic is why the self-host needed 20 GB to compile the composed unit.
                     match r.as_ref() {
                         E::Var(n2, _a2, _b2) => {
+                            let mut ca: Vec<H> = Vec::new();
+                            ca.push(rv);
+                            ca.push(arg);
                             let gr = H::CallH(String::from("str_grow"), ca, i1);
                             let sl = slot_of(cx, n2);
                             let i2 = fresh(cx);
@@ -5848,7 +5823,7 @@ pub fn lower(e: &E, cx: &mut LCx) -> H {
                         _ => {
                             // STR-FIELD-GROW: a FIELD/INDEX receiver (`p.name.push(c)`) -- the grown string was computed and DISCARDED.
                             // Store it back: bind the argument to a temporary, then lower `place = str_cat(place, tmp)` through AssignTo.
-                            let _ = ca;
+                            let _ = rv;
                             let _ = i1;
                             match (clone_place(r), clone_place(r)) {
                                 (Some(p1), Some(p2)) => {
@@ -8526,9 +8501,9 @@ pub fn lower(e: &E, cx: &mut LCx) -> H {
                 let ea = ety_of(cx, a);
                 let eb = ety_of(cx, b);
                 let en = if oast::eidx(&cx.edefs, &ea) >= 0 {
-                    ea
+                    ea.clone()
                 } else if oast::eidx(&cx.edefs, &eb) >= 0 {
-                    eb
+                    eb.clone()
                 } else {
                     String::from("")
                 };

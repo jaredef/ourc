@@ -8,13 +8,13 @@
 #   4. ourc/build-ourc.sh                     ourc.g0, the SEM0-built ourc
 #   5. that ourc compiles ourc                ourc.g1 (the release binary), then ourc.g2 from ourc.g1; the IR of both
 #                                              self-compiles must be byte-identical and so must the two binaries
-#   6. ourc-v0.1-x86_64-linux.tar.gz + SHA256SUMS
+#   6. ourc-v0.1.1-x86_64-linux.tar.gz + SHA256SUMS
 # Artifact names: apparatus/docs/tower-naming-and-trust-path.md, "Artifact names".
 # Usage:  bash ourc/release.sh OUTDIR        (needs llc, opt, cc; about 20 min on 32 cores, over an hour on 4; needs ~24 GB RAM)
 #         REUSE_SP=<dir> bash ourc/release.sh OUTDIR   (skip steps 1-2 when <dir> already holds a C2-admitted mint)
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; OUT="${1:?usage: release.sh OUTDIR}"; mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
-VER=v0.1; NAME="ourc-$VER-x86_64-linux"; LLC="${LLC:-llc}"
+VER=v0.1.1; NAME="ourc-$VER-x86_64-linux"; LLC="${LLC:-llc}"
 die() { echo "release: FAIL -- $*" >&2; exit 1; }
 for t in "$LLC" opt cc; do command -v "$t" >/dev/null 2>&1 || die "$t not found"; done
 ulimit -s unlimited

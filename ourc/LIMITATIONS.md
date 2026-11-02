@@ -12,8 +12,8 @@ below). Its correctness promise is about the programs it accepts.
 
 ## How it was measured
 
-Every test in rustc 1.99.1's `tests/ui` suite (20,072 files) was run against the v0.1 release binary (sha256
-`10b9c17a1886a9e063499c544434f370f1c257057562c85dbd9ab03379354144`) with [ui-full.sh](ui-full.sh).
+Every test in rustc 1.99.1's `tests/ui` suite (20,072 files) was run against the v0.1.1 release binary (sha256
+`9d5fde72d8e5a4929bd929c2165b339c2adf054ab8d80672f0252a2d74074078`) with [ui-full.sh](ui-full.sh).
 
 - **run-pass** tests: the test is OK if ourc accepts it and the built executable's stdout and exit code equal rustc's.
   It is WRONG if they differ.

@@ -12173,14 +12173,8 @@ impl P {
                 if pj < pat.len() && tkv_colon(&pat[pj].k) {
                     if pj + 1 < pat.len() {
                         isexpr = word_is(&pat[pj + 1], "expr");
-                        if word_is(&pat[pj + 1], "meta") && self.perr == 0 {
-                            self.perr = pat[pj + 1].lo + 1;
-                            self.perrexp = String::from(
-                                "a macro fragment other than :meta (not supported yet)",
-                            );
-                            self.perrgot = String::from("meta");
-                        }
-                    }
+                    } // a `:meta` fragment is refused by mac_expand before the rule is tried (META-FRAG-REFUSE)
+
                     pj = pj + 2;
                 } /* META-FRAG-REFUSE */
                 // skip `:frag`
@@ -12811,6 +12805,25 @@ impl P {
         // try each rule in order
         let mut r = 0;
         while r < self.macs[mi].rules.len() {
+            // META-FRAG-REFUSE: a `$x:meta` fragment is not modelled -- refuse before trying the rule
+            if self.perr == 0 {
+                let mut meta = 0;
+                {
+                    let pat = &self.macs[mi].rules[r].pat;
+                    let mut q = 0;
+                    while q + 3 < pat.len() && meta == 0 {
+                        if tkv_dollar(&pat[q].k) && tkv_colon(&pat[q + 2].k) && word_is(&pat[q + 3], "meta") {
+                            meta = pat[q + 3].lo + 1;
+                        }
+                        q = q + 1;
+                    }
+                }
+                if meta > 0 {
+                    self.perr = meta;
+                    self.perrexp = String::from("a macro fragment other than :meta (not supported yet)");
+                    self.perrgot = String::from("meta");
+                }
+            }
             let mut ns: Vec<String> = Vec::new();
             let mut vs: Vec<Vec<Tok>> = Vec::new();
             // a REPETITION rule first: `$( .. ),*` binds a list of groups
@@ -15828,7 +15841,7 @@ pub fn parse_prog(t0: Vec<Tok>) -> Prog {
                         }
                         let mapped = std_path(&sseg, false);
                         let mut target = if mapped.len() > 0 {
-                            mapped
+                            mapped.clone()
                         } else {
                             String::from(full.as_str())
                         };

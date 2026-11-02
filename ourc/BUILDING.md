@@ -19,7 +19,7 @@ On a 32-core machine a build takes about 20 minutes; on 4 cores, over an hour.
 
 ## The toolchain and the hash
 
-The release hash, `10b9c17a1886a9e063499c544434f370f1c257057562c85dbd9ab03379354144`, was produced with LLVM 22.1.8, GCC 16.2.1, binutils 2.47 and glibc 2.44. Five of the 60 pinned artifacts pass
+The release hash, `9d5fde72d8e5a4929bd929c2165b339c2adf054ab8d80672f0252a2d74074078`, was produced with LLVM 22.1.8, GCC 16.2.1, binutils 2.47 and glibc 2.44. Five of the 60 pinned artifacts pass
 through those host tools, so a different toolchain builds a different ourc hash, reported as host drift. The 55
 tower artifacts, the LLVM-against-hex check and the self-compile fixed point must still match exactly. Each build
 records its toolchain in `PROVENANCE`.

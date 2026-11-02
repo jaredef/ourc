@@ -5,6 +5,8 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Builds the compiler tower and ourc from the hand-written hex seed, checking every stage against pinned hashes"
 readme = "README.md"
+repository = "https://github.com/jaredef/ourc"
+homepage = "https://github.com/jaredef/ourc"
 keywords = ["bootstrap", "compiler", "reproducible", "trusting-trust"]
 categories = ["development-tools", "compilers"]
 # The tower sources ride along in tree/ (written by `ourc-bootstrap --vendor <repo> tree`); build.rs embeds them.

@@ -16,7 +16,7 @@ for f in $(find "$T/tests/ui" -name '*.rs' | sort | tail -n +"${OFF:-1}" | awk "
   # inflated it by 42% (413 vs 237 on the head-1200 slice) and understated every rate computed from it.
   rustc -O --edition 2015 "$f" -o "$W/r" 2>/dev/null || { nob=$((nob+1)); continue; }
   grad=$((grad+1))
-  want="$("$W/r" 2>/dev/null; echo "rc=$?")"
+  want="$(timeout 10 "$W/r" </dev/null 2>/dev/null; echo "rc=$?")"
   out="$("$OURC" "$f" --emit-ir 2>&1)"
   echo "$out" | head -1 | grep -q '> ok' || continue
   acc=$((acc+1))
